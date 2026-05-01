@@ -23,7 +23,7 @@ User can store events and chat with memory.
 ## Phase 2 — Time Layers
 
 - [x] Daily summaries
-- [ ] Weekly reflections
+- [x] Weekly reflections
 - [ ] Monthly summaries
 - [ ] Time aggregation engine
 

@@ -183,6 +183,28 @@ def main() -> None:
         _fail("GET /time/daily should return same summary as POST generated")
     _pass("POST/GET /time/daily/{date} daily summary")
 
+    wk = client.post(f"/time/weekly/{day_str}")
+    if wk.status_code != 200:
+        _fail(f"POST /time/weekly/{{week_start}} failed: {wk.status_code} {wk.text}")
+    wk_body = wk.json()
+    for k in ("id", "week_start_date", "reflection_text", "daily_summary_ids", "created_at"):
+        if k not in wk_body:
+            _fail(f"weekly reflection response missing {k!r}")
+    if wk_body.get("week_start_date") != day_str:
+        _fail(f"week_start_date expected {day_str!r}, got {wk_body.get('week_start_date')!r}")
+    if gen_body.get("id") not in wk_body.get("daily_summary_ids", []):
+        _fail("weekly reflection should reference the generated daily summary id")
+    if "This week included:" not in wk_body.get("reflection_text", ""):
+        _fail("reflection_text should include 'This week included:'")
+    if "Most active domain:" not in wk_body.get("reflection_text", ""):
+        _fail("reflection_text should include 'Most active domain:'")
+    wk_get = client.get(f"/time/weekly/{day_str}")
+    if wk_get.status_code != 200:
+        _fail(f"GET /time/weekly/{{week_start}} failed: {wk_get.status_code} {wk_get.text}")
+    if wk_get.json().get("id") != wk_body.get("id"):
+        _fail("GET /time/weekly should return same reflection as POST generated")
+    _pass("POST/GET /time/weekly/{week_start} weekly reflection")
+
     print("")
     print("ALL CHECKS PASSED")
 

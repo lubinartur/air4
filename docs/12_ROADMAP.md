@@ -12,8 +12,8 @@
 - [x] Add SQLite storage
 - [x] Add embeddings
 - [x] Add semantic search
-- [ ] Add basic chat with memory
-- [ ] Add tests
+- [x] Add basic chat with memory
+- [x] Add tests
 
 Goal:
 User can store events and chat with memory.
@@ -22,7 +22,7 @@ User can store events and chat with memory.
 
 ## Phase 2 — Time Layers
 
-- [ ] Daily summaries
+- [x] Daily summaries
 - [ ] Weekly reflections
 - [ ] Monthly summaries
 - [ ] Time aggregation engine

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.services import hypothesis_service, meaning_service
+from app.services.meaning_confirmation_service import evaluate_meaning_confirmation
 
 router = APIRouter()
 
@@ -22,6 +23,16 @@ def post_generate_behavior_hypotheses(db: Session = Depends(get_db)) -> dict:
     }
 
 
+@router.post("/meaning/evaluate")
+def post_evaluate_meanings(db: Session = Depends(get_db)) -> dict:
+    result = evaluate_meaning_confirmation(db)
+    return {
+        "confirmed": [meaning_service.meaning_to_dict(m) for m in result["confirmed"]],
+        "rejected": [meaning_service.meaning_to_dict(m) for m in result["rejected"]],
+        "checked": result["checked"],
+    }
+
+
 @router.post("/meaning/week/{week_start}")
 def post_meanings_for_week(week_start: date, db: Session = Depends(get_db)) -> dict:
     created = meaning_service.generate_meanings_for_week(db, week_start)
@@ -29,6 +40,14 @@ def post_meanings_for_week(week_start: date, db: Session = Depends(get_db)) -> d
         "items": [meaning_service.meaning_to_dict(m) for m in created],
         "count": len(created),
     }
+
+
+@router.get("/meanings/{meaning_id}")
+def get_meaning_by_id(meaning_id: str, db: Session = Depends(get_db)) -> dict:
+    row = meaning_service.get_meaning(db, meaning_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Meaning not found.")
+    return meaning_service.meaning_to_dict(row)
 
 
 @router.get("/meanings")

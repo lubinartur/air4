@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import desc, select
@@ -19,6 +18,7 @@ from app.services.meaning_service import (
     _events_for_weekly,
     _top_domains_sharing_max,
 )
+from app.services.meaning_storage_service import store_hypothesis
 
 BEHAVIOR_SOURCE = "behavior_hypothesis_v1"
 
@@ -26,10 +26,6 @@ H_TRAINING_DECREASED = "Training frequency decreased recently."
 H_IDEA_LATE = "Ideas tend to appear late at night."
 H_PROJECT_FOCUS = "Project work has been the main focus recently."
 H_FATIGUE_REPEAT = "Fatigue or stress signals appear repeatedly."
-
-
-def _clamp_score(x: float) -> float:
-    return max(0.1, min(0.9, round(float(x), 2)))
 
 
 def _training_count(events: list) -> int:
@@ -44,17 +40,6 @@ def _project_dominates(events: list) -> bool:
     return "project" in tops
 
 
-def _dup_hypothesis_last_days(db: Session, hypothesis_text: str, days: int = 30) -> bool:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    found = db.scalar(
-        select(Meaning.id).where(
-            Meaning.hypothesis_text == hypothesis_text,
-            Meaning.created_at >= cutoff,
-        ).limit(1)
-    )
-    return found is not None
-
-
 def _insert_behavior_meaning(
     db: Session,
     *,
@@ -64,30 +49,22 @@ def _insert_behavior_meaning(
     supporting_meanings: list[str],
     confidence_score: float,
     reference_month: str | None = None,
-) -> Meaning | None:
-    if _dup_hypothesis_last_days(db, hypothesis_text):
-        return None
-
-    meta: dict[str, Any] = {
+) -> Meaning:
+    extra: dict[str, Any] = {
         "supporting_weeks": supporting_weeks,
         "supporting_meanings": supporting_meanings,
-        "confidence_score": _clamp_score(confidence_score),
     }
     if reference_month is not None:
-        meta["reference_month"] = reference_month
-
-    row = Meaning(
+        extra["reference_month"] = reference_month
+    return store_hypothesis(
+        db,
         hypothesis_text=hypothesis_text,
-        status=STATUS_HYPOTHESIS,
-        related_event_ids=list(dict.fromkeys(related_event_ids)),
         source=BEHAVIOR_SOURCE,
-        metadata_=meta,
-        created_at=datetime.now(timezone.utc),
+        related_event_ids=related_event_ids,
+        extra_metadata=extra,
+        initial_confidence=confidence_score,
+        status=STATUS_HYPOTHESIS,
     )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return row
 
 
 def generate_behavior_hypotheses(db: Session) -> list[Meaning]:
@@ -104,7 +81,6 @@ def generate_behavior_hypotheses(db: Session) -> list[Meaning]:
     )
     weeklies_chrono = list(reversed(weeklies_desc))
 
-    # --- Training trend (compare last two chronological weeks) ---
     if len(weeklies_chrono) >= 2:
         w_prev, w_last = weeklies_chrono[-2], weeklies_chrono[-1]
         ev_p = _events_for_weekly(db, w_prev)
@@ -113,22 +89,21 @@ def generate_behavior_hypotheses(db: Session) -> list[Meaning]:
         if c_p > 0 and c_l < c_p:
             rel = [e.id for e in ev_l if e.metadata_.get("domain") == "training"]
             rel += [e.id for e in ev_p if e.metadata_.get("domain") == "training"]
-            m = _insert_behavior_meaning(
-                db,
-                hypothesis_text=H_TRAINING_DECREASED,
-                related_event_ids=rel,
-                supporting_weeks=[
-                    w_prev.week_start_date.isoformat(),
-                    w_last.week_start_date.isoformat(),
-                ],
-                supporting_meanings=[],
-                confidence_score=0.6,
-                reference_month=reference_month,
+            created.append(
+                _insert_behavior_meaning(
+                    db,
+                    hypothesis_text=H_TRAINING_DECREASED,
+                    related_event_ids=rel,
+                    supporting_weeks=[
+                        w_prev.week_start_date.isoformat(),
+                        w_last.week_start_date.isoformat(),
+                    ],
+                    supporting_meanings=[],
+                    confidence_score=0.6,
+                    reference_month=reference_month,
+                )
             )
-            if m:
-                created.append(m)
 
-    # --- Idea late night (UTC hour >= 21), majority of idea events ---
     idea_events: list = []
     supporting_weeks_set: set[str] = set()
     for w in weeklies_chrono:
@@ -141,19 +116,18 @@ def generate_behavior_hypotheses(db: Session) -> list[Meaning]:
         ratio = late / len(idea_events)
         if ratio > 0.5:
             conf = 0.7 if ratio >= 0.7 else 0.55
-            m = _insert_behavior_meaning(
-                db,
-                hypothesis_text=H_IDEA_LATE,
-                related_event_ids=[e.id for e in idea_events],
-                supporting_weeks=sorted(supporting_weeks_set),
-                supporting_meanings=[],
-                confidence_score=conf,
-                reference_month=reference_month,
+            created.append(
+                _insert_behavior_meaning(
+                    db,
+                    hypothesis_text=H_IDEA_LATE,
+                    related_event_ids=[e.id for e in idea_events],
+                    supporting_weeks=sorted(supporting_weeks_set),
+                    supporting_meanings=[],
+                    confidence_score=conf,
+                    reference_month=reference_month,
+                )
             )
-            if m:
-                created.append(m)
 
-    # --- Project dominates >= 3 weeks ---
     proj_weeks: list[str] = []
     proj_event_ids: list[str] = []
     for w in weeklies_chrono:
@@ -162,19 +136,18 @@ def generate_behavior_hypotheses(db: Session) -> list[Meaning]:
             proj_weeks.append(w.week_start_date.isoformat())
             proj_event_ids.extend(e.id for e in ev if e.metadata_.get("domain") == "project")
     if len(proj_weeks) >= 3:
-        m = _insert_behavior_meaning(
-            db,
-            hypothesis_text=H_PROJECT_FOCUS,
-            related_event_ids=proj_event_ids,
-            supporting_weeks=sorted(proj_weeks),
-            supporting_meanings=[],
-            confidence_score=0.85,
-            reference_month=reference_month,
+        created.append(
+            _insert_behavior_meaning(
+                db,
+                hypothesis_text=H_PROJECT_FOCUS,
+                related_event_ids=proj_event_ids,
+                supporting_weeks=sorted(proj_weeks),
+                supporting_meanings=[],
+                confidence_score=0.85,
+                reference_month=reference_month,
+            )
         )
-        if m:
-            created.append(m)
 
-    # --- Fatigue / stress meanings across multiple weeks ---
     fatigue_meanings: list[Meaning] = []
     wk_from_meanings: set[str] = set()
     stmt_m = select(Meaning).where(Meaning.source == WEEKLY_MEANING_SOURCE)
@@ -185,16 +158,16 @@ def generate_behavior_hypotheses(db: Session) -> list[Meaning]:
             if wk:
                 wk_from_meanings.add(str(wk))
     if len(wk_from_meanings) >= 2:
-        m = _insert_behavior_meaning(
-            db,
-            hypothesis_text=H_FATIGUE_REPEAT,
-            related_event_ids=[],
-            supporting_weeks=sorted(wk_from_meanings),
-            supporting_meanings=[x.id for x in fatigue_meanings],
-            confidence_score=0.65 if len(wk_from_meanings) == 2 else 0.75,
-            reference_month=reference_month,
+        created.append(
+            _insert_behavior_meaning(
+                db,
+                hypothesis_text=H_FATIGUE_REPEAT,
+                related_event_ids=[],
+                supporting_weeks=sorted(wk_from_meanings),
+                supporting_meanings=[x.id for x in fatigue_meanings],
+                confidence_score=0.65 if len(wk_from_meanings) == 2 else 0.75,
+                reference_month=reference_month,
+            )
         )
-        if m:
-            created.append(m)
 
     return created

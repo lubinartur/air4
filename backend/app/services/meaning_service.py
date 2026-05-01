@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any
 
 from sqlalchemy import desc, select
@@ -13,6 +13,7 @@ from app.models.daily_summary import DailySummary
 from app.models.event import Event
 from app.models.meaning import Meaning
 from app.models.weekly_reflection import WeeklyReflection
+from app.services.meaning_storage_service import store_hypothesis
 from app.services.weekly_service import get_weekly_reflection
 
 SOURCE_V1 = "weekly_pattern_v1"
@@ -69,15 +70,8 @@ def _top_domains_sharing_max(counts: Counter[str]) -> list[str]:
     return sorted(d for d, c in counts.items() if c == max_n)
 
 
-def _already_exists(db: Session, week_key: str, hypothesis_text: str) -> bool:
-    stmt = select(Meaning).where(
-        Meaning.hypothesis_text == hypothesis_text,
-        Meaning.source == SOURCE_V1,
-    )
-    for row in db.scalars(stmt).all():
-        if row.metadata_.get("week_start_date") == week_key:
-            return True
-    return False
+def _weekly_initial_confidence(event_count: int) -> float:
+    return max(0.1, min(0.85, 0.4 + 0.05 * min(event_count, 10)))
 
 
 def _add_meaning(
@@ -88,25 +82,20 @@ def _add_meaning(
     week_key: str,
     detected_domain: str | None,
     event_count: int,
-) -> Meaning | None:
-    if _already_exists(db, week_key, hypothesis_text):
-        return None
-    row = Meaning(
+) -> Meaning:
+    return store_hypothesis(
+        db,
         hypothesis_text=hypothesis_text,
-        status=STATUS_HYPOTHESIS,
-        related_event_ids=list(dict.fromkeys(related_event_ids)),
         source=SOURCE_V1,
-        metadata_={
+        related_event_ids=related_event_ids,
+        extra_metadata={
             "week_start_date": week_key,
             "detected_domain": detected_domain,
             "event_count": event_count,
         },
-        created_at=datetime.now(timezone.utc),
+        initial_confidence=_weekly_initial_confidence(event_count),
+        status=STATUS_HYPOTHESIS,
     )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
-    return row
 
 
 def generate_meanings_for_week(db: Session, week_start_date: date) -> list[Meaning]:
@@ -116,7 +105,7 @@ def generate_meanings_for_week(db: Session, week_start_date: date) -> list[Meani
 
     events = _events_for_weekly(db, weekly)
     week_key = week_start_date.isoformat()
-    created: list[Meaning] = []
+    out: list[Meaning] = []
 
     counts = _domain_counts(events)
     training_n = counts.get("training", 0)
@@ -126,28 +115,28 @@ def generate_meanings_for_week(db: Session, week_start_date: date) -> list[Meani
 
     tops = _top_domains_sharing_max(counts)
     if tops and project_n > 0 and "project" in tops:
-        m = _add_meaning(
-            db,
-            hypothesis_text=H_PROJECT_DOMINANT,
-            related_event_ids=[e.id for e in events if e.metadata_.get("domain") == "project"],
-            week_key=week_key,
-            detected_domain="project",
-            event_count=project_n,
+        out.append(
+            _add_meaning(
+                db,
+                hypothesis_text=H_PROJECT_DOMINANT,
+                related_event_ids=[e.id for e in events if e.metadata_.get("domain") == "project"],
+                week_key=week_key,
+                detected_domain="project",
+                event_count=project_n,
+            )
         )
-        if m:
-            created.append(m)
 
     if training_n >= 2:
-        m = _add_meaning(
-            db,
-            hypothesis_text=H_TRAINING,
-            related_event_ids=[e.id for e in events if e.metadata_.get("domain") == "training"],
-            week_key=week_key,
-            detected_domain="training",
-            event_count=training_n,
+        out.append(
+            _add_meaning(
+                db,
+                hypothesis_text=H_TRAINING,
+                related_event_ids=[e.id for e in events if e.metadata_.get("domain") == "training"],
+                week_key=week_key,
+                detected_domain="training",
+                event_count=training_n,
+            )
         )
-        if m:
-            created.append(m)
 
     if hf_n >= 1:
         hf_ids = [
@@ -159,30 +148,30 @@ def generate_meanings_for_week(db: Session, week_start_date: date) -> list[Meani
                 for k in ("stress", "tired", "fatigue", "slept", "exhausted", "insomnia", "headache")
             )
         ]
-        m = _add_meaning(
-            db,
-            hypothesis_text=H_HEALTH,
-            related_event_ids=hf_ids,
-            week_key=week_key,
-            detected_domain="health",
-            event_count=hf_n,
+        out.append(
+            _add_meaning(
+                db,
+                hypothesis_text=H_HEALTH,
+                related_event_ids=hf_ids,
+                week_key=week_key,
+                detected_domain="health",
+                event_count=hf_n,
+            )
         )
-        if m:
-            created.append(m)
 
     if idea_n >= 2:
-        m = _add_meaning(
-            db,
-            hypothesis_text=H_IDEAS,
-            related_event_ids=[e.id for e in events if e.metadata_.get("domain") == "idea"],
-            week_key=week_key,
-            detected_domain="idea",
-            event_count=idea_n,
+        out.append(
+            _add_meaning(
+                db,
+                hypothesis_text=H_IDEAS,
+                related_event_ids=[e.id for e in events if e.metadata_.get("domain") == "idea"],
+                week_key=week_key,
+                detected_domain="idea",
+                event_count=idea_n,
+            )
         )
-        if m:
-            created.append(m)
 
-    return created
+    return out
 
 
 def list_meanings(db: Session, limit: int = 100) -> list[Meaning]:

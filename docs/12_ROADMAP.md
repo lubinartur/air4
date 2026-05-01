@@ -38,8 +38,8 @@ AIR4 understands time patterns.
 - [x] Weekly pattern detection
 - [x] Confirm / reject meanings
 - [x] Hypothesis generator
-- [ ] Meaning storage
-- [ ] Meaning confirmation system
+- [x] Meaning storage
+- [x] Meaning confirmation system
 
 Goal:
 AIR4 begins understanding the user.

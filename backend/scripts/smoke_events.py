@@ -260,6 +260,89 @@ def main() -> None:
     if "items" not in mg_body:
         _fail("POST /meaning/week response missing 'items'")
 
+    mg_items_1 = mg_body["items"]
+    if not mg_items_1:
+        _fail("POST /meaning/week should return at least one item for sample data")
+    probe = mg_items_1[0]
+    probe_id = probe["id"]
+    probe_text = probe["hypothesis_text"]
+    md_probe_1 = probe.get("metadata") or {}
+    for k in ("confidence_score", "observation_count", "first_detected", "last_detected"):
+        if k not in md_probe_1:
+            _fail(f"meaning metadata missing {k!r} after first weekly generation")
+    oc1 = int(md_probe_1["observation_count"])
+    cs1 = float(md_probe_1["confidence_score"])
+    if oc1 != 1:
+        _fail(f"first weekly generation observation_count expected 1, got {oc1}")
+
+    mg2 = client.post(f"/meaning/week/{wk_meaning}")
+    if mg2.status_code != 200:
+        _fail(f"second POST /meaning/week/{{week_start}} failed: {mg2.status_code} {mg2.text}")
+    mg2_body = mg2.json()
+    same = [x for x in mg2_body.get("items", []) if x.get("hypothesis_text") == probe_text]
+    if not same:
+        _fail("second weekly generation should include the same hypothesis text as the first")
+    if same[0]["id"] != probe_id:
+        _fail("second weekly generation should update the same meaning row (id mismatch)")
+    md_probe_2 = same[0].get("metadata") or {}
+    oc2 = int(md_probe_2["observation_count"])
+    cs2 = float(md_probe_2["confidence_score"])
+    if oc2 <= oc1:
+        _fail(f"observation_count should increase after second generation: {oc1} -> {oc2}")
+    if cs2 <= cs1:
+        _fail(f"confidence_score should increase after second generation: {cs1} -> {cs2}")
+
+    detail = client.get(f"/meanings/{probe_id}")
+    if detail.status_code != 200:
+        _fail(f"GET /meanings/{{id}} failed: {detail.status_code} {detail.text}")
+    det = detail.json()
+    if det.get("id") != probe_id:
+        _fail("GET /meanings/{id} returned wrong id")
+    if det.get("hypothesis_text") != probe_text:
+        _fail("GET /meanings/{id} hypothesis_text mismatch")
+    dmd = det.get("metadata") or {}
+    if int(dmd.get("observation_count", 0)) != oc2:
+        _fail("GET /meanings/{id} observation_count should match POST response")
+    for k in ("confidence_score", "observation_count", "first_detected", "last_detected"):
+        if k not in dmd:
+            _fail(f"GET /meanings/{{id}} metadata missing {k!r}")
+    _pass(
+        "meaning storage: second week gen increases observation_count and confidence; GET /meanings/{id} ok"
+    )
+
+    mg3 = client.post(f"/meaning/week/{wk_meaning}")
+    if mg3.status_code != 200:
+        _fail(f"third POST /meaning/week/{{week_start}} failed: {mg3.status_code} {mg3.text}")
+    same3 = [x for x in mg3.json().get("items", []) if x.get("hypothesis_text") == probe_text]
+    if not same3:
+        _fail("third weekly generation should include the probe hypothesis text")
+    if same3[0]["id"] != probe_id:
+        _fail("third weekly generation should update the same meaning id")
+    oc3 = int((same3[0].get("metadata") or {}).get("observation_count", 0))
+    if oc3 != 3:
+        _fail(f"expected observation_count 3 before evaluate, got {oc3}")
+
+    ev = client.post("/meaning/evaluate")
+    if ev.status_code != 200:
+        _fail(f"POST /meaning/evaluate failed: {ev.status_code} {ev.text}")
+    evj = ev.json()
+    for k in ("confirmed", "rejected", "checked"):
+        if k not in evj:
+            _fail(f"POST /meaning/evaluate response missing {k!r}")
+    if not isinstance(evj["confirmed"], list) or not isinstance(evj["rejected"], list):
+        _fail("evaluate confirmed/rejected must be lists")
+    if evj["checked"] < 1:
+        _fail("evaluate checked should be >= 1")
+    conf_ids = {x["id"] for x in evj["confirmed"]}
+    if probe_id not in conf_ids:
+        _fail("evaluate should auto-confirm probe with observation_count >= 3")
+    probe_ev = client.get(f"/meanings/{probe_id}").json()
+    if probe_ev.get("status") != "confirmed":
+        _fail(f"probe should be confirmed after evaluate, got {probe_ev.get('status')!r}")
+    if "confirmed_at" not in (probe_ev.get("metadata") or {}):
+        _fail("auto-confirmed meaning should have metadata.confirmed_at")
+    _pass("POST /meaning/evaluate auto-confirms hypothesis with observation_count >= 3")
+
     all_m = client.get("/meanings")
     if all_m.status_code != 200:
         _fail(f"GET /meanings failed: {all_m.status_code} {all_m.text}")
@@ -282,6 +365,12 @@ def main() -> None:
             _fail(f"POST /meaning/reject failed: {rej.status_code} {rej.text}")
         if rej.json().get("status") != "rejected":
             _fail("rejected meaning should have status rejected")
+
+    final_items = client.get("/meanings").json()["items"]
+    n_probe_rows = sum(1 for x in final_items if x.get("hypothesis_text") == probe_text)
+    if n_probe_rows != 1:
+        _fail(f"expected exactly one DB row for hypothesis {probe_text!r}, got {n_probe_rows}")
+
     final_m = client.get("/meanings")
     if final_m.status_code != 200 or "items" not in final_m.json():
         _fail("GET /meanings after confirm/reject should return items")
@@ -304,8 +393,8 @@ def main() -> None:
             if k not in md:
                 _fail(f"behavior hypothesis metadata missing {k!r}")
         cs = float(md["confidence_score"])
-        if not 0.1 <= cs <= 0.9:
-            _fail("confidence_score must be between 0.1 and 0.9")
+        if not 0.1 <= cs <= 0.95:
+            _fail("confidence_score must be between 0.1 and 0.95")
         if it["id"] not in all_meaning_ids:
             _fail("behavior hypothesis must be persisted (visible in GET /meanings)")
     _pass("POST /meaning/hypotheses/generate behavior hypotheses")

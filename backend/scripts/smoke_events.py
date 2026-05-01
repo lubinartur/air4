@@ -287,6 +287,29 @@ def main() -> None:
         _fail("GET /meanings after confirm/reject should return items")
     _pass("meaning week generation, confirm/reject, GET /meanings")
 
+    bh = client.post("/meaning/hypotheses/generate")
+    if bh.status_code != 200:
+        _fail(f"POST /meaning/hypotheses/generate failed: {bh.status_code} {bh.text}")
+    bhj = bh.json()
+    if "items" not in bhj or "count" not in bhj:
+        _fail("behavior hypotheses response must include 'items' and 'count'")
+    if not isinstance(bhj["items"], list) or bhj["count"] != len(bhj["items"]):
+        _fail("behavior hypotheses count must match items length")
+    all_meaning_ids = {x["id"] for x in client.get("/meanings").json()["items"]}
+    for it in bhj["items"]:
+        if it.get("source") != "behavior_hypothesis_v1":
+            _fail("generated behavior hypothesis must have source behavior_hypothesis_v1")
+        md = it.get("metadata") or {}
+        for k in ("supporting_weeks", "supporting_meanings", "confidence_score"):
+            if k not in md:
+                _fail(f"behavior hypothesis metadata missing {k!r}")
+        cs = float(md["confidence_score"])
+        if not 0.1 <= cs <= 0.9:
+            _fail("confidence_score must be between 0.1 and 0.9")
+        if it["id"] not in all_meaning_ids:
+            _fail("behavior hypothesis must be persisted (visible in GET /meanings)")
+    _pass("POST /meaning/hypotheses/generate behavior hypotheses")
+
     print("")
     print("ALL CHECKS PASSED")
 

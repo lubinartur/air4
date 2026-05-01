@@ -8,9 +8,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.services import meaning_service
+from app.services import hypothesis_service, meaning_service
 
 router = APIRouter()
+
+
+@router.post("/meaning/hypotheses/generate")
+def post_generate_behavior_hypotheses(db: Session = Depends(get_db)) -> dict:
+    created = hypothesis_service.generate_behavior_hypotheses(db)
+    return {
+        "items": [meaning_service.meaning_to_dict(m) for m in created],
+        "count": len(created),
+    }
 
 
 @router.post("/meaning/week/{week_start}")

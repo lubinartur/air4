@@ -4,14 +4,14 @@
 
 ## Phase 1 — Event Memory (MVP Core)
 
-- [ ] Create backend structure
-- [ ] Create Event model
-- [ ] Create Event service
-- [ ] Create POST /event
-- [ ] Create GET /events
-- [ ] Add SQLite storage
-- [ ] Add embeddings
-- [ ] Add semantic search
+- [x] Create backend structure
+- [x] Create Event model
+- [x] Create Event service
+- [x] Create POST /event
+- [x] Create GET /events
+- [x] Add SQLite storage
+- [x] Add embeddings
+- [x] Add semantic search
 - [ ] Add basic chat with memory
 - [ ] Add tests
 

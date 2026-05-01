@@ -1,61 +1,17 @@
-"""Event memory: append-only events with pluggable embeddings and cosine search over stored vectors."""
+"""Event memory: append-only events with pluggable embeddings and semantic search."""
 
 from __future__ import annotations
 
-import hashlib
-import math
-import struct
 import uuid
 from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.event import Embedding, Event
+from app.services.embedding_service import generate_embedding
 from app.services.event_parser import parse_event
-
-# Fixed dimension for MVP; swap provider without changing DB shape if you keep same dim.
-_EMBEDDING_DIM = 384
-
-
-def _l2_normalize(vec: list[float]) -> list[float]:
-    norm = math.sqrt(sum(x * x for x in vec)) or 1.0
-    return [x / norm for x in vec]
-
-
-def _deterministic_embedding(text: str, dim: int = _EMBEDDING_DIM) -> list[float]:
-    """Reproducible dense vector from text for local dev when no external provider is configured."""
-    vec: list[float] = []
-    block = hashlib.sha256(text.encode("utf-8")).digest()
-    counter = 0
-    while len(vec) < dim:
-        block = hashlib.sha256(block + str(counter).encode()).digest()
-        counter += 1
-        for j in range(0, len(block) - 3, 4):
-            u = struct.unpack(">I", block[j : j + 4])[0]
-            vec.append((u / 4294967295.0) * 2.0 - 1.0)
-            if len(vec) >= dim:
-                break
-    return _l2_normalize(vec)
-
-
-def generate_embedding(text: str) -> list[float]:
-    """
-    Abstract entry point for embedding generation (wire OpenAI, sentence-transformers, etc. here).
-
-    MVP: deterministic normalized vector so local runs work without API keys.
-    """
-    return _deterministic_embedding(text)
-
-
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    if len(a) != len(b) or not a:
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b, strict=True))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(y * y for y in b))
-    if na == 0 or nb == 0:
-        return 0.0
-    return dot / (na * nb)
+from app.services.similarity import cosine_similarity
 
 
 def _processed_text(text: str) -> str:
@@ -104,7 +60,7 @@ def search_events(db: Session, query: str, limit: int = 10) -> list[Event]:
     rows = db.scalars(stmt).all()
     scored: list[tuple[float, str]] = []
     for emb in rows:
-        sim = _cosine_similarity(q_vec, emb.vector)
+        sim = cosine_similarity(q_vec, emb.vector)
         scored.append((sim, emb.event_id))
     scored.sort(key=lambda t: t[0], reverse=True)
     top_ids = [eid for _, eid in scored[: max(1, min(limit, 100))]]

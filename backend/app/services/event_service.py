@@ -64,9 +64,9 @@ def _processed_text(text: str) -> str:
 
 def create_event(db: Session, text: str) -> Event:
     original = text
-    processed = _processed_text(original)
-    meta = parse_event(processed)
-    vector = generate_embedding(processed)
+    processed_text = _processed_text(original)
+    metadata = parse_event(processed_text)
+    vector = generate_embedding(processed_text)
 
     event_id = str(uuid.uuid4())
     emb_id = str(uuid.uuid4())
@@ -75,8 +75,8 @@ def create_event(db: Session, text: str) -> Event:
         id=event_id,
         timestamp=datetime.now(timezone.utc),
         original_text=original,
-        processed_text=processed,
-        metadata_=meta,
+        processed_text=processed_text,
+        metadata_=metadata,
         embedding_id=None,
     )
     embedding = Embedding(id=emb_id, event_id=event_id, vector=vector)

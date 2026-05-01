@@ -31,14 +31,6 @@ SAMPLES = [
     "slept only 5 hours",
 ]
 
-EXPECTED_DOMAIN_BY_TEXT: dict[str, str] = {
-    "worked on AIR4 architecture": "project",
-    "bench press 80x8": "training",
-    "idea: simplify event schema": "idea",
-    "spent 40€ on groceries": "finance",
-    "slept only 5 hours": "health",
-}
-
 REQUIRED_METADATA_KEYS = frozenset(
     {"domain", "source", "raw_length", "parser_version", "signals"},
 )
@@ -98,10 +90,17 @@ def main() -> None:
             _fail(f"metadata.parser_version expected 'v1', got {md.get('parser_version')!r}")
         if not isinstance(md.get("signals"), list):
             _fail("metadata.signals must be a list")
-        expected_domain = EXPECTED_DOMAIN_BY_TEXT.get(text)
-        if expected_domain and md.get("domain") != expected_domain:
+        if text == "bench press 80x8" and md["domain"] != "training":
+            _fail(f'"bench press 80x8" metadata.domain == "training", got {md["domain"]!r}')
+        if text == "spent 40€ on groceries" and md["domain"] != "finance":
+            _fail(f'"spent 40€ on groceries" metadata.domain == "finance", got {md["domain"]!r}')
+        if text == "idea: simplify event schema" and md["domain"] != "idea":
+            _fail(f'"idea: simplify event schema" metadata.domain == "idea", got {md["domain"]!r}')
+        if text == "slept only 5 hours" and md["domain"] != "health":
+            _fail(f'"slept only 5 hours" metadata.domain == "health", got {md["domain"]!r}')
+        if text == "worked on AIR4 architecture" and md["domain"] != "project":
             _fail(
-                f"metadata.domain for {text!r}: expected {expected_domain!r}, got {md.get('domain')!r}"
+                f'"worked on AIR4 architecture" metadata.domain == "project", got {md["domain"]!r}'
             )
         if "AIR4" in text:
             air4_id = body["id"]

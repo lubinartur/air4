@@ -2,9 +2,12 @@
 
 from fastapi import FastAPI
 
+from app.api.aggregation import router as aggregation_router
 from app.api.chat import router as chat_router
 from app.api.events import router as events_router
 from app.api.time_layers import router as time_layers_router
+from app.api.meanings import router as meanings_router
+from app.api.monthly import router as monthly_router
 from app.api.weekly import router as weekly_router
 from app.db import Base, engine
 import app.models  # noqa: F401 — register ORM tables on Base.metadata before create_all
@@ -12,9 +15,12 @@ import app.models  # noqa: F401 — register ORM tables on Base.metadata before 
 app = FastAPI(title="AIR4", version="0.1.0")
 
 app.include_router(events_router)
+app.include_router(aggregation_router)
 app.include_router(chat_router)
 app.include_router(time_layers_router)
 app.include_router(weekly_router)
+app.include_router(monthly_router)
+app.include_router(meanings_router)
 
 
 @app.on_event("startup")

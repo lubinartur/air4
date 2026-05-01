@@ -24,16 +24,19 @@ User can store events and chat with memory.
 
 - [x] Daily summaries
 - [x] Weekly reflections
-- [ ] Monthly summaries
-- [ ] Time aggregation engine
+- [x] Monthly summaries
+- [x] Time aggregation engine
 
 Goal:
 AIR4 understands time patterns.
 
 ---
 
-## Phase 3 — Meaning Engine
+## Phase 3 — Meaning Memory
 
+- [x] Meaning model
+- [x] Weekly pattern detection
+- [x] Confirm / reject meanings
 - [ ] Hypothesis generator
 - [ ] Meaning storage
 - [ ] Meaning confirmation system

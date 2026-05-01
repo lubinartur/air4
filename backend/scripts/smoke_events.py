@@ -205,6 +205,88 @@ def main() -> None:
         _fail("GET /time/weekly should return same reflection as POST generated")
     _pass("POST/GET /time/weekly/{week_start} weekly reflection")
 
+    month_str = day_str[:7]
+    mo = client.post(f"/time/monthly/{month_str}")
+    if mo.status_code != 200:
+        _fail(f"POST /time/monthly/{{month}} failed: {mo.status_code} {mo.text}")
+    mo_body = mo.json()
+    for k in ("id", "month", "summary_text", "weekly_reflection_ids", "created_at"):
+        if k not in mo_body:
+            _fail(f"monthly summary response missing {k!r}")
+    if mo_body.get("month") != month_str:
+        _fail(f"month expected {month_str!r}, got {mo_body.get('month')!r}")
+    if wk_body.get("id") not in mo_body.get("weekly_reflection_ids", []):
+        _fail("monthly summary should reference the generated weekly reflection id")
+    if "This month included:" not in mo_body.get("summary_text", ""):
+        _fail("monthly summary_text should include 'This month included:'")
+    if "Most active domain:" not in mo_body.get("summary_text", ""):
+        _fail("monthly summary_text should include 'Most active domain:'")
+    mo_get = client.get(f"/time/monthly/{month_str}")
+    if mo_get.status_code != 200:
+        _fail(f"GET /time/monthly/{{month}} failed: {mo_get.status_code} {mo_get.text}")
+    if mo_get.json().get("id") != mo_body.get("id"):
+        _fail("GET /time/monthly should return same summary as POST generated")
+    _pass("POST/GET /time/monthly/{month} monthly summary")
+
+    rb = client.post(f"/time/rebuild/{day_str}")
+    if rb.status_code != 200:
+        _fail(f"POST /time/rebuild/{{date}} failed: {rb.status_code} {rb.text}")
+    rb_body = rb.json()
+    for key in ("daily_summary", "weekly_reflection", "monthly_summary"):
+        if key not in rb_body:
+            _fail(f"rebuild response missing {key!r}")
+        sub = rb_body[key]
+        if not isinstance(sub, dict):
+            _fail(f"rebuild {key} must be an object")
+    ds_r = rb_body["daily_summary"]
+    wr_r = rb_body["weekly_reflection"]
+    ms_r = rb_body["monthly_summary"]
+    for k in ("id", "date", "summary_text", "event_ids", "created_at"):
+        if k not in ds_r:
+            _fail(f"rebuild daily_summary missing {k!r}")
+    for k in ("id", "week_start_date", "reflection_text", "daily_summary_ids", "created_at"):
+        if k not in wr_r:
+            _fail(f"rebuild weekly_reflection missing {k!r}")
+    for k in ("id", "month", "summary_text", "weekly_reflection_ids", "created_at"):
+        if k not in ms_r:
+            _fail(f"rebuild monthly_summary missing {k!r}")
+    _pass("POST /time/rebuild/{date} builds all three time layers")
+
+    wk_meaning = wr_r["week_start_date"]
+    mg = client.post(f"/meaning/week/{wk_meaning}")
+    if mg.status_code != 200:
+        _fail(f"POST /meaning/week/{{week_start}} failed: {mg.status_code} {mg.text}")
+    mg_body = mg.json()
+    if "items" not in mg_body:
+        _fail("POST /meaning/week response missing 'items'")
+
+    all_m = client.get("/meanings")
+    if all_m.status_code != 200:
+        _fail(f"GET /meanings failed: {all_m.status_code} {all_m.text}")
+    all_body = all_m.json()
+    if "items" not in all_body:
+        _fail("GET /meanings response missing 'items'")
+    meanings_list = all_body["items"]
+    if not isinstance(meanings_list, list) or len(meanings_list) < 1:
+        _fail("expected at least one meaning after weekly generation")
+    first_id = meanings_list[0]["id"]
+    cfm = client.post(f"/meaning/confirm/{first_id}")
+    if cfm.status_code != 200:
+        _fail(f"POST /meaning/confirm failed: {cfm.status_code} {cfm.text}")
+    if cfm.json().get("status") != "confirmed":
+        _fail("confirmed meaning should have status confirmed")
+    if len(meanings_list) >= 2:
+        second_id = meanings_list[1]["id"]
+        rej = client.post(f"/meaning/reject/{second_id}")
+        if rej.status_code != 200:
+            _fail(f"POST /meaning/reject failed: {rej.status_code} {rej.text}")
+        if rej.json().get("status") != "rejected":
+            _fail("rejected meaning should have status rejected")
+    final_m = client.get("/meanings")
+    if final_m.status_code != 200 or "items" not in final_m.json():
+        _fail("GET /meanings after confirm/reject should return items")
+    _pass("meaning week generation, confirm/reject, GET /meanings")
+
     print("")
     print("ALL CHECKS PASSED")
 

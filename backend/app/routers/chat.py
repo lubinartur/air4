@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+import aiosqlite
+from fastapi import APIRouter, Depends, Query
+
+from app.database import execute, fetch_all, fetch_one, get_db
+from app.models.event import EventOut
+from app.models.fact import UserFactOut
+from app.models.transaction import ChatIn, ChatOut
+from app.routers.summary import _latest_upload_id, get_summary
+from app.services.analyzer import OllamaAnalyzer
+from app.services.event_extractor import EventExtractor
+from app.services.fact_extractor import FactExtractor
+
+
+router = APIRouter()
+
+
+@router.post("/chat", response_model=ChatOut)
+async def chat(
+    body: ChatIn,
+    upload_id: int | None = Query(None),
+    db: aiosqlite.Connection = Depends(get_db),
+) -> ChatOut:
+    event_saved: EventOut | None = None
+    extractor = EventExtractor()
+    extracted = await extractor.extract_event(body.message)
+    if extracted:
+        eid = await execute(
+            db,
+            """
+            INSERT INTO events (date, title, description, category, source)
+            VALUES (?, ?, ?, ?, 'chat')
+            """,
+            (
+                extracted["date"],
+                extracted["title"],
+                extracted["description"],
+                extracted["category"],
+            ),
+        )
+        row = await fetch_one(db, "SELECT * FROM events WHERE id = ?", (eid,))
+        if row is not None:
+            event_saved = EventOut(**row)
+
+    fact_extractor = FactExtractor()
+    facts_saved_rows = await fact_extractor.extract_and_save(db, body.message)
+    facts_saved = [UserFactOut(**r) for r in facts_saved_rows]
+
+    if upload_id is None:
+        upload_id = await _latest_upload_id(db)
+
+    if upload_id is None:
+        summary = {"upload_id": None, "total_spent": 0.0, "by_category": []}
+        tx_rows: list[dict] = []
+    else:
+        summary = (await get_summary(upload_id=upload_id, db=db)).model_dump()
+        tx_rows = await fetch_all(
+            db,
+            """
+            SELECT date, description, amount, category
+            FROM transactions
+            WHERE upload_id = ?
+              AND COALESCE(is_debit, 0) = 1
+              AND COALESCE(is_internal_transfer, 0) = 0
+              AND description NOT LIKE 'lõppsaldo%'
+              AND description NOT LIKE 'Käive%'
+            ORDER BY amount DESC
+            LIMIT 100
+            """,
+            (int(upload_id),),
+        )
+
+    events_rows = await fetch_all(
+        db,
+        """
+        SELECT date, title, description, category, source, created_at
+        FROM events
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT 20
+        """,
+    )
+
+    profile_row = await fetch_one(db, "SELECT * FROM user_profile WHERE id = 1")
+    profile_dict: dict | None = (
+        dict(profile_row) if profile_row is not None else None
+    )
+
+    user_facts_rows = await fetch_all(
+        db,
+        """
+        SELECT key, value
+        FROM user_facts
+        ORDER BY key ASC
+        """,
+    )
+
+    analyzer = OllamaAnalyzer()
+    response = await analyzer.chat(
+        body.message,
+        body.history or [],
+        summary,
+        events=events_rows,
+        profile=profile_dict,
+        transactions=tx_rows,
+        user_facts=user_facts_rows,
+        current_page=body.current_page,
+    )
+    return ChatOut(
+        response=response,
+        event_saved=event_saved,
+        facts_saved=facts_saved,
+    )
+

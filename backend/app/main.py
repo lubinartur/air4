@@ -1,33 +1,47 @@
-"""AIR4 FastAPI application (MVP: Event Memory)."""
+import os
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.aggregation import router as aggregation_router
-from app.api.chat import router as chat_router
-from app.api.events import router as events_router
-from app.api.time_layers import router as time_layers_router
-from app.api.meanings import router as meanings_router
-from app.api.monthly import router as monthly_router
-from app.api.weekly import router as weekly_router
-from app.db import Base, engine
-import app.models  # noqa: F401 — register ORM tables on Base.metadata before create_all
+from app.database import init_db
+from app.routers.chat import router as chat_router
+from app.routers.events import router as events_router
+from app.routers.facts import router as facts_router
+from app.routers.insights import router as insights_router
+from app.routers.profile import router as profile_router
+from app.routers.report import router as report_router
+from app.routers.summary import router as summary_router
+from app.routers.transactions import router as transactions_router
+from app.routers.upload import router as upload_router
 
-app = FastAPI(title="AIR4", version="0.1.0")
 
-app.include_router(events_router)
-app.include_router(aggregation_router)
-app.include_router(chat_router)
-app.include_router(time_layers_router)
-app.include_router(weekly_router)
-app.include_router(monthly_router)
-app.include_router(meanings_router)
+load_dotenv()
+
+app = FastAPI(title="AIR4 Finance", version="1.0.0")
+
+cors_origins = os.environ.get("AIR4_CORS_ORIGINS", "http://localhost:3000").split(",")
+cors_origins = [o.strip() for o in cors_origins if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(upload_router, prefix="/api", tags=["upload"])
+app.include_router(transactions_router, prefix="/api", tags=["transactions"])
+app.include_router(summary_router, prefix="/api", tags=["summary"])
+app.include_router(insights_router, prefix="/api", tags=["insights"])
+app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(events_router, prefix="/api", tags=["events"])
+app.include_router(facts_router, prefix="/api", tags=["facts"])
+app.include_router(profile_router, prefix="/api", tags=["profile"])
+app.include_router(report_router, prefix="/api", tags=["report"])
 
 
 @app.on_event("startup")
-def _startup() -> None:
-    Base.metadata.create_all(bind=engine)
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def _startup() -> None:
+    await init_db()

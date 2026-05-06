@@ -5,15 +5,15 @@ import { deleteCrossSphereInsight, type CrossSphereInsight } from "@/lib/api";
 function sphereBadgeClass(s: string | null | undefined): string {
   switch (s) {
     case "finance":
-      return "border-blue-200 bg-blue-50 text-blue-800";
+      return "border-blue-500/30 bg-blue-500/10 text-blue-200";
     case "life":
-      return "border-purple-200 bg-purple-50 text-purple-800";
+      return "border-purple-500/30 bg-purple-500/10 text-purple-200";
     case "projects":
-      return "border-orange-200 bg-orange-50 text-orange-800";
+      return "border-orange-500/30 bg-orange-500/10 text-orange-200";
     case "health":
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
     default:
-      return "border-zinc-200 bg-zinc-50 text-zinc-700";
+      return "border-zinc-700 bg-zinc-800/50 text-zinc-200";
   }
 }
 
@@ -35,13 +35,13 @@ function sphereLabel(s: string | null | undefined): string {
 function confidenceBadge(conf: string | null | undefined): { cls: string; label: string } {
   switch (conf) {
     case "high":
-      return { cls: "border-emerald-200 bg-emerald-50 text-emerald-800", label: "high" };
+      return { cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200", label: "high" };
     case "medium":
-      return { cls: "border-amber-200 bg-amber-50 text-amber-800", label: "medium" };
+      return { cls: "border-amber-500/30 bg-amber-500/10 text-amber-200", label: "medium" };
     case "low":
-      return { cls: "border-zinc-200 bg-zinc-50 text-zinc-600", label: "low" };
+      return { cls: "border-zinc-700 bg-zinc-800/50 text-zinc-200", label: "low" };
     default:
-      return { cls: "border-zinc-200 bg-zinc-50 text-zinc-600", label: "—" };
+      return { cls: "border-zinc-700 bg-zinc-800/50 text-zinc-200", label: "—" };
   }
 }
 
@@ -55,7 +55,7 @@ export function CrossSphereCard({
   const conf = confidenceBadge(insight.confidence);
 
   return (
-    <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span
@@ -87,15 +87,15 @@ export function CrossSphereCard({
               await deleteCrossSphereInsight(insight.id);
               onDeleted?.(insight.id);
             }}
-            className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100"
+            className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-500/20"
           >
             Удалить
           </button>
         </div>
       </div>
 
-      <div className="mt-3 font-medium text-zinc-900">{insight.title}</div>
-      <p className="mt-2 text-sm leading-6 text-zinc-500">{insight.description}</p>
+      <div className="mt-3 font-medium text-zinc-100">{insight.title}</div>
+      <p className="mt-2 text-sm leading-6 text-zinc-400">{insight.description}</p>
     </div>
   );
 }

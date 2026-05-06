@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   generateObservations,
   getObservations,
@@ -49,6 +49,119 @@ function isWithinLastDays(isoDate: string | null | undefined, days: number): boo
   if (Number.isNaN(d.getTime())) return false;
   const now = Date.now();
   return now - d.getTime() <= days * 24 * 60 * 60 * 1000;
+}
+
+type SignalSeverity = "high" | "medium" | "low";
+
+type CriticalSignalRow = {
+  key: string;
+  title: string;
+  description: string;
+  severity: SignalSeverity;
+  sphere: string;
+  href?: string;
+  rightMeta?: string;
+};
+
+function observationSeverity(o: Observation): SignalSeverity {
+  switch (o.observation_type) {
+    case "anomaly":
+      return "high";
+    case "reminder":
+    case "milestone":
+      return "medium";
+    case "pattern":
+    default:
+      return "low";
+  }
+}
+
+function IconWallet({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+    </svg>
+  );
+}
+
+function IconBriefcase({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <rect x="3" y="7" width="18" height="14" rx="2" />
+      <path d="M3 13h18" />
+    </svg>
+  );
+}
+
+function IconHeartPulse({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M2 9h3l2 7 4-14 3 11h3" />
+    </svg>
+  );
+}
+
+function IconActivity({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  );
+}
+
+function IconAlertCircle({ className, strokeWidth = 1.5 }: { className?: string; strokeWidth?: number }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4M12 16h.01" />
+    </svg>
+  );
+}
+
+function OverviewSphereCard({
+  title,
+  icon,
+  value,
+  trend,
+  detail,
+}: {
+  title: string;
+  icon: ReactNode;
+  value: string;
+  trend: "up" | "down";
+  detail: string;
+}) {
+  return (
+    <div className="glass-card p-8 group hover:border-white/10 transition-all duration-700 relative">
+      <div className="absolute top-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+      <div className="mono-label mb-6 flex items-center gap-3 opacity-40 transition-opacity group-hover:opacity-100">
+        <span className="rounded-md border border-white/5 bg-white/[0.03] p-1.5">{icon}</span>
+        {title}
+      </div>
+      <div className="mb-4 flex items-baseline gap-4">
+        <span className="text-4xl font-light tracking-tight text-zinc-100">{value}</span>
+        <span
+          className={`rounded border px-1.5 py-0.5 text-[10px] font-mono ${
+            trend === "up"
+              ? "border-brand-success/20 bg-brand-success/5 text-brand-success"
+              : "border-brand-danger/20 bg-brand-danger/5 text-brand-danger"
+          }`}
+        >
+          {trend === "up" ? "▲" : "▼"} {detail}
+        </span>
+      </div>
+      <div className="relative mt-6 h-0.5 w-full overflow-hidden bg-white/[0.02]">
+        <div
+          className={`relative z-10 h-full ${trend === "up" ? "bg-brand-accent" : "bg-brand-danger"}`}
+          style={{ width: trend === "up" ? "72%" : "44%" }}
+        />
+        <div className="absolute inset-0 bg-white/[0.01]" />
+      </div>
+    </div>
+  );
 }
 
 export default function OverviewPage() {
@@ -210,240 +323,596 @@ export default function OverviewPage() {
     summary.upload_id == null ||
     (summary.total_spent === 0 && (summary.by_category || []).length === 0);
 
-  return (
-    <div className="grid gap-6">
-      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          Обзор
-        </h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          Твой личный командный центр — финансы, жизнь, проекты и здоровье.
-        </p>
-      </div>
+  const heroNarrative = useMemo(() => {
+    const top = unreadObservations[0];
+    if (top) {
+      return {
+        kind: "observation" as const,
+        lead: top.title,
+        accent: null as string | null,
+        rest: top.body,
+      };
+    }
+    if (pendingFollowupsCount > 0) {
+      return {
+        kind: "followup" as const,
+        lead: "Есть дилемма, которая ждёт твоего ответа.",
+        accent: String(pendingFollowupsCount),
+        rest: "Открой дилеммы и закрой фоллоу-ап — так я смогу учесть итог в следующих советах.",
+      };
+    }
+    if (!noFinanceData && summary) {
+      const topCat = financeTop2[0];
+      const catLine = topCat
+        ? `Крупнейшая статья: ${categoryLabel(topCat.category)} (${eur(topCat.amount)}).`
+        : "";
+      return {
+        kind: "finance" as const,
+        lead: "Сводка по последнему периоду загружена.",
+        accent: eur(summary.total_spent),
+        rest: [financePeriod ? `Период: ${financePeriod}.` : "", catLine].filter(Boolean).join(" "),
+      };
+    }
+    return {
+      kind: "empty" as const,
+      lead: "Нет данных для анализа.",
+      accent: null as string | null,
+      rest: "Загрузи выписку Swedbank — тогда я смогу строить сводку и наблюдения.",
+    };
+  }, [
+    unreadObservations,
+    pendingFollowupsCount,
+    noFinanceData,
+    summary,
+    financeTop2,
+    financePeriod,
+  ]);
 
-      {unreadObservations.length > 0 ? (
-        <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-                НАБЛЮДЕНИЯ
-              </h2>
-              <span className="rounded bg-zinc-900 px-1.5 text-xs font-medium text-white tabular-nums">
-                {unreadObservations.length}
-              </span>
+  const criticalSignals = useMemo((): CriticalSignalRow[] => {
+    const rows: CriticalSignalRow[] = [];
+
+    if (pendingFollowupsCount > 0) {
+      rows.push({
+        key: "followup",
+        title: "Фоллоу-ап по дилемме",
+        description: "Нужен твой ответ, чтобы зафиксировать решение.",
+        severity: "high",
+        sphere: "Life",
+        href: "/dilemmas",
+        rightMeta: `${pendingFollowupsCount} ждут`,
+      });
+    }
+
+    if (pendingHypothesesCount > 0) {
+      rows.push({
+        key: "hypotheses",
+        title: "Паттерны на проверку",
+        description: "Подтверди или отклони гипотезы — это уточняет модель.",
+        severity: "medium",
+        sphere: "Patterns",
+        href: "/hypotheses",
+        rightMeta: `${pendingHypothesesCount} pending`,
+      });
+    }
+
+    if (openDilemmasCount > 0) {
+      rows.push({
+        key: "dilemmas-open",
+        title: "Открытые дилеммы",
+        description: "Есть разборы без закрытия статуса.",
+        severity: "low",
+        sphere: "Life",
+        href: "/dilemmas",
+        rightMeta: `${openDilemmasCount} open`,
+      });
+    }
+
+    for (const o of unreadObservations.slice(0, 3)) {
+      rows.push({
+        key: `obs-${o.id}`,
+        title: o.title,
+        description: o.body.length > 220 ? `${o.body.slice(0, 220)}…` : o.body,
+        severity: observationSeverity(o),
+        sphere: "Signal",
+        rightMeta: o.observation_type,
+      });
+    }
+
+    for (const c of connections.slice(0, 2)) {
+      rows.push({
+        key: `conn-${c.id}`,
+        title: c.title,
+        description: c.description.length > 220 ? `${c.description.slice(0, 220)}…` : c.description,
+        severity: "medium",
+        sphere: c.sphere1 && c.sphere2 ? `${c.sphere1}→${c.sphere2}` : "Cross",
+        href: "/dashboard",
+        rightMeta: c.confidence ?? undefined,
+      });
+    }
+
+    return rows;
+  }, [
+    pendingFollowupsCount,
+    pendingHypothesesCount,
+    openDilemmasCount,
+    unreadObservations,
+    connections,
+  ]);
+
+  const pendingActionsCount = useMemo(() => {
+    let n = 0;
+    if (pendingFollowupsCount > 0) n += 1;
+    if (pendingHypothesesCount > 0) n += 1;
+    n += unreadObservations.length;
+    n += Math.min(2, connections.length);
+    if (openDilemmasCount > 0) n += 1;
+    return n;
+  }, [
+    pendingFollowupsCount,
+    pendingHypothesesCount,
+    unreadObservations.length,
+    connections.length,
+    openDilemmasCount,
+  ]);
+
+  const financeSphere = useMemo(() => {
+    if (summaryError) {
+      return {
+        value: "—",
+        trend: "down" as const,
+        detail: "error",
+      };
+    }
+    if (noFinanceData) {
+      return { value: "—", trend: "down" as const, detail: "no data" };
+    }
+    const total = summary?.total_spent ?? 0;
+    return {
+      value: eur(total),
+      trend: "up" as const,
+      detail: financePeriod ? "period" : "loaded",
+    };
+  }, [summaryError, noFinanceData, summary, financePeriod]);
+
+  const projectsSphere = useMemo(() => {
+    if (projectsError) {
+      return { value: "—", trend: "down" as const, detail: "error" };
+    }
+    return {
+      value: String(activeProjectsCount),
+      trend: activeProjectsCount > 0 ? ("up" as const) : ("down" as const),
+      detail: "active",
+    };
+  }, [projectsError, activeProjectsCount]);
+
+  const lifeSphere = useMemo(() => {
+    if (eventsError) {
+      return { value: "—", trend: "down" as const, detail: "error" };
+    }
+    return {
+      value: String(eventsThisWeekCount),
+      trend: eventsThisWeekCount > 0 ? ("up" as const) : ("down" as const),
+      detail: "events / 7d",
+    };
+  }, [eventsError, eventsThisWeekCount]);
+
+  return (
+    <div className="relative -mx-6 -my-8 min-h-full bg-zinc-950 px-6 py-12 md:px-12 lg:px-16">
+      <header className="mb-16">
+        <div className="mb-4 flex items-center gap-4">
+          <div className="h-px w-8 bg-brand-accent/50" />
+          <p className="mono-label !tracking-[0.3em] text-zinc-500">
+            Operational Status / Optimized
+          </p>
+        </div>
+        <h1 className="text-5xl font-light capitalize leading-tight tracking-tight text-white">
+          Command Center
+        </h1>
+      </header>
+
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+        {/* Proactive advisor — real copy only */}
+        <div className="group relative col-span-full overflow-hidden border-brand-accent/10 bg-brand-accent/[0.02] glass-card p-10">
+          <div className="absolute right-0 top-0 p-8 opacity-20 transition-opacity group-hover:opacity-40">
+            <IconActivity className="text-brand-accent animate-pulse-thin" />
+          </div>
+          <div className="relative z-10">
+            <div className="mono-label mb-6 flex items-center gap-2 text-zinc-300">
+              <span className="h-1 w-1 animate-pulse rounded-full bg-brand-accent" />
+              Neural Sync Analysis
             </div>
-            <button
-              type="button"
-              onClick={async () => {
-                setObsGenerating(true);
-                setObsInfo(null);
-                setObservationsError(null);
-                try {
-                  const r = await generateObservations();
-                  if (r.created > 0) setObsInfo(`Создано: ${r.created}`);
-                  else if (r.cooldown_days_remaining != null)
-                    setObsInfo(
-                      `Кулдаун: ${r.cooldown_days_remaining.toFixed(1)}д`
+            <div className="max-w-3xl text-2xl font-light leading-relaxed text-zinc-100">
+              {heroNarrative.kind === "finance" && heroNarrative.accent ? (
+                <p>
+                  {heroNarrative.lead} Потрачено{" "}
+                  <span className="border-b border-brand-accent/30 pb-0.5 text-brand-accent">
+                    {heroNarrative.accent}
+                  </span>
+                  . {heroNarrative.rest}
+                </p>
+              ) : heroNarrative.kind === "followup" && heroNarrative.accent ? (
+                <p>
+                  {heroNarrative.lead}{" "}
+                  <span className="border-b border-brand-accent/30 pb-0.5 text-brand-accent">
+                    {heroNarrative.accent}
+                  </span>{" "}
+                  {heroNarrative.rest}
+                </p>
+              ) : (
+                <p>
+                  <span className="text-zinc-100">{heroNarrative.lead}</span>{" "}
+                  {heroNarrative.rest}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                onClick={async () => {
+                  setObsGenerating(true);
+                  setObsInfo(null);
+                  setObservationsError(null);
+                  try {
+                    const r = await generateObservations();
+                    if (r.created > 0) setObsInfo(`Создано: ${r.created}`);
+                    else if (r.cooldown_days_remaining != null)
+                      setObsInfo(
+                        `Кулдаун: ${r.cooldown_days_remaining.toFixed(1)}д`
+                      );
+                    else setObsInfo("Новых наблюдений нет");
+                    const os = await getObservations();
+                    setObservations(os || []);
+                  } catch (e) {
+                    setObservationsError(
+                      e instanceof Error ? e.message : "Не удалось сгенерировать"
                     );
-                  else setObsInfo("Новых наблюдений нет");
-                  const os = await getObservations();
-                  setObservations(os || []);
-                } catch (e) {
-                  setObservationsError(
-                    e instanceof Error ? e.message : "Не удалось сгенерировать"
-                  );
-                } finally {
-                  setObsGenerating(false);
-                }
-              }}
-              disabled={obsGenerating}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            >
-              {obsGenerating ? "Генерирую…" : "Сгенерировать наблюдения"}
-            </button>
+                  } finally {
+                    setObsGenerating(false);
+                  }
+                }}
+                disabled={obsGenerating}
+                className="btn-primary disabled:opacity-60"
+              >
+                {obsGenerating ? "Генерирую…" : "Сгенерировать наблюдения"}
+              </button>
+              {obsInfo ? (
+                <span className="text-xs font-mono text-zinc-600">{obsInfo}</span>
+              ) : null}
+              {heroNarrative.kind === "empty" ? (
+                <Link href="/upload" className="btn-ghost">
+                  Загрузить выписку
+                </Link>
+              ) : null}
+            </div>
+            {observationsError ? (
+              <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                {observationsError}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <OverviewSphereCard
+          title="Finance"
+          icon={<IconWallet />}
+          value={financeSphere.value}
+          trend={financeSphere.trend}
+          detail={financeSphere.detail}
+        />
+        <OverviewSphereCard
+          title="Projects"
+          icon={<IconBriefcase />}
+          value={projectsSphere.value}
+          trend={projectsSphere.trend}
+          detail={projectsSphere.detail}
+        />
+        <OverviewSphereCard
+          title="Life"
+          icon={<IconHeartPulse />}
+          value={lifeSphere.value}
+          trend={lifeSphere.trend}
+          detail={lifeSphere.detail}
+        />
+
+        {/* Critical Signals — real rows only */}
+        <div className="col-span-full mt-8">
+          <div className="mb-8 flex items-center justify-between">
+            <h3 className="text-lg font-light text-zinc-100">Critical Signals</h3>
+            <div className="mx-8 h-px flex-1 bg-white/5" />
+            <div className="mono-label">
+              {pendingActionsCount} pending {pendingActionsCount === 1 ? "action" : "actions"}
+            </div>
           </div>
 
-          {obsInfo ? (
-            <p className="mb-3 text-xs text-zinc-500">{obsInfo}</p>
-          ) : null}
-          {observationsError ? (
-            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {observationsError}
+          {(eventsError ||
+            dilemmasError ||
+            followupsError ||
+            interviewError ||
+            hypothesesError ||
+            connectionsError ||
+            summaryError ||
+            projectsError) && (
+            <div className="mb-4 space-y-2">
+              {summaryError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {summaryError}
+                </div>
+              ) : null}
+              {projectsError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {projectsError}
+                </div>
+              ) : null}
+              {eventsError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {eventsError}
+                </div>
+              ) : null}
+              {dilemmasError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {dilemmasError}
+                </div>
+              ) : null}
+              {followupsError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {followupsError}
+                </div>
+              ) : null}
+              {interviewError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {interviewError}
+                </div>
+              ) : null}
+              {hypothesesError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {hypothesesError}
+                </div>
+              ) : null}
+              {connectionsError ? (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                  {connectionsError}
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          )}
 
-          <div className="grid gap-3">
+          <div className="flex flex-col gap-4">
+            {criticalSignals.length === 0 ? (
+              <div className="glass-card p-8 text-sm font-light text-zinc-500">
+                Нет активных сигналов. Загрузи данные или сгенерируй наблюдения.
+              </div>
+            ) : (
+              criticalSignals.map((row) => {
+                const inner = (
+                  <div className="glass-card flex cursor-pointer items-center justify-between p-6 transition-all duration-500 group-hover:border-white/20 group-hover:bg-white/[0.02]">
+                    <div className="flex items-center gap-6">
+                      <div
+                        className={`rounded-md p-3 ${
+                          row.severity === "high"
+                            ? "border border-brand-danger/20 bg-brand-danger/10 text-brand-danger"
+                            : row.severity === "medium"
+                              ? "border border-brand-warning/20 bg-brand-warning/10 text-brand-warning"
+                              : "border border-brand-accent/20 bg-brand-accent/10 text-brand-accent"
+                        }`}
+                      >
+                        <IconAlertCircle strokeWidth={1.5} />
+                      </div>
+                      <div>
+                        <p className="mb-1 text-base font-medium text-zinc-100 transition-colors group-hover:text-brand-accent">
+                          {row.title}
+                        </p>
+                        <p className="max-w-md text-sm text-zinc-500">{row.description}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 text-right">
+                      <span className="rounded border border-white/5 bg-zinc-800 px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider text-zinc-400">
+                        {row.sphere}
+                      </span>
+                      {row.rightMeta ? (
+                        <p className="font-mono text-[10px] text-zinc-600">{row.rightMeta}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+                return row.href ? (
+                  <Link key={row.key} href={row.href} className="group block">
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={row.key} className="group">
+                    {inner}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Observation cards — read/mark flow preserved */}
+        {unreadObservations.length > 0 ? (
+          <div className="col-span-full mt-4 grid gap-4 lg:grid-cols-2">
             {unreadObservations.slice(0, 2).map((o) => (
               <ObservationCard
                 key={o.id}
                 observation={o}
                 onRead={(u) =>
-                  setObservations((prev) =>
-                    prev.map((x) => (x.id === u.id ? u : x))
-                  )
+                  setObservations((prev) => prev.map((x) => (x.id === u.id ? u : x)))
                 }
               />
             ))}
           </div>
-        </section>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Patterns */}
-        {pendingHypothesesCount > 0 ? (
-          <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold text-zinc-900">Patterns</h2>
-                <p className="mt-1 text-sm text-zinc-500">
-                  AIR4 хочет задать тебе {pendingHypothesesCount} вопросов
-                </p>
-              </div>
-              <Link
-                href="/hypotheses"
-                className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
-              >
-                Открыть →
-              </Link>
-            </div>
-            {hypothesesError ? (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                {hypothesesError}
-              </div>
-            ) : null}
-          </div>
         ) : null}
 
-        {/* Finance */}
-        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-base font-semibold text-zinc-900">Finance</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Сводка трат за последний период
-              </p>
-            </div>
-            <Link
-              href="/dashboard"
-              className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
-            >
-              Открыть →
-            </Link>
-          </div>
-
-          {summaryError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {summaryError}
-            </div>
-          ) : noFinanceData ? (
-            <div className="mt-6 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
-              Нет данных — загрузи выписку
-              <div className="mt-3">
-                <Link
-                  href="/upload"
-                  className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-                >
-                  Загрузить выписку
-                </Link>
+        {/* Finance + life detail strip — same links/data as before */}
+        <div className="col-span-full mt-8 grid gap-8 lg:grid-cols-2">
+          <div className="glass-card p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mono-label mb-2 text-zinc-300">Finance</div>
+                <h2 className="text-lg font-light text-zinc-100">Сводка</h2>
+                <p className="mt-2 text-sm font-light text-zinc-500">
+                  Сводка трат за последний период
+                </p>
               </div>
+              <Link href="/dashboard" className="btn-ghost shrink-0 px-3 py-2 text-xs">
+                Дашборд →
+              </Link>
             </div>
-          ) : (
-            <div className="mt-6">
-              <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                ПОТРАЧЕНО
+            {summaryError ? (
+              <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                {summaryError}
               </div>
-              <div className="mt-2 text-4xl font-bold text-zinc-900 tabular-nums">
-                {eur(summary?.total_spent ?? 0)}
-              </div>
-              {financePeriod ? (
-                <p className="mt-2 text-sm text-zinc-400">{financePeriod}</p>
-              ) : null}
-              {financeTop2.length ? (
-                <div className="mt-4 grid gap-2">
-                  {financeTop2.map((c) => (
-                    <div
-                      key={c.category}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-zinc-600">
-                        {categoryLabel(c.category)}
-                      </span>
-                      <span className="font-medium tabular-nums text-zinc-900">
-                        {eur(c.amount)}
-                      </span>
-                    </div>
-                  ))}
+            ) : noFinanceData ? (
+              <div className="mt-6 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3 text-sm text-zinc-300">
+                Нет данных — загрузи выписку
+                <div className="mt-3">
+                  <Link href="/upload" className="btn-primary inline-flex">
+                    Загрузить выписку
+                  </Link>
                 </div>
-              ) : null}
-            </div>
-          )}
-        </div>
+              </div>
+            ) : (
+              <div className="mt-6">
+                <div className="mono-label text-zinc-500">ПОТРАЧЕНО</div>
+                <div className="mt-2 text-3xl font-light tabular-nums text-zinc-100">
+                  {eur(summary?.total_spent ?? 0)}
+                </div>
+                {financePeriod ? (
+                  <p className="mt-2 text-sm text-zinc-500">{financePeriod}</p>
+                ) : null}
+                {financeTop2.length ? (
+                  <div className="mt-4 grid gap-2">
+                    {financeTop2.map((c) => (
+                      <div key={c.category} className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-400">{categoryLabel(c.category)}</span>
+                        <span className="font-mono tabular-nums text-zinc-200">{eur(c.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
 
-        {/* Health (soon) */}
-        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm opacity-60">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-base font-semibold text-zinc-900">
-                Здоровье и спорт
-              </h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Тренировки, сон и энергия
-              </p>
+          <div className="glass-card p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mono-label mb-2 text-zinc-300">Life</div>
+                <h2 className="text-lg font-light text-zinc-100">Жизнь</h2>
+                <p className="mt-2 text-sm font-light text-zinc-500">
+                  События и контекст
+                </p>
+              </div>
+              <Link href="/events" className="btn-ghost shrink-0 px-3 py-2 text-xs">
+                События →
+              </Link>
             </div>
-            <span className="rounded bg-zinc-100 px-1.5 text-xs font-medium text-zinc-400">
-              Скоро
-            </span>
+            {eventsError ? (
+              <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                {eventsError}
+              </div>
+            ) : dilemmasError ? (
+              <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                {dilemmasError}
+              </div>
+            ) : followupsError ? (
+              <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                {followupsError}
+              </div>
+            ) : interviewError ? (
+              <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                {interviewError}
+              </div>
+            ) : (
+              <div className="mt-6">
+                <div className="mono-label text-zinc-500">СОБЫТИЙ ЗА 7 ДНЕЙ</div>
+                <div className="mt-2 text-3xl font-light tabular-nums text-zinc-100">
+                  {eventsThisWeekCount}
+                </div>
+                {openDilemmasCount > 0 ? (
+                  <div className="mt-3 text-sm text-zinc-400">
+                    Открытых дилемм:{" "}
+                    <Link href="/dilemmas" className="font-medium text-zinc-100 hover:underline">
+                      {openDilemmasCount}
+                    </Link>
+                  </div>
+                ) : null}
+                {pendingFollowupsCount > 0 ? (
+                  <Link
+                    href="/dilemmas"
+                    className="mt-4 block rounded-lg border border-brand-warning/20 bg-brand-warning/5 px-4 py-3 text-sm font-medium text-brand-warning"
+                  >
+                    AIR4 ждёт ответа по дилемме ({pendingFollowupsCount})
+                  </Link>
+                ) : null}
+                {interviewAnswersCount < 5 ? (
+                  <div className="mt-3 text-sm text-zinc-400">
+                    <Link href="/interview" className="font-medium text-zinc-100 hover:underline">
+                      AIR4 хочет узнать тебя лучше →
+                    </Link>
+                  </div>
+                ) : null}
+                <div className="mt-5 grid gap-3">
+                  {last2Events.length === 0 ? (
+                    <p className="text-sm text-zinc-500">
+                      Событий пока нет. Расскажи AIR4 о своей жизни в чате.
+                    </p>
+                  ) : (
+                    last2Events.map((e) => (
+                      <div
+                        key={e.id}
+                        className="rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3 text-sm text-zinc-300"
+                      >
+                        <span className="font-medium text-zinc-100">{e.title}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Projects */}
-        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+        {/* Projects — same as before */}
+        <div className="col-span-full glass-card p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold text-zinc-900">Проекты</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Активные проекты и прогресс
-              </p>
+              <div className="mono-label mb-2 text-zinc-300">Projects</div>
+              <h2 className="text-lg font-light text-zinc-100">Проекты</h2>
+              <p className="mt-2 text-sm font-light text-zinc-500">Активные проекты и прогресс</p>
             </div>
-            <Link
-              href="/projects"
-              className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
-            >
+            <Link href="/projects" className="btn-ghost shrink-0 px-3 py-2 text-xs">
               Открыть →
             </Link>
           </div>
-
           {projectsError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
               {projectsError}
             </div>
           ) : projects.length === 0 ? (
-            <div className="mt-6 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+            <div className="mt-6 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3 text-sm text-zinc-300">
               Проектов пока нет.
               <div className="mt-3">
-                <Link
-                  href="/projects"
-                  className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-                >
+                <Link href="/projects" className="btn-primary inline-flex">
                   Добавить проект
                 </Link>
               </div>
             </div>
           ) : (
             <div className="mt-6">
-              <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                АКТИВНЫХ ПРОЕКТОВ
-              </div>
-              <div className="mt-2 text-3xl font-bold text-zinc-900 tabular-nums">
+              <div className="mono-label text-zinc-500">АКТИВНЫХ ПРОЕКТОВ</div>
+              <div className="mt-2 text-3xl font-light tabular-nums text-zinc-100">
                 {activeProjectsCount}
               </div>
-              <div className="mt-4 grid gap-2">
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 {last2Projects.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-zinc-900">
-                      {p.name}
-                    </span>
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3"
+                  >
+                    <span className="text-sm font-medium text-zinc-100">{p.name}</span>
+                    <span className="rounded border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-zinc-400">
                       {p.status}
                     </span>
                   </div>
@@ -453,122 +922,62 @@ export default function OverviewPage() {
           )}
         </div>
 
-        {/* Life */}
-        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+        {/* Patterns card when pending — same link */}
+        {pendingHypothesesCount > 0 ? (
+          <div className="col-span-full glass-card p-8 lg:col-span-1">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mono-label mb-2 text-zinc-300">Patterns</div>
+                <div className="text-2xl font-light tabular-nums text-zinc-100">
+                  {pendingHypothesesCount}
+                </div>
+                <p className="mt-2 text-sm font-light text-zinc-500">
+                  AIR4 хочет задать тебе вопросы
+                </p>
+              </div>
+              <Link href="/hypotheses" className="btn-ghost shrink-0 px-3 py-2 text-xs">
+                Открыть →
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Health soon — unchanged intent */}
+        <div className="col-span-full glass-card p-8 opacity-60">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold text-zinc-900">Жизнь</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                События и факты которые помнит AIR4
-              </p>
+              <div className="mono-label mb-2 text-zinc-300">Health</div>
+              <h2 className="text-lg font-light text-zinc-100">Здоровье и спорт</h2>
+              <p className="mt-2 text-sm font-light text-zinc-500">Тренировки, сон и энергия</p>
             </div>
-            <Link
-              href="/events"
-              className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
-            >
-              Открыть →
-            </Link>
+            <span className="rounded border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-mono text-zinc-400">
+              Скоро
+            </span>
           </div>
-
-          {eventsError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {eventsError}
-            </div>
-          ) : dilemmasError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {dilemmasError}
-            </div>
-          ) : followupsError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {followupsError}
-            </div>
-          ) : interviewError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {interviewError}
-            </div>
-          ) : (
-            <div className="mt-6">
-              <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                СОБЫТИЙ НА ЭТОЙ НЕДЕЛЕ
-              </div>
-              <div className="mt-2 text-3xl font-bold text-zinc-900 tabular-nums">
-                {eventsThisWeekCount}
-              </div>
-              {openDilemmasCount > 0 ? (
-                <div className="mt-3 text-sm text-zinc-700">
-                  Открытых дилемм:{" "}
-                  <Link
-                    href="/dilemmas"
-                    className="font-medium text-zinc-900 hover:underline"
-                  >
-                    {openDilemmasCount}
-                  </Link>
-                </div>
-              ) : null}
-              {pendingFollowupsCount > 0 ? (
-                <Link
-                  href="/dilemmas"
-                  className="mt-3 block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800"
-                >
-                  AIR4 ждёт ответа по дилемме ({pendingFollowupsCount})
-                </Link>
-              ) : null}
-              {interviewAnswersCount < 5 ? (
-                <div className="mt-2 text-sm text-zinc-700">
-                  <Link
-                    href="/interview"
-                    className="font-medium text-zinc-900 hover:underline"
-                  >
-                    AIR4 хочет узнать тебя лучше →
-                  </Link>
-                </div>
-              ) : null}
-              <div className="mt-4 grid gap-2">
-                {last2Events.length === 0 ? (
-                  <p className="text-sm text-zinc-600">
-                    Событий пока нет. Расскажи AIR4 о своей жизни в чате.
-                  </p>
-                ) : (
-                  last2Events.map((e) => (
-                    <div key={e.id} className="text-sm text-zinc-700">
-                      <span className="font-medium text-zinc-900">
-                        {e.title}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
         </div>
-      </div>
 
-      {hasConnections ? (
-        <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-              AIR4 нашёл связи
-            </h2>
-            <Link
-              href="/dashboard"
-              className="text-sm font-medium text-zinc-900 hover:underline"
-            >
-              Смотреть все →
-            </Link>
-          </div>
-          {connectionsError ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {connectionsError}
+        {hasConnections ? (
+          <section className="col-span-full glass-card p-8">
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <div className="mono-label text-zinc-300">AIR4 нашёл связи</div>
+              <Link href="/dashboard" className="btn-ghost px-3 py-2 text-xs">
+                Смотреть все →
+              </Link>
             </div>
-          ) : (
-            <div className="grid gap-3">
-              {connections.slice(0, 2).map((ins) => (
-                <CrossSphereCard key={ins.id} insight={ins} />
-              ))}
-            </div>
-          )}
-        </section>
-      ) : null}
+            {connectionsError ? (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-200">
+                {connectionsError}
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {connections.slice(0, 2).map((ins) => (
+                  <CrossSphereCard key={ins.id} insight={ins} />
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

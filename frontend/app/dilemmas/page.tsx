@@ -42,6 +42,82 @@ function renderMultilineParagraphs(text: string) {
     ));
 }
 
+type DilemmaSection = { title: string; body: string };
+
+function parseDilemmaSections(raw: string): DilemmaSection[] {
+  const t = (raw || "").replace(/\s+/g, " ").trim();
+  if (!t) return [];
+
+  const markers: Array<{ re: RegExp; title: string }> = [
+    { re: /1\.\s*СУТЬ\s*ВЫБОРА/i, title: "СУТЬ ВЫБОРА" },
+    { re: /2\.\s*ВАРИАНТЫ/i, title: "ВАРИАНТЫ" },
+    { re: /3\.\s*КОНТЕКСТ/i, title: "КОНТЕКСТ" },
+    { re: /РЕКОМЕНДАЦИЯ/i, title: "РЕКОМЕНДАЦИЯ" },
+  ];
+
+  const found: Array<{ idx: number; title: string; len: number }> = [];
+  for (const m of markers) {
+    const match = m.re.exec(t);
+    if (match?.index != null) {
+      found.push({ idx: match.index, title: m.title, len: match[0].length });
+    }
+  }
+  if (found.length === 0) return [{ title: "ТЕКСТ", body: t }];
+  found.sort((a, b) => a.idx - b.idx);
+
+  const sections: DilemmaSection[] = [];
+  for (let i = 0; i < found.length; i++) {
+    const cur = found[i];
+    const next = found[i + 1];
+    const start = cur.idx + cur.len;
+    const end = next ? next.idx : t.length;
+    const body = t.slice(start, end).trim().replace(/^[:\-–—\s]+/, "").trim();
+    sections.push({ title: cur.title, body });
+  }
+  return sections.filter((s) => s.body.trim().length > 0);
+}
+
+function renderSectionBody(body: string) {
+  const parts = (body || "").split(" - ").map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) {
+    return (
+      <div className="text-sm text-zinc-700 leading-relaxed mb-3">
+        {body.trim()}
+      </div>
+    );
+  }
+  const [first, ...rest] = parts;
+  return (
+    <div className="mb-3">
+      <div className="text-sm text-zinc-700 leading-relaxed">{first}</div>
+      <div className="mt-2 grid gap-1">
+        {rest.map((x, idx) => (
+          <div key={idx} className="text-sm text-zinc-700 leading-relaxed">
+            · {x}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderStructuredText(raw: string) {
+  const sections = parseDilemmaSections(raw);
+  if (sections.length === 0) return null;
+  return (
+    <div className="max-h-48 overflow-y-auto">
+      {sections.map((s, idx) => (
+        <div key={`${s.title}-${idx}`}>
+          <div className="font-semibold uppercase text-zinc-500 text-xs tracking-wider mb-1">
+            {s.title}
+          </div>
+          {renderSectionBody(s.body)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DilemmasPage() {
   const [text, setText] = useState("");
   const [creating, setCreating] = useState(false);
@@ -158,9 +234,12 @@ export default function DilemmasPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium text-zinc-900">{d.title}</div>
-                    <div className="mt-2 text-sm text-zinc-700">
-                      {preview(d.recommendation)}
-                    </div>
+                    {d.analysis ? (
+                      <div className="mt-3">{renderStructuredText(d.analysis)}</div>
+                    ) : null}
+                    {d.recommendation ? (
+                      <div className="mt-3">{renderStructuredText(d.recommendation)}</div>
+                    ) : null}
                     <div className="mt-3 text-sm font-medium text-zinc-900">
                       Как пошло? Ты принял решение?
                     </div>
@@ -318,9 +397,7 @@ export default function DilemmasPage() {
                           <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
                             Разбор
                           </div>
-                          <div className="mt-2 max-h-48 overflow-y-auto whitespace-pre-line">
-                            {renderMultilineParagraphs(d.analysis)}
-                          </div>
+                          <div className="mt-2">{renderStructuredText(d.analysis)}</div>
                         </div>
                       ) : null}
                       {d.recommendation ? (
@@ -328,9 +405,7 @@ export default function DilemmasPage() {
                           <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
                             Рекомендация
                           </div>
-                          <div className="mt-2 max-h-48 overflow-y-auto whitespace-pre-line">
-                            {renderMultilineParagraphs(d.recommendation)}
-                          </div>
+                          <div className="mt-2">{renderStructuredText(d.recommendation)}</div>
                         </div>
                       ) : null}
                     </div>

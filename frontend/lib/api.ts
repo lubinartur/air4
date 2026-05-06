@@ -176,6 +176,15 @@ export type Dilemma = {
   created_at?: string | null;
 };
 
+export type InterviewQuestion = { question: string };
+
+export type InterviewAnswer = {
+  id: number;
+  question: string;
+  answer: string;
+  created_at?: string | null;
+};
+
 export type ObservationType = "pattern" | "anomaly" | "milestone" | "reminder";
 
 export type Observation = {
@@ -471,6 +480,21 @@ export async function getDilemma(id: number): Promise<Dilemma> {
 
 export async function deleteDilemma(id: number): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/dilemmas/${id}`, { method: "DELETE" });
+}
+
+export async function getInterviewQuestions(): Promise<{ questions: InterviewQuestion[] }> {
+  return await apiFetch<{ questions: InterviewQuestion[] }>("/api/interview/questions");
+}
+
+export async function saveInterviewAnswer(question: string, answer: string): Promise<InterviewAnswer> {
+  return await apiFetch<InterviewAnswer>("/api/interview/answers", {
+    method: "POST",
+    body: JSON.stringify({ question, answer }),
+  });
+}
+
+export async function getInterviewAnswers(): Promise<InterviewAnswer[]> {
+  return await apiFetch<InterviewAnswer[]>("/api/interview/answers");
 }
 
 export async function getObservations(): Promise<Observation[]> {

@@ -7,12 +7,14 @@ import {
   getObservations,
   getCrossSphereInsights,
   getDilemmas,
+  getInterviewAnswers,
   getEvents,
   getHypotheses,
   getProjects,
   getSummary,
   type CrossSphereInsight,
   type Dilemma,
+  type InterviewAnswer,
   type Hypothesis,
   type LifeEvent,
   type Observation,
@@ -55,6 +57,8 @@ export default function OverviewPage() {
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [dilemmas, setDilemmas] = useState<Dilemma[]>([]);
   const [dilemmasError, setDilemmasError] = useState<string | null>(null);
+  const [interviewAnswers, setInterviewAnswers] = useState<InterviewAnswer[]>([]);
+  const [interviewError, setInterviewError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
@@ -93,6 +97,17 @@ export default function OverviewPage() {
         if (!cancelled)
           setDilemmasError(
             e instanceof Error ? e.message : "Failed to load dilemmas"
+          );
+      }
+
+      setInterviewError(null);
+      try {
+        const ia = await getInterviewAnswers();
+        if (!cancelled) setInterviewAnswers(ia || []);
+      } catch (e) {
+        if (!cancelled)
+          setInterviewError(
+            e instanceof Error ? e.message : "Failed to load interview answers"
           );
       }
 
@@ -160,6 +175,7 @@ export default function OverviewPage() {
     () => (dilemmas || []).filter((d) => d.status === "open").length,
     [dilemmas]
   );
+  const interviewAnswersCount = (interviewAnswers || []).length;
   const activeProjectsCount = useMemo(
     () => (projects || []).filter((p) => p.status === "active").length,
     [projects]
@@ -448,6 +464,10 @@ export default function OverviewPage() {
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {dilemmasError}
             </div>
+          ) : interviewError ? (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {interviewError}
+            </div>
           ) : (
             <div className="mt-6">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
@@ -464,6 +484,16 @@ export default function OverviewPage() {
                     className="font-medium text-zinc-900 hover:underline"
                   >
                     {openDilemmasCount}
+                  </Link>
+                </div>
+              ) : null}
+              {interviewAnswersCount < 5 ? (
+                <div className="mt-2 text-sm text-zinc-700">
+                  <Link
+                    href="/interview"
+                    className="font-medium text-zinc-900 hover:underline"
+                  >
+                    AIR4 хочет узнать тебя лучше →
                   </Link>
                 </div>
               ) : null}

@@ -278,6 +278,11 @@ export function SiteHeader() {
                   label="Дилеммы"
                   onSelect={() => setOpen(null)}
                 />
+                <DropdownItem
+                  href="/interview"
+                  label="Интервью"
+                  onSelect={() => setOpen(null)}
+                />
               </div>
             ) : null}
           </div>

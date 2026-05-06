@@ -8,6 +8,7 @@ export function chatPageContext(pathname: string | null | undefined): string {
   if (p.startsWith("/projects")) return "projects";
   if (p.startsWith("/hypotheses")) return "hypotheses";
   if (p.startsWith("/dilemmas")) return "dilemmas";
+  if (p.startsWith("/interview")) return "interview";
   if (p.startsWith("/events")) return "events";
   if (p.startsWith("/facts")) return "facts";
   if (p.startsWith("/profile")) return "profile";
@@ -25,6 +26,7 @@ export function sidebarSubtitle(pathname: string | null | undefined): string {
   if (p.startsWith("/projects")) return "Твои активные проекты";
   if (p.startsWith("/hypotheses")) return "Паттерны AIR4";
   if (p.startsWith("/dilemmas")) return "Разбор решений";
+  if (p.startsWith("/interview")) return "Узнаём тебя лучше";
   if (p.startsWith("/events")) return "Твои события";
   if (p.startsWith("/facts")) return "Что AIR4 знает о тебе";
   if (p.startsWith("/profile")) return "Твой профиль";

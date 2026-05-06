@@ -168,6 +168,16 @@ async def chat(
         """,
     )
 
+    interview_answers_rows = await fetch_all(
+        db,
+        """
+        SELECT question, answer, created_at
+        FROM interview_answers
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT 50
+        """,
+    )
+
     analyzer = OllamaAnalyzer()
     response = await analyzer.chat(
         body.message,
@@ -180,6 +190,7 @@ async def chat(
         projects=active_projects_rows,
         confirmed_hypotheses=confirmed_hypotheses_rows,
         cross_sphere_insights=cross_sphere_rows,
+        interview_answers=interview_answers_rows,
         current_page=body.current_page,
     )
     return ChatOut(

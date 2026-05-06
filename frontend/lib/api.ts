@@ -163,6 +163,19 @@ export type CrossSphereInsight = {
   created_at?: string | null;
 };
 
+export type DilemmaStatus = "open" | "closed";
+
+export type Dilemma = {
+  id: number;
+  title: string;
+  description?: string | null;
+  options?: string | null;
+  analysis?: string | null;
+  recommendation?: string | null;
+  status: DilemmaStatus;
+  created_at?: string | null;
+};
+
 export type ObservationType = "pattern" | "anomaly" | "milestone" | "reminder";
 
 export type Observation = {
@@ -198,10 +211,13 @@ const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").re
 );
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const body = init?.body;
+  const isStringBody = typeof body === "string";
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       Accept: "application/json",
+      ...(isStringBody ? { "Content-Type": "application/json" } : {}),
       ...(init?.headers || {}),
     },
     cache: "no-store",
@@ -436,6 +452,25 @@ export async function analyzeCrossSphere(): Promise<{
 
 export async function deleteCrossSphereInsight(id: number): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/cross-sphere/${id}`, { method: "DELETE" });
+}
+
+export async function getDilemmas(): Promise<Dilemma[]> {
+  return await apiFetch<Dilemma[]>("/api/dilemmas");
+}
+
+export async function createDilemma(text: string): Promise<Dilemma> {
+  return await apiFetch<Dilemma>("/api/dilemmas", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+export async function getDilemma(id: number): Promise<Dilemma> {
+  return await apiFetch<Dilemma>(`/api/dilemmas/${id}`);
+}
+
+export async function deleteDilemma(id: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/dilemmas/${id}`, { method: "DELETE" });
 }
 
 export async function getObservations(): Promise<Observation[]> {

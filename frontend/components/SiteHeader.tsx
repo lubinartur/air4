@@ -273,6 +273,11 @@ export function SiteHeader() {
                   label="Паттерны"
                   onSelect={() => setOpen(null)}
                 />
+                <DropdownItem
+                  href="/dilemmas"
+                  label="Дилеммы"
+                  onSelect={() => setOpen(null)}
+                />
               </div>
             ) : null}
           </div>

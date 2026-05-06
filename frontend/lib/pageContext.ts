@@ -7,6 +7,7 @@ export function chatPageContext(pathname: string | null | undefined): string {
   if (p.startsWith("/timeline")) return "timeline";
   if (p.startsWith("/projects")) return "projects";
   if (p.startsWith("/hypotheses")) return "hypotheses";
+  if (p.startsWith("/dilemmas")) return "dilemmas";
   if (p.startsWith("/events")) return "events";
   if (p.startsWith("/facts")) return "facts";
   if (p.startsWith("/profile")) return "profile";
@@ -17,15 +18,16 @@ export function chatPageContext(pathname: string | null | undefined): string {
 /** Subtitle shown under "AIR4" in the chat sidebar header. */
 export function sidebarSubtitle(pathname: string | null | undefined): string {
   const p = pathname || "/";
-  if (p === "/" || p === "") return "Overview";
-  if (p.startsWith("/upload")) return "Ready to analyze";
-  if (p.startsWith("/dashboard")) return "Analyzing your spending";
-  if (p.startsWith("/timeline")) return "Spending over time";
-  if (p.startsWith("/projects")) return "Your active projects";
-  if (p.startsWith("/hypotheses")) return "Patterns AIR4 discovered";
-  if (p.startsWith("/events")) return "Your life events";
-  if (p.startsWith("/facts")) return "What AIR4 knows about you";
-  if (p.startsWith("/profile")) return "Your profile";
-  if (p.startsWith("/chat")) return "Full conversation";
-  return "AIR4 assistant";
+  if (p === "/" || p === "") return "Обзор";
+  if (p.startsWith("/upload")) return "Готов к анализу";
+  if (p.startsWith("/dashboard")) return "Анализ твоих трат";
+  if (p.startsWith("/timeline")) return "Траты по времени";
+  if (p.startsWith("/projects")) return "Твои активные проекты";
+  if (p.startsWith("/hypotheses")) return "Паттерны AIR4";
+  if (p.startsWith("/dilemmas")) return "Разбор решений";
+  if (p.startsWith("/events")) return "Твои события";
+  if (p.startsWith("/facts")) return "Что AIR4 знает о тебе";
+  if (p.startsWith("/profile")) return "Твой профиль";
+  if (p.startsWith("/chat")) return "Полный диалог";
+  return "AIR4";
 }

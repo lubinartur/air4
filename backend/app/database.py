@@ -129,6 +129,17 @@ CREATE TABLE IF NOT EXISTS observations (
     is_read BOOLEAN DEFAULT FALSE,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS dilemmas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    options TEXT,
+    analysis TEXT,
+    recommendation TEXT,
+    status TEXT DEFAULT 'open',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

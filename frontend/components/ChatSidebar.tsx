@@ -136,6 +136,9 @@ async function buildPageGreeting(pathname: string): Promise<string> {
   if (pathname.startsWith("/facts")) {
     return `Привет, ${name}! Здесь всё что я знаю о тебе. Можешь удалить неверное или рассказать больше.`;
   }
+  if (pathname.startsWith("/dilemmas")) {
+    return `Привет, ${name}! Опиши дилемму — разложу по полочкам с учётом твоего контекста.`;
+  }
   if (pathname.startsWith("/profile")) {
     return `Привет, ${name}! Здесь твой профиль — обнови данные, и я смогу точнее советовать по финансам.`;
   }

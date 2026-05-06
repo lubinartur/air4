@@ -6,11 +6,13 @@ import {
   generateObservations,
   getObservations,
   getCrossSphereInsights,
+  getDilemmas,
   getEvents,
   getHypotheses,
   getProjects,
   getSummary,
   type CrossSphereInsight,
+  type Dilemma,
   type Hypothesis,
   type LifeEvent,
   type Observation,
@@ -51,6 +53,8 @@ export default function OverviewPage() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [events, setEvents] = useState<LifeEvent[]>([]);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [dilemmas, setDilemmas] = useState<Dilemma[]>([]);
+  const [dilemmasError, setDilemmasError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
@@ -79,6 +83,17 @@ export default function OverviewPage() {
         if (!cancelled) setEvents(ev || []);
       } catch (e) {
         if (!cancelled) setEventsError(e instanceof Error ? e.message : "Failed to load life events");
+      }
+
+      setDilemmasError(null);
+      try {
+        const ds = await getDilemmas();
+        if (!cancelled) setDilemmas(ds || []);
+      } catch (e) {
+        if (!cancelled)
+          setDilemmasError(
+            e instanceof Error ? e.message : "Failed to load dilemmas"
+          );
       }
 
       setProjectsError(null);
@@ -141,6 +156,10 @@ export default function OverviewPage() {
   }, [events]);
 
   const last2Events = useMemo(() => (events || []).slice(0, 2), [events]);
+  const openDilemmasCount = useMemo(
+    () => (dilemmas || []).filter((d) => d.status === "open").length,
+    [dilemmas]
+  );
   const activeProjectsCount = useMemo(
     () => (projects || []).filter((p) => p.status === "active").length,
     [projects]
@@ -425,6 +444,10 @@ export default function OverviewPage() {
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {eventsError}
             </div>
+          ) : dilemmasError ? (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {dilemmasError}
+            </div>
           ) : (
             <div className="mt-6">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
@@ -433,6 +456,17 @@ export default function OverviewPage() {
               <div className="mt-2 text-3xl font-bold text-zinc-900 tabular-nums">
                 {eventsThisWeekCount}
               </div>
+              {openDilemmasCount > 0 ? (
+                <div className="mt-3 text-sm text-zinc-700">
+                  Открытых дилемм:{" "}
+                  <Link
+                    href="/dilemmas"
+                    className="font-medium text-zinc-900 hover:underline"
+                  >
+                    {openDilemmasCount}
+                  </Link>
+                </div>
+              ) : null}
               <div className="mt-4 grid gap-2">
                 {last2Events.length === 0 ? (
                   <p className="text-sm text-zinc-600">

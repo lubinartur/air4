@@ -106,6 +106,9 @@ async function buildPageGreeting(pathname: string): Promise<string> {
   if (pathname.startsWith("/projects")) {
     return `Привет, ${name}! Здесь твои проекты. Расскажи что сейчас в работе или обнови статус.`;
   }
+  if (pathname.startsWith("/hypotheses")) {
+    return `Привет, ${name}! Здесь гипотезы которые я хочу проверить с тобой. Подтверди или отклони.`;
+  }
   if (pathname.startsWith("/facts")) {
     return `Привет, ${name}! Здесь всё что я знаю о тебе. Можешь удалить неверное или рассказать больше.`;
   }
@@ -173,7 +176,14 @@ export function ChatSidebar() {
     void (async () => {
       const content = await buildPageGreeting(pathname);
       if (cancelled || id !== greetingSeq.current) return;
-      setMessages((prev) => [...prev, { role: "assistant", content }]);
+      setMessages((prev) => {
+        const nextGreeting: ChatLine = { role: "assistant", content };
+        if (prev.length === 0) return [nextGreeting];
+        if (prev[0]?.role === "assistant") {
+          return [nextGreeting, ...prev.slice(1)];
+        }
+        return [nextGreeting, ...prev];
+      });
     })();
 
     return () => {

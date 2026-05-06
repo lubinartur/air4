@@ -101,6 +101,15 @@ CREATE TABLE IF NOT EXISTS project_logs (
     source TEXT DEFAULT 'manual',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS hypotheses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    text TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    confirmed_at TEXT,
+    rejected_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

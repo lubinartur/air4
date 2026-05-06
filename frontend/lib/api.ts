@@ -139,6 +139,17 @@ export type ProjectLog = {
 
 export type ProjectWithLogs = Project & { logs: ProjectLog[] };
 
+export type HypothesisStatus = "pending" | "confirmed" | "rejected";
+
+export type Hypothesis = {
+  id: number;
+  text: string;
+  status: HypothesisStatus;
+  confirmed_at?: string | null;
+  rejected_at?: string | null;
+  created_at?: string | null;
+};
+
 /** Dispatched on `window` after profile save so the header can refresh. */
 export const PROFILE_UPDATED_EVENT = "air4-profile-updated";
 
@@ -354,6 +365,35 @@ export async function deleteProjectLog(
   await apiFetch<{ ok: boolean }>(`/api/projects/${projectId}/logs/${logId}`, {
     method: "DELETE",
   });
+}
+
+export async function getHypotheses(): Promise<Hypothesis[]> {
+  return await apiFetch<Hypothesis[]>("/api/hypotheses");
+}
+
+export async function generateHypotheses(): Promise<{
+  created: number;
+  cooldown_hours_remaining?: number | null;
+}> {
+  return await apiFetch<{ created: number; cooldown_hours_remaining?: number | null }>(
+    "/api/hypotheses/generate",
+    { method: "POST" }
+  );
+}
+
+export async function updateHypothesis(
+  id: number,
+  status: "confirmed" | "rejected"
+): Promise<Hypothesis> {
+  return await apiFetch<Hypothesis>(`/api/hypotheses/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function deleteHypothesis(id: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/hypotheses/${id}`, { method: "DELETE" });
 }
 
 export async function getProfile(): Promise<UserProfile> {

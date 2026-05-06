@@ -6,6 +6,7 @@ export function chatPageContext(pathname: string | null | undefined): string {
   if (p.startsWith("/dashboard")) return "dashboard";
   if (p.startsWith("/timeline")) return "timeline";
   if (p.startsWith("/projects")) return "projects";
+  if (p.startsWith("/hypotheses")) return "hypotheses";
   if (p.startsWith("/events")) return "events";
   if (p.startsWith("/facts")) return "facts";
   if (p.startsWith("/profile")) return "profile";
@@ -21,6 +22,7 @@ export function sidebarSubtitle(pathname: string | null | undefined): string {
   if (p.startsWith("/dashboard")) return "Analyzing your spending";
   if (p.startsWith("/timeline")) return "Spending over time";
   if (p.startsWith("/projects")) return "Your active projects";
+  if (p.startsWith("/hypotheses")) return "Patterns AIR4 discovered";
   if (p.startsWith("/events")) return "Your life events";
   if (p.startsWith("/facts")) return "What AIR4 knows about you";
   if (p.startsWith("/profile")) return "Your profile";

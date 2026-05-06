@@ -228,6 +228,7 @@ class OllamaAnalyzer:
         transactions: list[dict[str, Any]] | None = None,
         user_facts: list[dict[str, Any]] | None = None,
         projects: list[dict[str, Any]] | None = None,
+        confirmed_hypotheses: list[dict[str, Any]] | None = None,
         current_page: str | None = None,
     ) -> str:
         complexity = await self.classify_query(message)
@@ -298,6 +299,15 @@ class OllamaAnalyzer:
                 lines.append(f"{idx}. {name}{extra}{tail}")
             if lines:
                 system_content += "\n\nActive projects:\n" + "\n".join(lines)
+        if confirmed_hypotheses:
+            lines: list[str] = []
+            for idx, h in enumerate(confirmed_hypotheses[:20], start=1):
+                text = str(h.get("text") or "").replace("\n", " ").strip()
+                if not text:
+                    continue
+                lines.append(f"{idx}. {text}")
+            if lines:
+                system_content += "\n\nConfirmed patterns about user:\n" + "\n".join(lines)
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
         for m in history[-20:]:
             role = m.get("role")

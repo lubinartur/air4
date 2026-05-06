@@ -129,7 +129,10 @@ export function SiteHeader() {
     pathname.startsWith("/timeline") ||
     pathname.startsWith("/upload");
   const projectsActive = pathname.startsWith("/projects");
-  const lifeActive = pathname.startsWith("/events") || pathname.startsWith("/facts");
+  const lifeActive =
+    pathname.startsWith("/events") ||
+    pathname.startsWith("/facts") ||
+    pathname.startsWith("/hypotheses");
 
   return (
     <header className="border-b border-zinc-100 bg-white">
@@ -233,6 +236,11 @@ export function SiteHeader() {
                   href="/facts"
                   label="Facts"
                   badge={factsCount}
+                  onSelect={() => setOpen(null)}
+                />
+                <DropdownItem
+                  href="/hypotheses"
+                  label="Patterns"
                   onSelect={() => setOpen(null)}
                 />
               </div>

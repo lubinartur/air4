@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getEvents, getProjects, getSummary, type LifeEvent, type Project, type Summary } from "@/lib/api";
+import { getEvents, getHypotheses, getProjects, getSummary, type Hypothesis, type LifeEvent, type Project, type Summary } from "@/lib/api";
 import { categoryLabel } from "@/lib/categories";
 
 function eur(n: number) {
@@ -37,6 +37,8 @@ export default function OverviewPage() {
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
+  const [hypothesesError, setHypothesesError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +66,17 @@ export default function OverviewPage() {
       } catch (e) {
         if (!cancelled) setProjectsError(e instanceof Error ? e.message : "Failed to load projects");
       }
+
+      setHypothesesError(null);
+      try {
+        const hs = await getHypotheses();
+        if (!cancelled) setHypotheses(hs || []);
+      } catch (e) {
+        if (!cancelled)
+          setHypothesesError(
+            e instanceof Error ? e.message : "Failed to load patterns"
+          );
+      }
     }
     void load();
     return () => {
@@ -89,6 +102,10 @@ export default function OverviewPage() {
     [projects]
   );
   const last2Projects = useMemo(() => (projects || []).slice(0, 2), [projects]);
+  const pendingHypothesesCount = useMemo(
+    () => (hypotheses || []).filter((h) => h.status === "pending").length,
+    [hypotheses]
+  );
 
   const noFinanceData =
     summary == null ||
@@ -107,6 +124,31 @@ export default function OverviewPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Patterns */}
+        {pendingHypothesesCount > 0 ? (
+          <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-zinc-900">Patterns</h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  AIR4 has {pendingHypothesesCount} questions for you
+                </p>
+              </div>
+              <Link
+                href="/hypotheses"
+                className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
+              >
+                View Patterns →
+              </Link>
+            </div>
+            {hypothesesError ? (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {hypothesesError}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {/* Finance */}
         <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">

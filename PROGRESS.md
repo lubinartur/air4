@@ -56,9 +56,9 @@ Last updated: 6 May 2026
 - [x] Projects context in chat
 
 ## 🔲 Phase 5 — Meaning Engine
-- [ ] AIR4 generates hypotheses about user behavior
-- [ ] Confirm/reject/edit hypotheses
-- [ ] Confirmed meanings stored and used in chat
+- [x] AIR4 generates hypotheses about user behavior
+- [x] Confirm/reject/edit hypotheses
+- [x] Confirmed meanings stored and used in chat
 
 ## 🔲 Phase 6 — Cross-Sphere Intelligence
 - [ ] Finance ↔ Events correlation

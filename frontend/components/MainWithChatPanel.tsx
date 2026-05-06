@@ -9,6 +9,7 @@ function showChatSidebarForPath(pathname: string): boolean {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/timeline") ||
     pathname.startsWith("/projects") ||
+    pathname.startsWith("/hypotheses") ||
     pathname.startsWith("/events") ||
     pathname.startsWith("/facts") ||
     pathname.startsWith("/profile")

@@ -147,6 +147,17 @@ async def chat(
         """,
     )
 
+    confirmed_hypotheses_rows = await fetch_all(
+        db,
+        """
+        SELECT text
+        FROM hypotheses
+        WHERE status = 'confirmed'
+        ORDER BY datetime(confirmed_at) DESC, id DESC
+        LIMIT 20
+        """,
+    )
+
     analyzer = OllamaAnalyzer()
     response = await analyzer.chat(
         body.message,
@@ -157,6 +168,7 @@ async def chat(
         transactions=tx_rows,
         user_facts=user_facts_rows,
         projects=active_projects_rows,
+        confirmed_hypotheses=confirmed_hypotheses_rows,
         current_page=body.current_page,
     )
     return ChatOut(

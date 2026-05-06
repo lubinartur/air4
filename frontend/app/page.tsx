@@ -7,6 +7,7 @@ import {
   getObservations,
   getCrossSphereInsights,
   getDilemmas,
+  getPendingFollowups,
   getInterviewAnswers,
   getEvents,
   getHypotheses,
@@ -57,6 +58,8 @@ export default function OverviewPage() {
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [dilemmas, setDilemmas] = useState<Dilemma[]>([]);
   const [dilemmasError, setDilemmasError] = useState<string | null>(null);
+  const [pendingFollowupsCount, setPendingFollowupsCount] = useState<number>(0);
+  const [followupsError, setFollowupsError] = useState<string | null>(null);
   const [interviewAnswers, setInterviewAnswers] = useState<InterviewAnswer[]>([]);
   const [interviewError, setInterviewError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -97,6 +100,17 @@ export default function OverviewPage() {
         if (!cancelled)
           setDilemmasError(
             e instanceof Error ? e.message : "Failed to load dilemmas"
+          );
+      }
+
+      setFollowupsError(null);
+      try {
+        const pf = await getPendingFollowups();
+        if (!cancelled) setPendingFollowupsCount((pf || []).length);
+      } catch (e) {
+        if (!cancelled)
+          setFollowupsError(
+            e instanceof Error ? e.message : "Failed to load pending followups"
           );
       }
 
@@ -464,6 +478,10 @@ export default function OverviewPage() {
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {dilemmasError}
             </div>
+          ) : followupsError ? (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {followupsError}
+            </div>
           ) : interviewError ? (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {interviewError}
@@ -486,6 +504,14 @@ export default function OverviewPage() {
                     {openDilemmasCount}
                   </Link>
                 </div>
+              ) : null}
+              {pendingFollowupsCount > 0 ? (
+                <Link
+                  href="/dilemmas"
+                  className="mt-3 block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800"
+                >
+                  AIR4 ждёт ответа по дилемме ({pendingFollowupsCount})
+                </Link>
               ) : null}
               {interviewAnswersCount < 5 ? (
                 <div className="mt-2 text-sm text-zinc-700">

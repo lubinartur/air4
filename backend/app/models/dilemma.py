@@ -20,4 +20,11 @@ class DilemmaOut(BaseModel):
     recommendation: str | None = None
     status: DilemmaStatus = "open"
     created_at: str | None = None
+    followup_due: str | None = None
+    followup_done: bool = False
+    followup_answer: str | None = None
+
+
+class DilemmaFollowupIn(BaseModel):
+    answer: str = Field(..., min_length=1)
 

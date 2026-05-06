@@ -230,6 +230,7 @@ class OllamaAnalyzer:
         projects: list[dict[str, Any]] | None = None,
         confirmed_hypotheses: list[dict[str, Any]] | None = None,
         cross_sphere_insights: list[dict[str, Any]] | None = None,
+        solved_dilemmas: list[dict[str, Any]] | None = None,
         interview_answers: list[dict[str, Any]] | None = None,
         current_page: str | None = None,
     ) -> str:
@@ -344,6 +345,16 @@ class OllamaAnalyzer:
                 lines.append(f"{idx}. {title}: {desc}")
             if lines:
                 system_content += "\n\nМежсферные связи:\n" + "\n".join(lines)
+        if solved_dilemmas:
+            lines: list[str] = []
+            for d in solved_dilemmas[:30]:
+                title = str(d.get("title") or "").replace("\n", " ").strip()
+                ans = str(d.get("followup_answer") or "").strip()
+                if not title or not ans:
+                    continue
+                lines.append(f"- {title} — решение: {ans}")
+            if lines:
+                system_content += "\n\nРешённые дилеммы:\n" + "\n".join(lines)
         if interview_answers:
             lines: list[str] = []
             for qa in interview_answers[:50]:

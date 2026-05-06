@@ -166,11 +166,26 @@ async def _ensure_user_profile_columns(db: aiosqlite.Connection) -> None:
             await db.execute(f"ALTER TABLE user_profile ADD COLUMN {col} {typ}")
 
 
+async def _ensure_dilemmas_columns(db: aiosqlite.Connection) -> None:
+    async with db.execute("PRAGMA table_info(dilemmas)") as cur:
+        rows = await cur.fetchall()
+    colnames = {str(r[1]) for r in rows}
+    alters: list[tuple[str, str]] = [
+        ("followup_due", "TEXT"),
+        ("followup_done", "BOOLEAN DEFAULT FALSE"),
+        ("followup_answer", "TEXT"),
+    ]
+    for col, typ in alters:
+        if col not in colnames:
+            await db.execute(f"ALTER TABLE dilemmas ADD COLUMN {col} {typ}")
+
+
 async def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript(SCHEMA_SQL)
         await _ensure_user_profile_columns(db)
+        await _ensure_dilemmas_columns(db)
         await db.execute(
             "INSERT OR IGNORE INTO user_profile (id, name, context) VALUES (1, NULL, NULL)"
         )

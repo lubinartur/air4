@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   FACTS_UPDATED_EVENT,
   getFacts,
+  getPendingFollowups,
   getObservations,
   getProfile,
   PROFILE_UPDATED_EVENT,
@@ -72,6 +73,7 @@ export function SiteHeader() {
   const [brand, setBrand] = useState("AIR4");
   const [factsCount, setFactsCount] = useState(0);
   const [unreadObsCount, setUnreadObsCount] = useState(0);
+  const [pendingFollowupsCount, setPendingFollowupsCount] = useState(0);
   const pathname = usePathname();
   const [open, setOpen] = useState<null | "finance" | "projects" | "life">(null);
   const financeRef = useRef<HTMLDivElement>(null);
@@ -122,6 +124,24 @@ export function SiteHeader() {
     }
     void loadObsCount();
     const i = window.setInterval(() => void loadObsCount(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(i);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFollowups() {
+      try {
+        const pending = await getPendingFollowups();
+        if (!cancelled) setPendingFollowupsCount((pending || []).length);
+      } catch {
+        if (!cancelled) setPendingFollowupsCount(0);
+      }
+    }
+    void loadFollowups();
+    const i = window.setInterval(() => void loadFollowups(), 60000);
     return () => {
       cancelled = true;
       window.clearInterval(i);
@@ -252,7 +272,14 @@ export function SiteHeader() {
               }`}
               aria-expanded={open === "life"}
             >
-              <span>Жизнь</span>
+              <span className="inline-flex items-center gap-2">
+                <span>Жизнь</span>
+                {pendingFollowupsCount > 0 ? (
+                  <span className="rounded bg-red-600 px-1.5 text-xs font-medium text-white tabular-nums">
+                    {pendingFollowupsCount}
+                  </span>
+                ) : null}
+              </span>
               <span className="text-xs text-zinc-400">▾</span>
             </button>
             {open === "life" ? (

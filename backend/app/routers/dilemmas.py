@@ -4,7 +4,7 @@ import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.database import execute, fetch_all, fetch_one, get_db
-from app.models.dilemma import DilemmaCreateIn, DilemmaOut
+from app.models.dilemma import DilemmaCreateIn, DilemmaFollowupIn, DilemmaOut
 from app.services.dilemma_analyzer import DilemmaAnalyzer
 
 router = APIRouter()
@@ -135,8 +135,8 @@ async def create_dilemma(
     new_id = await execute(
         db,
         """
-        INSERT INTO dilemmas (title, description, options, analysis, recommendation, status)
-        VALUES (?, ?, NULL, ?, ?, 'open')
+        INSERT INTO dilemmas (title, description, options, analysis, recommendation, status, followup_due, followup_done)
+        VALUES (?, ?, NULL, ?, ?, 'open', datetime('now', '+14 days'), 0)
         """,
         (title, text, analysis, recommendation),
     )
@@ -144,6 +144,54 @@ async def create_dilemma(
     if row is None:
         raise HTTPException(status_code=500, detail="Failed to create dilemma")
     return DilemmaOut(**row)
+
+
+@router.get("/dilemmas/pending-followups", response_model=list[DilemmaOut])
+async def pending_followups(
+    db: aiosqlite.Connection = Depends(get_db),
+) -> list[DilemmaOut]:
+    rows = await fetch_all(
+        db,
+        """
+        SELECT *
+        FROM dilemmas
+        WHERE status = 'open'
+          AND COALESCE(followup_done, 0) = 0
+          AND followup_due IS NOT NULL
+          AND datetime(followup_due) <= datetime('now')
+        ORDER BY datetime(followup_due) ASC, id ASC
+        """,
+    )
+    return [DilemmaOut(**r) for r in rows]
+
+
+@router.post("/dilemmas/{dilemma_id}/followup", response_model=DilemmaOut)
+async def submit_followup(
+    dilemma_id: int,
+    body: DilemmaFollowupIn,
+    db: aiosqlite.Connection = Depends(get_db),
+) -> DilemmaOut:
+    row = await fetch_one(db, "SELECT * FROM dilemmas WHERE id = ?", (int(dilemma_id),))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Dilemma not found")
+    answer = (body.answer or "").strip()
+    if not answer:
+        raise HTTPException(status_code=400, detail="answer is required")
+    await execute(
+        db,
+        """
+        UPDATE dilemmas
+        SET followup_answer = ?,
+            followup_done = 1,
+            status = 'closed'
+        WHERE id = ?
+        """,
+        (answer, int(dilemma_id)),
+    )
+    updated = await fetch_one(db, "SELECT * FROM dilemmas WHERE id = ?", (int(dilemma_id),))
+    if updated is None:
+        raise HTTPException(status_code=500, detail="Failed to save followup")
+    return DilemmaOut(**updated)
 
 
 @router.get("/dilemmas/{dilemma_id}", response_model=DilemmaOut)

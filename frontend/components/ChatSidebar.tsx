@@ -9,6 +9,7 @@ import {
   getProfile,
   getSummary,
   getTransactions,
+  getPendingFollowups,
   notifyFactsUpdated,
   type ChatMessage,
   type UserFact,
@@ -137,6 +138,14 @@ async function buildPageGreeting(pathname: string): Promise<string> {
     return `Привет, ${name}! Здесь всё что я знаю о тебе. Можешь удалить неверное или рассказать больше.`;
   }
   if (pathname.startsWith("/dilemmas")) {
+    try {
+      const pf = await getPendingFollowups();
+      if ((pf || []).length > 0) {
+        return `Привет, ${name}! Есть дилемма которая ждёт фоллоу-апа. Как пошло?`;
+      }
+    } catch {
+      /* ignore */
+    }
     return `Привет, ${name}! Опиши дилемму — разложу по полочкам с учётом твоего контекста.`;
   }
   if (pathname.startsWith("/interview")) {

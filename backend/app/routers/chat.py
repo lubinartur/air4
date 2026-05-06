@@ -178,6 +178,19 @@ async def chat(
         """,
     )
 
+    solved_dilemmas_rows = await fetch_all(
+        db,
+        """
+        SELECT title, followup_answer, created_at
+        FROM dilemmas
+        WHERE status = 'closed'
+          AND followup_answer IS NOT NULL
+          AND TRIM(followup_answer) != ''
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT 30
+        """,
+    )
+
     analyzer = OllamaAnalyzer()
     response = await analyzer.chat(
         body.message,
@@ -190,6 +203,7 @@ async def chat(
         projects=active_projects_rows,
         confirmed_hypotheses=confirmed_hypotheses_rows,
         cross_sphere_insights=cross_sphere_rows,
+        solved_dilemmas=solved_dilemmas_rows,
         interview_answers=interview_answers_rows,
         current_page=body.current_page,
     )

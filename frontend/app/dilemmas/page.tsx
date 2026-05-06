@@ -5,6 +5,8 @@ import {
   createDilemma,
   deleteDilemma,
   getDilemmas,
+  getPendingFollowups,
+  submitFollowup,
   type Dilemma,
 } from "@/lib/api";
 
@@ -28,10 +30,26 @@ function preview(s: string | null | undefined, max = 160): string {
   return t.length > max ? t.slice(0, max - 1) + "…" : t;
 }
 
+function renderMultilineParagraphs(text: string) {
+  return text
+    .split("\n")
+    .map((l) => l.trimEnd())
+    .filter((l) => l.trim().length > 0)
+    .map((line, idx) => (
+      <p key={idx} className="text-sm text-zinc-600 leading-relaxed">
+        {line}
+      </p>
+    ));
+}
+
 export default function DilemmasPage() {
   const [text, setText] = useState("");
   const [creating, setCreating] = useState(false);
   const [items, setItems] = useState<Dilemma[]>([]);
+  const [pendingFollowups, setPendingFollowups] = useState<Dilemma[]>([]);
+  const [followupAnswers, setFollowupAnswers] = useState<Record<number, string>>({});
+  const [followupBusy, setFollowupBusy] = useState<number | null>(null);
+  const [followupThanks, setFollowupThanks] = useState<Record<number, boolean>>({});
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +61,8 @@ export default function DilemmasPage() {
     try {
       const ds = await getDilemmas();
       setItems(ds || []);
+      const pf = await getPendingFollowups();
+      setPendingFollowups(pf || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось загрузить дилеммы");
     } finally {
@@ -59,6 +79,23 @@ export default function DilemmasPage() {
     () => (items || []).filter((d) => d.status === "open").length,
     [items]
   );
+
+  async function onSubmitFollowup(d: Dilemma) {
+    const ans = (followupAnswers[d.id] || "").trim();
+    if (!ans) return;
+    setFollowupBusy(d.id);
+    setError(null);
+    try {
+      await submitFollowup(d.id, ans);
+      setPendingFollowups((prev) => prev.filter((x) => x.id !== d.id));
+      setFollowupThanks((prev) => ({ ...prev, [d.id]: true }));
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось отправить ответ");
+    } finally {
+      setFollowupBusy(null);
+    }
+  }
 
   async function onCreate() {
     const t = text.trim();
@@ -100,6 +137,75 @@ export default function DilemmasPage() {
           Опиши выбор — AIR4 разложит его с учётом твоего контекста
         </p>
       </div>
+
+      {pendingFollowups.length > 0 ? (
+        <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+              Фоллоу-ап
+            </h2>
+            <div className="text-xs text-zinc-500">
+              Ждут ответа: {pendingFollowups.length}
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            {pendingFollowups.map((d) => (
+              <div
+                key={d.id}
+                className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium text-zinc-900">{d.title}</div>
+                    <div className="mt-2 text-sm text-zinc-700">
+                      {preview(d.recommendation)}
+                    </div>
+                    <div className="mt-3 text-sm font-medium text-zinc-900">
+                      Как пошло? Ты принял решение?
+                    </div>
+                  </div>
+                </div>
+
+                {followupThanks[d.id] ? (
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                    Спасибо! AIR4 учтёт это.
+                  </div>
+                ) : (
+                  <>
+                    <textarea
+                      value={followupAnswers[d.id] || ""}
+                      onChange={(e) =>
+                        setFollowupAnswers((prev) => ({
+                          ...prev,
+                          [d.id]: e.target.value,
+                        }))
+                      }
+                      rows={3}
+                      className="mt-4 w-full resize-y rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-400 focus:ring-0 focus:outline-none"
+                      placeholder="Твой ответ..."
+                      disabled={followupBusy === d.id}
+                    />
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => void onSubmitFollowup(d)}
+                        disabled={
+                          followupBusy === d.id ||
+                          (followupAnswers[d.id] || "").trim().length === 0
+                        }
+                        className="rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+                      >
+                        {followupBusy === d.id ? "Отправляю…" : "Ответить"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -212,9 +318,9 @@ export default function DilemmasPage() {
                           <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
                             Разбор
                           </div>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-800">
-                            {d.analysis}
-                          </p>
+                          <div className="mt-2 max-h-48 overflow-y-auto whitespace-pre-line">
+                            {renderMultilineParagraphs(d.analysis)}
+                          </div>
                         </div>
                       ) : null}
                       {d.recommendation ? (
@@ -222,9 +328,9 @@ export default function DilemmasPage() {
                           <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
                             Рекомендация
                           </div>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-800">
-                            {d.recommendation}
-                          </p>
+                          <div className="mt-2 max-h-48 overflow-y-auto whitespace-pre-line">
+                            {renderMultilineParagraphs(d.recommendation)}
+                          </div>
                         </div>
                       ) : null}
                     </div>

@@ -482,6 +482,17 @@ export async function deleteDilemma(id: number): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/dilemmas/${id}`, { method: "DELETE" });
 }
 
+export async function getPendingFollowups(): Promise<Dilemma[]> {
+  return await apiFetch<Dilemma[]>("/api/dilemmas/pending-followups");
+}
+
+export async function submitFollowup(id: number, answer: string): Promise<Dilemma> {
+  return await apiFetch<Dilemma>(`/api/dilemmas/${id}/followup`, {
+    method: "POST",
+    body: JSON.stringify({ answer }),
+  });
+}
+
 export async function getInterviewQuestions(): Promise<{ questions: InterviewQuestion[] }> {
   return await apiFetch<{ questions: InterviewQuestion[] }>("/api/interview/questions");
 }

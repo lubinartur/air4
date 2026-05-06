@@ -17,7 +17,7 @@ async def list_cross_sphere(
     rows = await fetch_all(
         db,
         """
-        SELECT *
+        SELECT id, sphere1, sphere2, title, description, confidence, created_at
         FROM cross_sphere_insights
         ORDER BY datetime(created_at) DESC, id DESC
         """,
@@ -166,11 +166,16 @@ async def delete_cross_sphere(
     insight_id: int,
     db: aiosqlite.Connection = Depends(get_db),
 ) -> dict[str, bool]:
-    row = await fetch_one(
-        db, "SELECT id FROM cross_sphere_insights WHERE id = ?", (int(insight_id),)
+    cur = await db.execute(
+        "DELETE FROM cross_sphere_insights WHERE id = ? RETURNING id",
+        (int(insight_id),),
     )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Insight not found")
-    await execute(db, "DELETE FROM cross_sphere_insights WHERE id = ?", (int(insight_id),))
+    deleted = await cur.fetchone()
+    await db.commit()
+    if deleted is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Cross-sphere insight not found",
+        )
     return {"ok": True}
 

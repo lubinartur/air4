@@ -84,8 +84,10 @@ export function CrossSphereCard({
           <button
             type="button"
             onClick={async () => {
-              await deleteCrossSphereInsight(insight.id);
-              onDeleted?.(insight.id);
+              const id = Number(insight.id);
+              if (!Number.isFinite(id)) return;
+              await deleteCrossSphereInsight(id);
+              onDeleted?.(id);
             }}
             className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-200 hover:bg-red-500/20"
           >

@@ -287,24 +287,14 @@ class OllamaAnalyzer:
         page = (current_page or "").strip()
         if page:
             system_content += f"\n\nПользователь сейчас на странице: {page}."
+        system_content += (
+            "\n\nDo not default to financial advice unless the user specifically asks about finances. "
+            "Respond to what the user actually asked about."
+        )
         if profile:
             profile_block = _format_user_profile_for_prompt(profile)
             if profile_block:
                 system_content += f"\n\n{profile_block}"
-        context = "Сводка трат (JSON):\n" + json.dumps(summary, ensure_ascii=False)
-        system_content = system_content + "\n\n" + context
-        if transactions:
-            compact = _format_transactions_for_prompt(transactions, limit=100)
-            if compact:
-                system_content += (
-                    "\n\nНедавние транзакции (дата, описание, сумма, категория):\n"
-                    + compact
-                )
-        if events:
-            system_content += (
-                "\n\nСобытия из жизни пользователя (память; используй когда уместно):\n"
-                + json.dumps(events, ensure_ascii=False)
-            )
         if user_facts:
             fact_lines = [
                 f"{str(f.get('key') or '').strip()}: {str(f.get('value') or '').strip()}"
@@ -326,6 +316,11 @@ class OllamaAnalyzer:
                 lines.append(f"{idx}. {name}{extra}{tail}")
             if lines:
                 system_content += "\n\nАктивные проекты:\n" + "\n".join(lines)
+        if events:
+            system_content += (
+                "\n\nСобытия из жизни пользователя (память; используй когда уместно):\n"
+                + json.dumps(events, ensure_ascii=False)
+            )
         if confirmed_hypotheses:
             lines: list[str] = []
             for idx, h in enumerate(confirmed_hypotheses[:20], start=1):
@@ -365,6 +360,18 @@ class OllamaAnalyzer:
                 lines.append(f"Q: {q}\nA: {a}")
             if lines:
                 system_content += "\n\nОтветы из интервью:\n" + "\n\n".join(lines)
+        context = (
+            "Краткая сводка по тратам (JSON):\n"
+            + json.dumps(summary, ensure_ascii=False)
+        )
+        system_content = system_content + "\n\n" + context
+        if transactions:
+            compact = _format_transactions_for_prompt(transactions, limit=20)
+            if compact:
+                system_content += (
+                    "\n\nДо 20 недавних транзакций (дата, описание, сумма, категория):\n"
+                    + compact
+                )
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
         for m in history[-20:]:
             role = m.get("role")

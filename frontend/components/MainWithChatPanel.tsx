@@ -5,7 +5,9 @@ import { ChatSidebar } from "@/components/ChatSidebar";
 
 function showChatSidebarForPath(pathname: string): boolean {
   return (
+    pathname === "/" ||
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/timeline") ||
     pathname.startsWith("/events") ||
     pathname.startsWith("/facts") ||
     pathname.startsWith("/profile")

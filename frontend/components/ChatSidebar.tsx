@@ -100,13 +100,19 @@ async function buildPageGreeting(pathname: string): Promise<string> {
   if (pathname.startsWith("/events")) {
     return `Привет, ${name}! Здесь твои жизненные события. Хочешь добавить что-то новое или найти связи с тратами?`;
   }
+  if (pathname.startsWith("/timeline")) {
+    return `Привет, ${name}! Здесь твои траты по периодам. Выбери два периода для сравнения.`;
+  }
   if (pathname.startsWith("/facts")) {
     return `Привет, ${name}! Здесь всё что я знаю о тебе. Можешь удалить неверное или рассказать больше.`;
   }
   if (pathname.startsWith("/profile")) {
     return `Привет, ${name}! Здесь твой профиль — обнови данные, и я смогу точнее советовать по финансам.`;
   }
-  if (pathname === "/" || pathname === "" || pathname.startsWith("/upload")) {
+  if (pathname === "/" || pathname === "") {
+    return `Привет, ${name}! Это твой обзор жизни. Финансы, здоровье, проекты — всё в одном месте. Что хочешь разобрать сегодня?`;
+  }
+  if (pathname.startsWith("/upload")) {
     return `Привет, ${name}! Загрузи выписку Swedbank и я сразу начну анализ.`;
   }
   return `Привет, ${name}! Чем могу помочь?`;
@@ -130,6 +136,17 @@ export function ChatSidebar() {
       content: m.content,
     }));
   }, [messages]);
+
+  useEffect(() => {
+    function onPrefill(e: Event) {
+      const ce = e as CustomEvent<{ message?: string }>;
+      const msg = ce.detail?.message;
+      if (typeof msg === "string") setText(msg);
+    }
+    window.addEventListener("air4-chat-prefill", onPrefill as EventListener);
+    return () =>
+      window.removeEventListener("air4-chat-prefill", onPrefill as EventListener);
+  }, []);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;

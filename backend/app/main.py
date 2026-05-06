@@ -12,6 +12,7 @@ from app.routers.insights import router as insights_router
 from app.routers.profile import router as profile_router
 from app.routers.report import router as report_router
 from app.routers.summary import router as summary_router
+from app.routers.timeline import router as timeline_router
 from app.routers.transactions import router as transactions_router
 from app.routers.upload import router as upload_router
 
@@ -40,6 +41,7 @@ app.include_router(events_router, prefix="/api", tags=["events"])
 app.include_router(facts_router, prefix="/api", tags=["facts"])
 app.include_router(profile_router, prefix="/api", tags=["profile"])
 app.include_router(report_router, prefix="/api", tags=["report"])
+app.include_router(timeline_router, prefix="/api", tags=["timeline"])
 
 
 @app.on_event("startup")

@@ -180,6 +180,51 @@ export async function generateReport(): Promise<ReportResponse> {
   return await apiFetch<ReportResponse>("/api/report", { method: "POST" });
 }
 
+export type TimelineUpload = {
+  upload_id: number;
+  period_start: string | null;
+  period_end: string | null;
+  total_spent: number;
+  by_category: { category: string; amount: number; percentage: number }[];
+  transaction_count: number;
+};
+
+export type TimelineResponse = {
+  uploads: TimelineUpload[];
+};
+
+export async function getTimeline(): Promise<TimelineResponse> {
+  return await apiFetch<TimelineResponse>("/api/timeline");
+}
+
+export type ComparePeriod = TimelineUpload;
+
+export type CompareDiffRow = {
+  category: string;
+  period1_amount: number;
+  period2_amount: number;
+  diff: number;
+  diff_pct: number;
+};
+
+export type CompareResponse = {
+  period1: ComparePeriod;
+  period2: ComparePeriod;
+  diff: {
+    total: number;
+    total_pct: number;
+    by_category: CompareDiffRow[];
+  };
+};
+
+export async function comparePeriods(
+  period1: number,
+  period2: number
+): Promise<CompareResponse> {
+  const q = `?period1=${encodeURIComponent(String(period1))}&period2=${encodeURIComponent(String(period2))}`;
+  return await apiFetch<CompareResponse>(`/api/compare${q}`);
+}
+
 export async function getTransactions(params?: {
   skip?: number;
   limit?: number;

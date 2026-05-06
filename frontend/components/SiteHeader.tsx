@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   FACTS_UPDATED_EVENT,
@@ -10,34 +10,54 @@ import {
   PROFILE_UPDATED_EVENT,
 } from "@/lib/api";
 
-function NavLink({
-  href,
-  children,
-  uploadSection,
-  badge,
-}: {
-  href: string;
-  children: React.ReactNode;
-  /** Active on / and /upload (both entry points for CSV upload). */
-  uploadSection?: boolean;
-  /** Optional count badge (hidden when 0 or undefined). */
-  badge?: number;
-}) {
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   const pathname = usePathname();
-  const active = uploadSection
-    ? pathname === "/" || pathname === "/upload"
-    : pathname === href || pathname.startsWith(`${href}/`);
+  const active = pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-1.5 text-sm transition-colors ${
+      className={`inline-flex items-center gap-2 text-sm transition-colors ${
         active
           ? "font-medium text-zinc-900"
           : "text-zinc-500 hover:text-zinc-900"
       }`}
     >
-      <span>{children}</span>
+      {children}
+    </Link>
+  );
+}
+
+function SoonBadge() {
+  return (
+    <span className="rounded bg-zinc-100 px-1.5 text-xs font-medium text-zinc-400">
+      Soon
+    </span>
+  );
+}
+
+function DropdownItem({
+  href,
+  label,
+  badge,
+  onSelect,
+}: {
+  href: string;
+  label: string;
+  badge?: number;
+  onSelect: () => void;
+}) {
+  const pathname = usePathname();
+  const active = pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    <Link
+      href={href}
+      onClick={onSelect}
+      className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+        active ? "bg-zinc-50 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+      }`}
+    >
+      <span className={active ? "font-medium" : undefined}>{label}</span>
       {badge != null && badge > 0 ? (
         <span className="rounded bg-zinc-900 px-1.5 text-xs font-medium text-white tabular-nums">
           {badge}
@@ -50,6 +70,10 @@ function NavLink({
 export function SiteHeader() {
   const [brand, setBrand] = useState("AIR4");
   const [factsCount, setFactsCount] = useState(0);
+  const pathname = usePathname();
+  const [open, setOpen] = useState<null | "finance" | "life">(null);
+  const financeRef = useRef<HTMLDivElement>(null);
+  const lifeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -82,19 +106,117 @@ export function SiteHeader() {
     return () => window.removeEventListener(FACTS_UPDATED_EVENT, onFacts);
   }, []);
 
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (financeRef.current?.contains(t)) return;
+      if (lifeRef.current?.contains(t)) return;
+      setOpen(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  useEffect(() => {
+    setOpen(null);
+  }, [pathname]);
+
+  const financeActive =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/timeline") ||
+    pathname.startsWith("/upload");
+  const lifeActive = pathname.startsWith("/events") || pathname.startsWith("/facts");
+
   return (
     <header className="border-b border-zinc-100 bg-white">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
         <div className="font-semibold text-zinc-900">{brand}</div>
         <nav className="flex items-center gap-6">
-          <NavLink href="/upload" uploadSection>
-            Upload
-          </NavLink>
-          <NavLink href="/dashboard">Dashboard</NavLink>
-          <NavLink href="/events">Events</NavLink>
-          <NavLink href="/facts" badge={factsCount}>
-            Facts
-          </NavLink>
+          <NavLink href="/">Overview</NavLink>
+
+          <div className="relative" ref={financeRef}>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => (v === "finance" ? null : "finance"))}
+              className={`inline-flex items-center gap-2 text-sm transition-colors ${
+                financeActive
+                  ? "font-medium text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-900"
+              }`}
+              aria-expanded={open === "finance"}
+            >
+              <span>Finance</span>
+              <span className="text-xs text-zinc-400">▾</span>
+            </button>
+            {open === "finance" ? (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
+                <DropdownItem
+                  href="/dashboard"
+                  label="Dashboard"
+                  onSelect={() => setOpen(null)}
+                />
+                <DropdownItem
+                  href="/timeline"
+                  label="Timeline"
+                  onSelect={() => setOpen(null)}
+                />
+                <DropdownItem
+                  href="/upload"
+                  label="Upload"
+                  onSelect={() => setOpen(null)}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div
+            className="inline-flex items-center gap-2 text-sm text-zinc-300"
+            title="Coming soon"
+          >
+            <span className="cursor-not-allowed">Health</span>
+            <SoonBadge />
+          </div>
+
+          <div
+            className="inline-flex items-center gap-2 text-sm text-zinc-300"
+            title="Coming soon"
+          >
+            <span className="cursor-not-allowed">Projects</span>
+            <SoonBadge />
+          </div>
+
+          <div className="relative" ref={lifeRef}>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => (v === "life" ? null : "life"))}
+              className={`inline-flex items-center gap-2 text-sm transition-colors ${
+                lifeActive
+                  ? "font-medium text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-900"
+              }`}
+              aria-expanded={open === "life"}
+            >
+              <span>Life</span>
+              <span className="text-xs text-zinc-400">▾</span>
+            </button>
+            {open === "life" ? (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
+                <DropdownItem
+                  href="/events"
+                  label="Events"
+                  onSelect={() => setOpen(null)}
+                />
+                <DropdownItem
+                  href="/facts"
+                  label="Facts"
+                  badge={factsCount}
+                  onSelect={() => setOpen(null)}
+                />
+              </div>
+            ) : null}
+          </div>
+
           <NavLink href="/profile">Profile</NavLink>
         </nav>
       </div>

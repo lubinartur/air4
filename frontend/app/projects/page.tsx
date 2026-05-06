@@ -75,7 +75,7 @@ export default function ProjectsPage() {
   async function onCreate() {
     const n = name.trim();
     if (!n) {
-      setError("Project name is required");
+      setError("Название проекта обязательно");
       return;
     }
     setCreating(true);
@@ -157,15 +157,15 @@ export default function ProjectsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Projects
+            Проекты
           </h1>
           <p className="mt-2 text-sm text-zinc-500">
-            Track your active projects and progress
+            Активные проекты и прогресс
           </p>
         </div>
         <div className="text-right">
           <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-            Active
+            ACTIVE
           </div>
           <div className="mt-1 text-2xl font-bold tabular-nums text-zinc-900">
             {activeCount}
@@ -181,20 +181,20 @@ export default function ProjectsPage() {
 
       <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
-          Add project
+          ДОБАВИТЬ ПРОЕКТ
         </h2>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">Name</span>
+            <span className="text-sm font-medium text-zinc-700">Название</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:ring-0 focus:outline-none"
-              placeholder="e.g. Motorcycle build"
+              placeholder="например: проект с мотоциклом"
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">Status</span>
+            <span className="text-sm font-medium text-zinc-700">Статус</span>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as ProjectStatus)}
@@ -209,24 +209,24 @@ export default function ProjectsPage() {
           </label>
           <label className="grid gap-1 md:col-span-2">
             <span className="text-sm font-medium text-zinc-700">
-              Description
+              Описание
             </span>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:ring-0 focus:outline-none"
-              placeholder="What are you building / aiming for?"
+              placeholder="Что ты делаешь / к чему идёшь?"
             />
           </label>
           <label className="grid gap-1">
             <span className="text-sm font-medium text-zinc-700">
-              Started (YYYY-MM-DD)
+              Дата начала (YYYY-MM-DD)
             </span>
             <input
               value={startedAt}
               onChange={(e) => setStartedAt(e.target.value)}
               className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:ring-0 focus:outline-none"
-              placeholder="optional"
+              placeholder="необязательно"
             />
           </label>
           <div className="flex items-end">
@@ -236,17 +236,17 @@ export default function ProjectsPage() {
               disabled={creating}
               className="w-full rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
             >
-              {creating ? "Creating…" : "Add project"}
+              {creating ? "Добавляю…" : "Добавить"}
             </button>
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-sm text-zinc-600">Loading…</div>
+        <div className="text-sm text-zinc-600">Загружаю…</div>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-700 shadow-sm">
-          No projects yet.
+          Проектов пока нет.
         </div>
       ) : (
         <ul className="grid gap-3">
@@ -278,10 +278,10 @@ export default function ProjectsPage() {
                       </p>
                     ) : null}
                     <div className="mt-3 text-xs text-zinc-500">
-                      Started: {p.started_at ?? "—"}
+                      Начат: {p.started_at ?? "—"}
                     </div>
                     <div className="mt-2 text-xs text-zinc-500">
-                      Last note: {lastLog ? lastLog : "—"}
+                      Последняя заметка: {lastLog ? lastLog : "—"}
                     </div>
                   </div>
                   <button
@@ -290,7 +290,7 @@ export default function ProjectsPage() {
                     disabled={deletingId === p.id}
                     className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
                   >
-                    {deletingId === p.id ? "Deleting…" : "Delete"}
+                    {deletingId === p.id ? "Удаляю…" : "Удалить"}
                   </button>
                 </div>
 
@@ -304,7 +304,7 @@ export default function ProjectsPage() {
                     }}
                     className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
                   >
-                    Add note
+                    Добавить заметку
                   </button>
                 </div>
 
@@ -314,7 +314,7 @@ export default function ProjectsPage() {
                       value={noteText}
                       onChange={(e) => setNoteText(e.target.value)}
                       rows={3}
-                      placeholder="What changed? What did you do? Next step?"
+                      placeholder="Что изменилось? Что ты сделал? Следующий шаг?"
                       className="w-full resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-400 focus:ring-0 focus:outline-none"
                     />
                     <div className="flex gap-2">
@@ -324,14 +324,14 @@ export default function ProjectsPage() {
                         disabled={addingNoteFor === p.id || noteText.trim().length === 0}
                         className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                       >
-                        {addingNoteFor === p.id ? "Saving…" : "Save note"}
+                        {addingNoteFor === p.id ? "Сохраняю…" : "Сохранить"}
                       </button>
                       <button
                         type="button"
                         onClick={() => setOpenNoteFor(null)}
                         className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900"
                       >
-                        Cancel
+                        Отмена
                       </button>
                     </div>
                   </div>

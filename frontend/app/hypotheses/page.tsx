@@ -118,10 +118,10 @@ export default function HypothesesPage() {
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Patterns
+            Паттерны
           </h1>
           <p className="mt-2 text-sm text-zinc-500">
-            Hypotheses AIR4 wants to verify with you
+            Гипотезы которые AIR4 хочет проверить с тобой
           </p>
         </div>
         <button
@@ -130,7 +130,7 @@ export default function HypothesesPage() {
           disabled={genBusy}
           className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
-          {genBusy ? "Generating…" : "Generate new hypotheses"}
+          {genBusy ? "Генерирую…" : "Сгенерировать гипотезы"}
         </button>
       </div>
 
@@ -147,19 +147,19 @@ export default function HypothesesPage() {
       ) : null}
 
       {loading ? (
-        <div className="text-sm text-zinc-600">Loading…</div>
+        <div className="text-sm text-zinc-600">Загружаю…</div>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-700 shadow-sm">
-          No hypotheses yet. Click “Generate new hypotheses”.
+          Пока нет гипотез. Нажми «Сгенерировать гипотезы».
         </div>
       ) : (
         <div className="grid gap-6">
           <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
-              Pending
+              ОЖИДАЮТ ОТВЕТА
             </h2>
             {pending.length === 0 ? (
-              <p className="text-sm text-zinc-600">No pending hypotheses.</p>
+              <p className="text-sm text-zinc-600">Нет новых гипотез.</p>
             ) : (
               <div className="grid gap-3">
                 {pending.map((h) => (
@@ -177,7 +177,7 @@ export default function HypothesesPage() {
                       onClick={() => void onDelete(h.id)}
                       className="mt-2 text-xs font-medium text-zinc-500 hover:text-zinc-900"
                     >
-                      Delete
+                      Удалить
                     </button>
                   </div>
                 ))}
@@ -186,12 +186,12 @@ export default function HypothesesPage() {
           </section>
 
           <Section
-            title={`Confirmed (${confirmed.length})`}
+            title={`ПОДТВЕРЖДЁННЫЕ (${confirmed.length})`}
             collapsed={confirmedCollapsed}
             onToggle={() => setConfirmedCollapsed((c) => !c)}
           >
             {confirmed.length === 0 ? (
-              <p className="text-sm text-zinc-600">No confirmed hypotheses.</p>
+              <p className="text-sm text-zinc-600">Нет подтверждённых гипотез.</p>
             ) : (
               <ul className="grid gap-3">
                 {confirmed.map((h) => (
@@ -207,12 +207,12 @@ export default function HypothesesPage() {
           </Section>
 
           <Section
-            title={`Rejected (${rejected.length})`}
+            title={`ОТКЛОНЁННЫЕ (${rejected.length})`}
             collapsed={rejectedCollapsed}
             onToggle={() => setRejectedCollapsed((c) => !c)}
           >
             {rejected.length === 0 ? (
-              <p className="text-sm text-zinc-600">No rejected hypotheses.</p>
+              <p className="text-sm text-zinc-600">Нет отклонённых гипотез.</p>
             ) : (
               <ul className="grid gap-3">
                 {rejected.map((h) => (

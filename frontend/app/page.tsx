@@ -165,10 +165,10 @@ export default function OverviewPage() {
     <div className="grid gap-6">
       <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          Overview
+          Обзор
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
-          Your personal command center — finance, life, projects, and health.
+          Твой личный командный центр — финансы, жизнь, проекты и здоровье.
         </p>
       </div>
 
@@ -177,7 +177,7 @@ export default function OverviewPage() {
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-                Observations
+                НАБЛЮДЕНИЯ
               </h2>
               <span className="rounded bg-zinc-900 px-1.5 text-xs font-medium text-white tabular-nums">
                 {unreadObservations.length}
@@ -191,17 +191,17 @@ export default function OverviewPage() {
                 setObservationsError(null);
                 try {
                   const r = await generateObservations();
-                  if (r.created > 0) setObsInfo(`Created: ${r.created}`);
+                  if (r.created > 0) setObsInfo(`Создано: ${r.created}`);
                   else if (r.cooldown_days_remaining != null)
                     setObsInfo(
-                      `Cooldown: ${r.cooldown_days_remaining.toFixed(1)}d`
+                      `Кулдаун: ${r.cooldown_days_remaining.toFixed(1)}д`
                     );
-                  else setObsInfo("No new observations");
+                  else setObsInfo("Новых наблюдений нет");
                   const os = await getObservations();
                   setObservations(os || []);
                 } catch (e) {
                   setObservationsError(
-                    e instanceof Error ? e.message : "Generate failed"
+                    e instanceof Error ? e.message : "Не удалось сгенерировать"
                   );
                 } finally {
                   setObsGenerating(false);
@@ -210,7 +210,7 @@ export default function OverviewPage() {
               disabled={obsGenerating}
               className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
-              {obsGenerating ? "Generating…" : "Generate observations"}
+              {obsGenerating ? "Генерирую…" : "Сгенерировать наблюдения"}
             </button>
           </div>
 
@@ -247,14 +247,14 @@ export default function OverviewPage() {
               <div>
                 <h2 className="text-base font-semibold text-zinc-900">Patterns</h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  AIR4 has {pendingHypothesesCount} questions for you
+                  AIR4 хочет задать тебе {pendingHypothesesCount} вопросов
                 </p>
               </div>
               <Link
                 href="/hypotheses"
                 className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
               >
-                View Patterns →
+                Открыть →
               </Link>
             </div>
             {hypothesesError ? (
@@ -271,14 +271,14 @@ export default function OverviewPage() {
             <div>
               <h2 className="text-base font-semibold text-zinc-900">Finance</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Spending summary for the latest period
+                Сводка трат за последний период
               </p>
             </div>
             <Link
               href="/dashboard"
               className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
             >
-              View Finance →
+              Открыть →
             </Link>
           </div>
 
@@ -288,20 +288,20 @@ export default function OverviewPage() {
             </div>
           ) : noFinanceData ? (
             <div className="mt-6 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
-              No data yet — Upload your statements
+              Нет данных — загрузи выписку
               <div className="mt-3">
                 <Link
                   href="/upload"
                   className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
                 >
-                  Upload statements
+                  Загрузить выписку
                 </Link>
               </div>
             </div>
           ) : (
             <div className="mt-6">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Total spent
+                ПОТРАЧЕНО
               </div>
               <div className="mt-2 text-4xl font-bold text-zinc-900 tabular-nums">
                 {eur(summary?.total_spent ?? 0)}
@@ -335,14 +335,14 @@ export default function OverviewPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-base font-semibold text-zinc-900">
-                Health &amp; Sport
+                Здоровье и спорт
               </h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Track workouts, sleep, and energy
+                Тренировки, сон и энергия
               </p>
             </div>
             <span className="rounded bg-zinc-100 px-1.5 text-xs font-medium text-zinc-400">
-              Coming soon
+              Скоро
             </span>
           </div>
         </div>
@@ -351,16 +351,16 @@ export default function OverviewPage() {
         <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold text-zinc-900">Projects</h2>
+              <h2 className="text-base font-semibold text-zinc-900">Проекты</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Track your active projects and progress
+                Активные проекты и прогресс
               </p>
             </div>
             <Link
               href="/projects"
               className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
             >
-              View Projects →
+              Открыть →
             </Link>
           </div>
 
@@ -370,20 +370,20 @@ export default function OverviewPage() {
             </div>
           ) : projects.length === 0 ? (
             <div className="mt-6 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
-              No projects yet.
+              Проектов пока нет.
               <div className="mt-3">
                 <Link
                   href="/projects"
                   className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
                 >
-                  Add a project
+                  Добавить проект
                 </Link>
               </div>
             </div>
           ) : (
             <div className="mt-6">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Active projects
+                АКТИВНЫХ ПРОЕКТОВ
               </div>
               <div className="mt-2 text-3xl font-bold text-zinc-900 tabular-nums">
                 {activeProjectsCount}
@@ -408,16 +408,16 @@ export default function OverviewPage() {
         <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-base font-semibold text-zinc-900">Life</h2>
+              <h2 className="text-base font-semibold text-zinc-900">Жизнь</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Events and facts AIR4 remembers
+                События и факты которые помнит AIR4
               </p>
             </div>
             <Link
               href="/events"
               className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
             >
-              View Life →
+              Открыть →
             </Link>
           </div>
 
@@ -428,7 +428,7 @@ export default function OverviewPage() {
           ) : (
             <div className="mt-6">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                Events this week
+                СОБЫТИЙ НА ЭТОЙ НЕДЕЛЕ
               </div>
               <div className="mt-2 text-3xl font-bold text-zinc-900 tabular-nums">
                 {eventsThisWeekCount}
@@ -436,7 +436,7 @@ export default function OverviewPage() {
               <div className="mt-4 grid gap-2">
                 {last2Events.length === 0 ? (
                   <p className="text-sm text-zinc-600">
-                    No events yet. Tell AIR4 about your life in chat.
+                    Событий пока нет. Расскажи AIR4 о своей жизни в чате.
                   </p>
                 ) : (
                   last2Events.map((e) => (
@@ -457,13 +457,13 @@ export default function OverviewPage() {
         <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-              AIR4 found connections
+              AIR4 нашёл связи
             </h2>
             <Link
               href="/dashboard"
               className="text-sm font-medium text-zinc-900 hover:underline"
             >
-              See all →
+              Смотреть все →
             </Link>
           </div>
           {connectionsError ? (

@@ -76,17 +76,17 @@ export default function EventsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Life events
+            События
           </h1>
           <p className="mt-2 text-sm text-zinc-500">
-            Events you told AIR4 in chat or added here, grouped by category.
+            События из чата или добавленные вручную, по категориям.
           </p>
         </div>
         <Link
           href="/chat"
           className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
         >
-          Tell AIR4 in chat
+          Рассказать AIR4
         </Link>
       </div>
 
@@ -97,10 +97,10 @@ export default function EventsPage() {
       ) : null}
 
       {loading ? (
-        <div className="text-sm text-zinc-600">Loading…</div>
+        <div className="text-sm text-zinc-600">Загружаю…</div>
       ) : events.length === 0 ? (
         <div className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-700 shadow-sm">
-          No events yet. Tell AIR4 about your life in chat.
+          Событий пока нет. Расскажи AIR4 о своей жизни в чате.
         </div>
       ) : (
         <div className="grid gap-8">
@@ -139,7 +139,7 @@ export default function EventsPage() {
                       disabled={deletingId === ev.id}
                       className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
                     >
-                      {deletingId === ev.id ? "Deleting…" : "Delete"}
+                      {deletingId === ev.id ? "Удаляю…" : "Удалить"}
                     </button>
                   </li>
                 ))}

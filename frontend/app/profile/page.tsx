@@ -92,19 +92,19 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-          Profile
+          Профиль
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
-          Tell AIR4 about yourself — this context is used in chat and insights.
+          Расскажи AIR4 о себе — это используется в чате и инсайтах.
         </p>
       </div>
 
       {loading ? (
-        <p className="text-sm text-zinc-500">Loading…</p>
+        <p className="text-sm text-zinc-500">Загружаю…</p>
       ) : (
         <div className="grid gap-5 rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm">
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">Name</span>
+            <span className="text-sm font-medium text-zinc-700">Имя</span>
             <input
               type="text"
               value={name}
@@ -114,28 +114,28 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">City</span>
+            <span className="text-sm font-medium text-zinc-700">Город</span>
             <input
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Tallinn"
+              placeholder="например: Tallinn"
               className={inputClass}
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">Profession</span>
+            <span className="text-sm font-medium text-zinc-700">Профессия</span>
             <input
               type="text"
               value={profession}
               onChange={(e) => setProfession(e.target.value)}
-              placeholder="e.g. Web Designer"
+              placeholder="например: дизайнер"
               className={inputClass}
             />
           </label>
           <label className="grid gap-1">
             <span className="text-sm font-medium text-zinc-700">
-              Monthly income
+              Месячный доход
             </span>
             <input
               type="number"
@@ -144,22 +144,22 @@ export default function ProfilePage() {
               step="any"
               value={monthlyIncome}
               onChange={(e) => setMonthlyIncome(e.target.value)}
-              placeholder="approximate, EUR"
+              placeholder="примерно, EUR"
               className={inputClass}
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">Main goals</span>
+            <span className="text-sm font-medium text-zinc-700">Главные цели</span>
             <textarea
               value={goals}
               onChange={(e) => setGoals(e.target.value)}
               rows={3}
-              placeholder="e.g. pay off motorcycle loan, save for apartment"
+              placeholder="например: закрыть кредит, накопить на квартиру"
               className={`${inputClass} resize-y`}
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">Transport</span>
+            <span className="text-sm font-medium text-zinc-700">Транспорт</span>
             <input
               type="text"
               value={transport}
@@ -169,12 +169,12 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-sm font-medium text-zinc-700">About me</span>
+            <span className="text-sm font-medium text-zinc-700">О себе</span>
             <textarea
               value={about}
               onChange={(e) => setAbout(e.target.value)}
               rows={4}
-              placeholder="anything you want AIR4 to know about you"
+              placeholder="всё, что ты хочешь, чтобы AIR4 знал"
               className={`${inputClass} resize-y`}
             />
           </label>
@@ -185,11 +185,11 @@ export default function ProfilePage() {
               disabled={saving}
               className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? "Сохраняю…" : "Сохранить"}
             </button>
             {saved ? (
               <p className="mt-3 text-center text-sm font-medium text-emerald-700">
-                Saved ✓
+                Сохранено ✓
               </p>
             ) : null}
           </div>

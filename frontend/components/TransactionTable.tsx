@@ -61,10 +61,10 @@ export function TransactionTable() {
     <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
       <div className="flex items-center justify-between px-6 py-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-          Transactions
+          ТРАНЗАКЦИИ
         </h3>
         <div className="text-xs text-zinc-500">
-          Page {page} / {pageCount}
+          Стр. {page} / {pageCount}
         </div>
       </div>
 
@@ -78,23 +78,23 @@ export function TransactionTable() {
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-y border-zinc-100 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-700">
             <tr>
-              <th className="px-6 py-3">Date</th>
-              <th className="px-6 py-3">Description</th>
-              <th className="px-6 py-3">Amount</th>
-              <th className="px-6 py-3">Category</th>
+              <th className="px-6 py-3">ДАТА</th>
+              <th className="px-6 py-3">ОПИСАНИЕ</th>
+              <th className="px-6 py-3">СУММА</th>
+              <th className="px-6 py-3">КАТЕГОРИЯ</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
                 <td className="px-6 py-6 text-zinc-600" colSpan={4}>
-                  Loading...
+                  Загружаю...
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
                 <td className="px-6 py-6 text-zinc-500" colSpan={4}>
-                  No transactions yet.
+                  Транзакций пока нет.
                 </td>
               </tr>
             ) : (
@@ -121,9 +121,9 @@ export function TransactionTable() {
                         ))}
                       </select>
                       {t.category_confirmed ? (
-                        <span className="text-xs text-zinc-500">confirmed</span>
+                        <span className="text-xs text-zinc-500">подтв.</span>
                       ) : (
-                        <span className="text-xs text-zinc-500">auto</span>
+                        <span className="text-xs text-zinc-500">авто</span>
                       )}
                     </div>
                   </td>
@@ -141,7 +141,7 @@ export function TransactionTable() {
           onClick={() => setSkip((s) => Math.max(0, s - limit))}
           disabled={skip === 0}
         >
-          Prev
+          Назад
         </button>
         <button
           type="button"
@@ -149,7 +149,7 @@ export function TransactionTable() {
           onClick={() => setSkip((s) => (s + limit < total ? s + limit : s))}
           disabled={skip + limit >= total}
         >
-          Next
+          Далее
         </button>
       </div>
     </div>

@@ -17,7 +17,7 @@ export function InsightCard({ insight }: { insight: Insight }) {
       </div>
       {typeof insight.amount_mentioned === "number" ? (
         <div className="mt-3 text-sm font-medium text-zinc-900">
-          Mentioned: €{insight.amount_mentioned.toFixed(2)}
+          Упомянуто: €{insight.amount_mentioned.toFixed(2)}
         </div>
       ) : null}
     </div>

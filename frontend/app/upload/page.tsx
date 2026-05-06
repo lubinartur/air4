@@ -5,12 +5,11 @@ export default function UploadPage() {
     <div className="mx-auto max-w-lg">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-          Upload your statements
+          Загрузить выписку
         </h1>
         <p className="mt-2 text-sm leading-6 text-zinc-500">
-          AIR4 parses Swedbank CSV exports, auto-detects internal transfers,
-          categorizes transactions using Ollama, and builds a spending dashboard
-          + chat.
+          AIR4 парсит CSV из Swedbank, автоматически находит внутренние переводы,
+          категоризирует транзакции через Ollama и строит дашборд + чат.
         </p>
       </div>
       <FileUpload />

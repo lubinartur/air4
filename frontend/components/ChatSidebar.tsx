@@ -271,7 +271,7 @@ export function ChatSidebar() {
       >
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-2 py-8 text-center text-sm text-zinc-500">
-            Ask AIR4 anything about your finances
+            Спроси AIR4 о своих финансах
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -290,7 +290,7 @@ export function ChatSidebar() {
                   </div>
                   {m.rememberedTitle ? (
                     <div className="mt-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] text-emerald-900">
-                      ✓ Remembered: {m.rememberedTitle}
+                      ✓ Запомнил: {m.rememberedTitle}
                     </div>
                   ) : null}
                   {m.learnedFacts?.map((fact) => (
@@ -298,7 +298,7 @@ export function ChatSidebar() {
                       key={fact.id}
                       className="mt-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[10px] text-blue-900"
                     >
-                      ✓ Learned: {fact.value}
+                      ✓ Узнал: {fact.value}
                     </div>
                   ))}
                 </div>
@@ -320,7 +320,7 @@ export function ChatSidebar() {
                 void onSend();
               }
             }}
-            placeholder="Message…"
+            placeholder="Сообщение..."
             rows={1}
             className="max-h-[96px] min-h-[40px] flex-1 resize-none rounded-xl border-0 bg-zinc-100 px-3 py-2 text-sm leading-5 text-zinc-900 placeholder:text-zinc-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-300"
             disabled={busy}
@@ -331,7 +331,7 @@ export function ChatSidebar() {
             disabled={busy || text.trim().length === 0}
             className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
-            {busy ? "Sending…" : "Send"}
+            {busy ? "Отправляю..." : "Отправить"}
           </button>
         </div>
       </div>

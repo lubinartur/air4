@@ -1,14 +1,14 @@
 export const CATEGORY_LABELS: Record<string, string> = {
-  food_groceries: "Groceries",
-  food_restaurants: "Restaurants",
-  transport: "Transport",
-  entertainment: "Entertainment",
-  health: "Health",
-  subscriptions: "Subscriptions",
-  shopping: "Shopping",
-  transfers: "Transfers",
-  utilities: "Utilities",
-  other: "Other",
+  food_groceries: "Продукты",
+  food_restaurants: "Рестораны",
+  transport: "Транспорт",
+  entertainment: "Развлечения",
+  health: "Здоровье",
+  subscriptions: "Подписки",
+  shopping: "Покупки",
+  transfers: "Переводы",
+  utilities: "Коммунальные",
+  other: "Другое",
 };
 
 export function categoryLabel(key: string): string {

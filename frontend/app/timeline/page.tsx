@@ -116,7 +116,7 @@ export default function TimelinePage() {
     if (!compare) return;
     const p1 = compare.period1;
     const p2 = compare.period2;
-    const msg = `Compare these two periods:\n\nPeriod 1 (${p1.period_start ?? "—"} — ${p1.period_end ?? "—"}): ${eur(p1.total_spent)}\nPeriod 2 (${p2.period_start ?? "—"} — ${p2.period_end ?? "—"}): ${eur(p2.total_spent)}\n\nWhat changed the most and what should I do next?`;
+    const msg = `Сравни эти два периода:\n\nПериод 1 (${p1.period_start ?? "—"} — ${p1.period_end ?? "—"}): ${eur(p1.total_spent)}\nПериод 2 (${p2.period_start ?? "—"} — ${p2.period_end ?? "—"}): ${eur(p2.total_spent)}\n\nЧто изменилось сильнее всего и что мне делать дальше?`;
     window.dispatchEvent(new CustomEvent("air4-chat-prefill", { detail: { message: msg } }));
   }
 
@@ -124,10 +124,10 @@ export default function TimelinePage() {
     <div className="grid gap-6">
       <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          Timeline
+          История
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
-          Your spending across all loaded periods
+          Твои траты по всем периодам
         </p>
       </div>
 
@@ -138,16 +138,16 @@ export default function TimelinePage() {
       ) : null}
 
       {loading ? (
-        <div className="text-sm text-zinc-600">Loading…</div>
+        <div className="text-sm text-zinc-600">Загружаю…</div>
       ) : uploads.length === 0 ? (
         <div className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-700 shadow-sm">
-          No periods yet. Upload your Swedbank CSV to get started.
+          Пока нет периодов. Загрузи CSV Swedbank чтобы начать.
         </div>
       ) : (
         <>
           <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
-              Periods
+              ПЕРИОДЫ
             </h2>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {uploads.map((u) => {
@@ -184,7 +184,7 @@ export default function TimelinePage() {
                       }`}
                     >
                       {top2.length === 0
-                        ? "No categories yet"
+                        ? "Пока нет категорий"
                         : top2
                             .map((c) => `${categoryLabel(c.category)} ${eur(c.amount)}`)
                             .join(" · ")}
@@ -194,28 +194,28 @@ export default function TimelinePage() {
                         active ? "text-zinc-200" : "text-zinc-400"
                       }`}
                     >
-                      {u.transaction_count} transactions
+                      {u.transaction_count} транзакций
                     </div>
                   </button>
                 );
               })}
             </div>
             <p className="mt-3 text-xs text-zinc-500">
-              Select two periods to compare.
+              Выбери два периода для сравнения.
             </p>
           </section>
 
           <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
-              Comparison
+              СРАВНЕНИЕ
             </h2>
 
             {selected.length !== 2 ? (
               <div className="text-sm text-zinc-600">
-                Pick two periods above to see what changed.
+                Выбери два периода выше.
               </div>
             ) : compareLoading ? (
-              <div className="text-sm text-zinc-600">Comparing…</div>
+              <div className="text-sm text-zinc-600">Сравниваю…</div>
             ) : compareError ? (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 {compareError}
@@ -225,7 +225,7 @@ export default function TimelinePage() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
                     <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                      Period 1
+                      ПЕРИОД 1
                     </div>
                     <div className="mt-1 text-sm text-zinc-600">
                       {compare.period1.period_start ?? "—"} —{" "}
@@ -237,7 +237,7 @@ export default function TimelinePage() {
                   </div>
                   <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
                     <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                      Period 2
+                      ПЕРИОД 2
                     </div>
                     <div className="mt-1 text-sm text-zinc-600">
                       {compare.period2.period_start ?? "—"} —{" "}
@@ -249,7 +249,7 @@ export default function TimelinePage() {
                   </div>
                   <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
                     <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                      Change
+                      ИЗМЕНЕНИЕ
                     </div>
                     <div className="mt-1 text-sm text-zinc-600">
                       {compare.diff.total > 0 ? "▲" : compare.diff.total < 0 ? "▼" : "→"}{" "}
@@ -265,7 +265,7 @@ export default function TimelinePage() {
                       onClick={askAboutComparison}
                       className="mt-3 w-full rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white"
                     >
-                      Ask AIR4 about this
+                      Спросить AIR4
                     </button>
                   </div>
                 </div>
@@ -274,10 +274,10 @@ export default function TimelinePage() {
                   <table className="w-full min-w-[720px] text-left text-sm">
                     <thead className="border-y border-zinc-100 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-700">
                       <tr>
-                        <th className="px-4 py-3">Category</th>
-                        <th className="px-4 py-3">Period 1</th>
-                        <th className="px-4 py-3">Period 2</th>
-                        <th className="px-4 py-3">Diff</th>
+                        <th className="px-4 py-3">КАТЕГОРИЯ</th>
+                        <th className="px-4 py-3">ПЕРИОД 1</th>
+                        <th className="px-4 py-3">ПЕРИОД 2</th>
+                        <th className="px-4 py-3">РАЗНИЦА</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -310,7 +310,7 @@ export default function TimelinePage() {
 
           <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
-              Trend
+              ТРЕНД
             </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">

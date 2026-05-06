@@ -285,10 +285,10 @@ export default function DashboardPage() {
     <div className="grid gap-6">
       <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          Dashboard
+          Финансы
         </h1>
         <p className="mt-2 text-sm text-zinc-500">
-          Summary excludes income and internal transfers.
+          Без учёта доходов и внутренних переводов.
         </p>
       </div>
 
@@ -301,13 +301,13 @@ export default function DashboardPage() {
       {showEmptyUploadCta ? (
         <div className="rounded-2xl border border-zinc-100 bg-white p-8 text-center shadow-sm">
           <p className="text-sm font-medium text-zinc-900">
-            No data yet — Upload your Swedbank CSV to get started
+            Нет данных — загрузи CSV Swedbank чтобы начать
           </p>
           <Link
             href="/upload"
             className="mt-4 inline-flex rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white"
           >
-            Upload statements
+            Загрузить выписку
           </Link>
         </div>
       ) : null}
@@ -318,7 +318,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
             <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-              Total spent
+              Потрачено
             </div>
             <div className="mt-2 text-4xl font-bold text-zinc-900">
               €{summary?.total_spent?.toFixed(2) ?? "0.00"}
@@ -328,7 +328,7 @@ export default function DashboardPage() {
             ) : null}
             {lastUpdatedLabel ? (
               <p className="mt-2 text-xs text-zinc-400">
-                Last updated: {lastUpdatedLabel}
+                Обновлено: {lastUpdatedLabel}
               </p>
             ) : null}
           </div>
@@ -351,7 +351,7 @@ export default function DashboardPage() {
                 disabled={insightsLoading}
                 className="w-full rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
               >
-                {insightsLoading ? "Generating insights…" : "Refresh insights"}
+                {insightsLoading ? "Генерирую инсайты…" : "Обновить инсайты"}
               </button>
               <button
                 type="button"
@@ -360,14 +360,14 @@ export default function DashboardPage() {
                 className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 disabled:opacity-60"
               >
                 {reportLoading
-                  ? "Generating your monthly report..."
-                  : "Generate report"}
+                  ? "Генерирую отчёт…"
+                  : "Сгенерировать отчёт"}
               </button>
             </div>
             <p className="text-xs text-zinc-500">
-              AI insights are not loaded automatically. This can take up to a few
-              minutes. Monthly reports blend spending, events, facts, and profile
-              into a personal life overview.
+              Инсайты не загружаются автоматически. Это может занять несколько
+              минут. Отчёт объединяет траты, события, факты и профиль в личный
+              обзор месяца.
             </p>
             {insightsError ? (
               <p className="text-xs text-red-700">{insightsError}</p>
@@ -388,14 +388,14 @@ export default function DashboardPage() {
                   <span className="tabular-nums text-zinc-500">
                     {reportExpanded ? "▼" : "▶"}
                   </span>
-                  Monthly life report
+                  Месячный отчёт
                 </button>
                 <button
                   type="button"
                   onClick={() => void copyReport()}
                   className="shrink-0 rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white"
                 >
-                  {copyDone ? "Copied" : "Copy"}
+                  {copyDone ? "Скопировано!" : "Копировать"}
                 </button>
               </div>
               {reportExpanded ? (
@@ -414,8 +414,7 @@ export default function DashboardPage() {
           ))}
           {!insightsLoading && insights.length === 0 && !insightsAttempted ? (
             <div className="rounded-2xl border border-zinc-100 bg-white p-5 text-sm text-zinc-700 shadow-sm">
-              No insights yet. Click &quot;Refresh insights&quot; when you want
-              them.
+              Инсайтов пока нет. Нажми Обновить инсайты.
             </div>
           ) : null}
           {!insightsLoading &&
@@ -423,15 +422,15 @@ export default function DashboardPage() {
           insightsAttempted &&
           !insightsError ? (
             <div className="rounded-2xl border border-zinc-100 bg-white p-5 text-sm text-zinc-700 shadow-sm">
-              No insights were returned. Check that Ollama is running and try
-              again, or see backend logs.
+              Инсайты не вернулись. Проверь, что Ollama запущен, и попробуй ещё
+              раз (или посмотри логи бэкенда).
             </div>
           ) : null}
 
           <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-                Cross-sphere connections
+                МЕЖСФЕРНЫЕ СВЯЗИ
               </h3>
               <button
                 type="button"
@@ -439,7 +438,7 @@ export default function DashboardPage() {
                 disabled={crossSphereAnalyzing}
                 className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
               >
-                {crossSphereAnalyzing ? "Analyzing…" : "Analyze connections"}
+                {crossSphereAnalyzing ? "Анализирую…" : "Анализировать связи"}
               </button>
             </div>
 
@@ -454,7 +453,7 @@ export default function DashboardPage() {
               <p className="text-sm text-zinc-600">Loading…</p>
             ) : crossSphere.length === 0 ? (
               <p className="text-sm text-zinc-600">
-                No connections yet. Click “Analyze connections”.
+                Связей пока нет. Нажми «Анализировать связи».
               </p>
             ) : (
               <div className="grid gap-3">
@@ -475,7 +474,7 @@ export default function DashboardPage() {
 
       <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
-          Top expenses
+          ТОП ТРАТ
         </h3>
         {topExpensesError ? (
           <p className="mt-3 text-sm text-red-700">{topExpensesError}</p>

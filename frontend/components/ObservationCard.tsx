@@ -34,7 +34,7 @@ export function ObservationCard({
       const updated = await markObservationRead(observation.id);
       onRead(updated);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to mark as read");
+      setError(e instanceof Error ? e.message : "Не удалось отметить как прочитанное");
     } finally {
       setBusy(false);
     }
@@ -65,7 +65,7 @@ export function ObservationCard({
             disabled={busy}
             className="shrink-0 rounded-xl bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
-            {busy ? "…" : "Mark as read"}
+            {busy ? "…" : "Прочитано"}
           </button>
         ) : null}
       </div>

@@ -8,7 +8,7 @@ type UploadPhase = "idle" | "uploading" | "categorizing" | "done";
 
 function formatFetchErrorMessage(raw: string): string {
   const t = raw.trim();
-  if (!t) return "Upload failed";
+  if (!t) return "Не удалось загрузить";
   try {
     const j = JSON.parse(t) as { detail?: unknown };
     const d = j.detail;
@@ -43,7 +43,7 @@ export function FileUpload() {
   async function onSubmit() {
     setError(null);
     if (!canUpload) {
-      setError("Select one or two CSV files.");
+      setError("Выбери один или два CSV файла.");
       return;
     }
 
@@ -75,7 +75,7 @@ export function FileUpload() {
       const msg =
         e instanceof Error
           ? formatFetchErrorMessage(e.message)
-          : "Upload failed";
+          : "Не удалось загрузить";
       setError(msg);
       setPhase("idle");
     }
@@ -84,11 +84,11 @@ export function FileUpload() {
   function statusMessage(): string | null {
     switch (phase) {
       case "uploading":
-        return "Uploading files...";
+        return "Загружаю файлы...";
       case "categorizing":
-        return "Categorizing transactions with AI... this may take 2-3 minutes";
+        return "Категоризирую транзакции с AI... это займёт 2-3 минуты";
       case "done":
-        return "Done! Redirecting to dashboard...";
+        return "Готово! Перехожу к финансам...";
       default:
         return null;
     }
@@ -113,17 +113,17 @@ export function FileUpload() {
             }}
           />
           <p className="text-sm font-medium text-zinc-900">
-            Drop Swedbank CSV here or click to browse
+            Перетащи CSV Swedbank или нажми для выбора
           </p>
           <p className="mt-2 text-xs text-zinc-500">
-            One or two statement files (semicolon-separated, quoted)
+            Один или два файла выписки
           </p>
         </div>
       </label>
 
       <div className="mt-4 text-center text-sm">
         {files.length === 0 ? (
-          <span className="text-zinc-400">No file selected</span>
+          <span className="text-zinc-400">Файл не выбран</span>
         ) : (
           <ul className="inline-block list-none text-left text-zinc-700">
             {files.map((f) => (
@@ -138,7 +138,7 @@ export function FileUpload() {
           <p className="font-medium text-zinc-900">{msg}</p>
           {longWait && (phase === "uploading" || phase === "categorizing") ? (
             <p className="mt-2 text-sm text-zinc-600">
-              Still working... Ollama is processing your transactions
+              Ещё работаю... Ollama обрабатывает транзакции
             </p>
           ) : null}
         </div>
@@ -158,9 +158,9 @@ export function FileUpload() {
       >
         {busy
           ? phase === "done"
-            ? "Redirecting…"
-            : "Working…"
-          : "Upload & go to dashboard"}
+            ? "Перехожу…"
+            : "Обрабатываю…"
+          : "Загрузить"}
       </button>
     </div>
   );

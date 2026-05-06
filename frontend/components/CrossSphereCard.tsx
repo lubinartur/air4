@@ -20,15 +20,15 @@ function sphereBadgeClass(s: string | null | undefined): string {
 function sphereLabel(s: string | null | undefined): string {
   switch (s) {
     case "finance":
-      return "Finance";
+      return "Финансы";
     case "life":
-      return "Life";
+      return "Жизнь";
     case "projects":
-      return "Projects";
+      return "Проекты";
     case "health":
-      return "Health";
+      return "Здоровье";
     default:
-      return "Other";
+      return "Другое";
   }
 }
 
@@ -89,7 +89,7 @@ export function CrossSphereCard({
             }}
             className="rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100"
           >
-            Delete
+            Удалить
           </button>
         </div>
       </div>

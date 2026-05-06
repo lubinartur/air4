@@ -32,7 +32,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 function SoonBadge() {
   return (
     <span className="rounded bg-zinc-100 px-1.5 text-xs font-medium text-zinc-400">
-      Soon
+      Скоро
     </span>
   );
 }
@@ -162,7 +162,7 @@ export function SiteHeader() {
         <nav className="flex items-center gap-6">
           <NavLink href="/">
             <span className="inline-flex items-center gap-2">
-              <span>Overview</span>
+              <span>Обзор</span>
               {unreadObsCount > 0 ? (
                 <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums">
                   {unreadObsCount}
@@ -182,24 +182,24 @@ export function SiteHeader() {
               }`}
               aria-expanded={open === "finance"}
             >
-              <span>Finance</span>
+              <span>Финансы</span>
               <span className="text-xs text-zinc-400">▾</span>
             </button>
             {open === "finance" ? (
               <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
                 <DropdownItem
                   href="/dashboard"
-                  label="Dashboard"
+                  label="Дашборд"
                   onSelect={() => setOpen(null)}
                 />
                 <DropdownItem
                   href="/timeline"
-                  label="Timeline"
+                  label="История"
                   onSelect={() => setOpen(null)}
                 />
                 <DropdownItem
                   href="/upload"
-                  label="Upload"
+                  label="Загрузить"
                   onSelect={() => setOpen(null)}
                 />
               </div>
@@ -208,9 +208,9 @@ export function SiteHeader() {
 
           <div
             className="inline-flex items-center gap-2 text-sm text-zinc-300"
-            title="Coming soon"
+            title="Скоро"
           >
-            <span className="cursor-not-allowed">Health</span>
+            <span className="cursor-not-allowed">Здоровье</span>
             <SoonBadge />
           </div>
 
@@ -227,14 +227,14 @@ export function SiteHeader() {
               }`}
               aria-expanded={open === "projects"}
             >
-              <span>Projects</span>
+              <span>Проекты</span>
               <span className="text-xs text-zinc-400">▾</span>
             </button>
             {open === "projects" ? (
               <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
                 <DropdownItem
                   href="/projects"
-                  label="All Projects"
+                  label="Все проекты"
                   onSelect={() => setOpen(null)}
                 />
               </div>
@@ -252,32 +252,32 @@ export function SiteHeader() {
               }`}
               aria-expanded={open === "life"}
             >
-              <span>Life</span>
+              <span>Жизнь</span>
               <span className="text-xs text-zinc-400">▾</span>
             </button>
             {open === "life" ? (
               <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
                 <DropdownItem
                   href="/events"
-                  label="Events"
+                  label="События"
                   onSelect={() => setOpen(null)}
                 />
                 <DropdownItem
                   href="/facts"
-                  label="Facts"
+                  label="Факты"
                   badge={factsCount}
                   onSelect={() => setOpen(null)}
                 />
                 <DropdownItem
                   href="/hypotheses"
-                  label="Patterns"
+                  label="Паттерны"
                   onSelect={() => setOpen(null)}
                 />
               </div>
             ) : null}
           </div>
 
-          <NavLink href="/profile">Profile</NavLink>
+          <NavLink href="/profile">Профиль</NavLink>
         </nav>
       </div>
     </header>

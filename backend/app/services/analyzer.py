@@ -119,7 +119,8 @@ class OllamaAnalyzer:
             "Classify this query as SIMPLE or COMPLEX. "
             "SIMPLE = factual lookup or single number. "
             "COMPLEX = analysis, advice, patterns, explanations. "
-            "Reply with only: SIMPLE or COMPLEX"
+            "Reply with only one word: SIMPLE or COMPLEX. "
+            "Use English for your reply only."
         )
         user_text = (message or "").strip() or "."
         payload: dict[str, Any] = {
@@ -150,6 +151,14 @@ class OllamaAnalyzer:
         Only top 5 categories are sent to keep the request small and fast.
         """
         system = (
+            "IMPORTANT: Respond in Russian language only. Never use any other language. No exceptions.\n\n"
+            "Formatting rules:\n"
+            "- Never use markdown: no **, no *, no #, no bullet points with -\n"
+            "- Use plain text only\n"
+            "- For lists use: 1. 2. 3. or just new lines\n"
+            "- For emphasis use CAPS sparingly\n"
+            "- Keep responses concise, max 5-6 sentences unless complex analysis needed\n"
+            "- Use line breaks between paragraphs\n\n"
             "You are AIR4 — a brutally honest personal finance advisor. "
             "You speak directly, use exact numbers, and never give generic advice.\n\n"
             "Rules:\n"
@@ -157,7 +166,7 @@ class OllamaAnalyzer:
             "- Be specific: name exact categories and amounts\n"
             "- Find patterns that are non-obvious\n"
             "- Don't say 'consider reducing' — say exactly what to cut and by how much\n"
-            "- Respond in the same language the user writes in\n\n"
+            "- Respond in Russian only\n\n"
             "Return ONLY JSON array with exactly 3 objects:\n"
             '{ "type": string, "title": string, "description": string, "amount_mentioned": number|null }\n'
             "No markdown, no extra text."
@@ -218,6 +227,7 @@ class OllamaAnalyzer:
         profile: dict[str, Any] | None = None,
         transactions: list[dict[str, Any]] | None = None,
         user_facts: list[dict[str, Any]] | None = None,
+        projects: list[dict[str, Any]] | None = None,
         current_page: str | None = None,
     ) -> str:
         complexity = await self.classify_query(message)
@@ -225,6 +235,14 @@ class OllamaAnalyzer:
         logger.info("Query classified as %s, using %s", complexity, chat_model)
 
         system = (
+            "IMPORTANT: You MUST always respond in Russian language. Never use any other language. No exceptions.\n\n"
+            "Formatting rules:\n"
+            "- Never use markdown: no **, no *, no #, no bullet points with -\n"
+            "- Use plain text only\n"
+            "- For lists use: 1. 2. 3. or just new lines\n"
+            "- For emphasis use CAPS sparingly\n"
+            "- Keep responses concise, max 5-6 sentences unless complex analysis needed\n"
+            "- Use line breaks between paragraphs\n\n"
             "You are AIR4 — a personal finance advisor with full context of the user's spending.\n\n"
             "Rules:\n"
             "- Currency is always EUR\n"
@@ -232,7 +250,7 @@ class OllamaAnalyzer:
             "- Be direct and honest, not diplomatic\n"
             "- If something looks like a problem — say it clearly\n"
             "- Keep answers concise, no fluff\n"
-            "- Respond in the same language the user writes in\n"
+            "- Respond in Russian only\n"
             "- You may reference saved life events when the user asks or when it is relevant\n"
             "- When the user asks about a merchant, date, or single payment, use the "
             "Recent transactions list (not only the category summary)\n"
@@ -267,6 +285,19 @@ class OllamaAnalyzer:
             ]
             if fact_lines:
                 system_content += "\n\nFacts about the user:\n" + "\n".join(fact_lines)
+        if projects:
+            lines: list[str] = []
+            for idx, p in enumerate(projects[:20], start=1):
+                name = str(p.get("name") or "").strip()
+                if not name:
+                    continue
+                desc = str(p.get("description") or "").replace("\n", " ").strip()
+                status = str(p.get("status") or "").strip()
+                extra = f" — {desc}" if desc else ""
+                tail = f" ({status})" if status else ""
+                lines.append(f"{idx}. {name}{extra}{tail}")
+            if lines:
+                system_content += "\n\nActive projects:\n" + "\n".join(lines)
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
         for m in history[-20:]:
             role = m.get("role")
@@ -342,6 +373,15 @@ class OllamaAnalyzer:
                 {
                     "role": "system",
                     "content": (
+                        "IMPORTANT: Write the entire report in Russian language only. Never use any other language. "
+                        "No exceptions.\n\n"
+                        "Formatting rules:\n"
+                        "- Never use markdown: no **, no *, no #, no bullet points with -\n"
+                        "- Use plain text only\n"
+                        "- For lists use: 1. 2. 3. or just new lines\n"
+                        "- For emphasis use CAPS sparingly\n"
+                        "- Keep responses concise, max 5-6 sentences unless complex analysis needed\n"
+                        "- Use line breaks between paragraphs\n\n"
                         "You are AIR4 — a personal life advisor who sees the full picture of life and money. "
                         "Follow the user's instructions precisely."
                     ),

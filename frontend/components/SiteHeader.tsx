@@ -71,8 +71,9 @@ export function SiteHeader() {
   const [brand, setBrand] = useState("AIR4");
   const [factsCount, setFactsCount] = useState(0);
   const pathname = usePathname();
-  const [open, setOpen] = useState<null | "finance" | "life">(null);
+  const [open, setOpen] = useState<null | "finance" | "projects" | "life">(null);
   const financeRef = useRef<HTMLDivElement>(null);
+  const projectsRef = useRef<HTMLDivElement>(null);
   const lifeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,6 +112,7 @@ export function SiteHeader() {
       const t = e.target as Node | null;
       if (!t) return;
       if (financeRef.current?.contains(t)) return;
+      if (projectsRef.current?.contains(t)) return;
       if (lifeRef.current?.contains(t)) return;
       setOpen(null);
     };
@@ -126,6 +128,7 @@ export function SiteHeader() {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/timeline") ||
     pathname.startsWith("/upload");
+  const projectsActive = pathname.startsWith("/projects");
   const lifeActive = pathname.startsWith("/events") || pathname.startsWith("/facts");
 
   return (
@@ -178,12 +181,31 @@ export function SiteHeader() {
             <SoonBadge />
           </div>
 
-          <div
-            className="inline-flex items-center gap-2 text-sm text-zinc-300"
-            title="Coming soon"
-          >
-            <span className="cursor-not-allowed">Projects</span>
-            <SoonBadge />
+          <div className="relative" ref={projectsRef}>
+            <button
+              type="button"
+              onClick={() =>
+                setOpen((v) => (v === "projects" ? null : "projects"))
+              }
+              className={`inline-flex items-center gap-2 text-sm transition-colors ${
+                projectsActive
+                  ? "font-medium text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-900"
+              }`}
+              aria-expanded={open === "projects"}
+            >
+              <span>Projects</span>
+              <span className="text-xs text-zinc-400">▾</span>
+            </button>
+            {open === "projects" ? (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
+                <DropdownItem
+                  href="/projects"
+                  label="All Projects"
+                  onSelect={() => setOpen(null)}
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="relative" ref={lifeRef}>

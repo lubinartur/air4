@@ -49,11 +49,11 @@ Last updated: 6 May 2026
 - [ ] "This month vs last month" in dashboard
 
 ## 🔲 Phase 4 — Projects Module
-- [ ] Projects table (name, description, status, start date)
-- [ ] Project activity log
-- [ ] Projects page
-- [ ] AIR4 tracks project progress from chat mentions
-- [ ] Projects context in chat
+- [x] Projects table (name, description, status, start date)
+- [x] Project activity log
+- [x] Projects page
+- [x] AIR4 tracks project progress from chat mentions
+- [x] Projects context in chat
 
 ## 🔲 Phase 5 — Meaning Engine
 - [ ] AIR4 generates hypotheses about user behavior

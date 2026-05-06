@@ -43,6 +43,48 @@ async def chat(
         if row is not None:
             event_saved = EventOut(**row)
 
+    extracted_project = await extractor.extract_project(body.message)
+    if extracted_project:
+        pname = extracted_project.get("name", "").strip()
+        if pname:
+            existing = await fetch_one(
+                db,
+                "SELECT * FROM projects WHERE lower(name) = lower(?) LIMIT 1",
+                (pname,),
+            )
+            if existing is None:
+                await execute(
+                    db,
+                    """
+                    INSERT INTO projects (name, description, status, started_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        pname,
+                        extracted_project.get("description") or None,
+                        extracted_project.get("status") or "active",
+                        extracted_project.get("started_at") or None,
+                    ),
+                )
+            else:
+                await execute(
+                    db,
+                    """
+                    UPDATE projects
+                    SET description = COALESCE(?, description),
+                        status = ?,
+                        started_at = COALESCE(?, started_at),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    """,
+                    (
+                        extracted_project.get("description") or None,
+                        extracted_project.get("status") or existing.get("status") or "active",
+                        extracted_project.get("started_at") or None,
+                        int(existing["id"]),
+                    ),
+                )
+
     fact_extractor = FactExtractor()
     facts_saved_rows = await fact_extractor.extract_and_save(db, body.message)
     facts_saved = [UserFactOut(**r) for r in facts_saved_rows]
@@ -95,6 +137,16 @@ async def chat(
         """,
     )
 
+    active_projects_rows = await fetch_all(
+        db,
+        """
+        SELECT name, description, status, started_at
+        FROM projects
+        WHERE status = 'active'
+        ORDER BY datetime(updated_at) DESC, id DESC
+        """,
+    )
+
     analyzer = OllamaAnalyzer()
     response = await analyzer.chat(
         body.message,
@@ -104,6 +156,7 @@ async def chat(
         profile=profile_dict,
         transactions=tx_rows,
         user_facts=user_facts_rows,
+        projects=active_projects_rows,
         current_page=body.current_page,
     )
     return ChatOut(

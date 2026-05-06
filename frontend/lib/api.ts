@@ -117,6 +117,28 @@ export type UserProfileUpdatePayload = {
   transport: string | null;
 };
 
+export type ProjectStatus = "active" | "paused" | "completed" | "archived";
+
+export type Project = {
+  id: number;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  started_at: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ProjectLog = {
+  id: number;
+  project_id: number;
+  note: string;
+  source: string;
+  created_at?: string | null;
+};
+
+export type ProjectWithLogs = Project & { logs: ProjectLog[] };
+
 /** Dispatched on `window` after profile save so the header can refresh. */
 export const PROFILE_UPDATED_EVENT = "air4-profile-updated";
 
@@ -271,6 +293,67 @@ export async function getFacts(): Promise<UserFact[]> {
 
 export async function deleteFact(id: number): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/facts/${id}`, { method: "DELETE" });
+}
+
+export async function getProjects(): Promise<Project[]> {
+  return await apiFetch<Project[]>("/api/projects");
+}
+
+export async function createProject(body: {
+  name: string;
+  description?: string | null;
+  status?: ProjectStatus;
+  started_at?: string | null;
+}): Promise<Project> {
+  return await apiFetch<Project>("/api/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateProject(
+  id: number,
+  body: {
+    name: string;
+    description?: string | null;
+    status?: ProjectStatus;
+    started_at?: string | null;
+  }
+): Promise<Project> {
+  return await apiFetch<Project>(`/api/projects/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteProject(id: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" });
+}
+
+export async function getProject(id: number): Promise<ProjectWithLogs> {
+  return await apiFetch<ProjectWithLogs>(`/api/projects/${id}`);
+}
+
+export async function addProjectLog(
+  projectId: number,
+  note: string
+): Promise<ProjectLog> {
+  return await apiFetch<ProjectLog>(`/api/projects/${projectId}/logs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
+}
+
+export async function deleteProjectLog(
+  projectId: number,
+  logId: number
+): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/projects/${projectId}/logs/${logId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function getProfile(): Promise<UserProfile> {

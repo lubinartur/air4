@@ -10,6 +10,7 @@ from app.routers.events import router as events_router
 from app.routers.facts import router as facts_router
 from app.routers.insights import router as insights_router
 from app.routers.profile import router as profile_router
+from app.routers.projects import router as projects_router
 from app.routers.report import router as report_router
 from app.routers.summary import router as summary_router
 from app.routers.timeline import router as timeline_router
@@ -40,6 +41,7 @@ app.include_router(chat_router, prefix="/api", tags=["chat"])
 app.include_router(events_router, prefix="/api", tags=["events"])
 app.include_router(facts_router, prefix="/api", tags=["facts"])
 app.include_router(profile_router, prefix="/api", tags=["profile"])
+app.include_router(projects_router, prefix="/api", tags=["projects"])
 app.include_router(report_router, prefix="/api", tags=["report"])
 app.include_router(timeline_router, prefix="/api", tags=["timeline"])
 

@@ -27,6 +27,7 @@ _SYSTEM = (
     "explanations of transactions).\n"
     "Return JSON array: [{\"key\": string, \"value\": string}]\n"
     "Or return: []\n"
+    "Extract facts in Russian. Key in snake_case English, value in Russian.\n"
     "Keys should be short snake_case. Values should be concise sentences.\n"
     "No markdown, JSON only."
 )

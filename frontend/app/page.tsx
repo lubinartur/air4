@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getEvents, getSummary, type LifeEvent, type Summary } from "@/lib/api";
+import { getEvents, getProjects, getSummary, type LifeEvent, type Project, type Summary } from "@/lib/api";
 import { categoryLabel } from "@/lib/categories";
 
 function eur(n: number) {
@@ -35,6 +35,8 @@ export default function OverviewPage() {
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [events, setEvents] = useState<LifeEvent[]>([]);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +55,14 @@ export default function OverviewPage() {
         if (!cancelled) setEvents(ev || []);
       } catch (e) {
         if (!cancelled) setEventsError(e instanceof Error ? e.message : "Failed to load life events");
+      }
+
+      setProjectsError(null);
+      try {
+        const ps = await getProjects();
+        if (!cancelled) setProjects(ps || []);
+      } catch (e) {
+        if (!cancelled) setProjectsError(e instanceof Error ? e.message : "Failed to load projects");
       }
     }
     void load();
@@ -74,6 +84,11 @@ export default function OverviewPage() {
   }, [events]);
 
   const last2Events = useMemo(() => (events || []).slice(0, 2), [events]);
+  const activeProjectsCount = useMemo(
+    () => (projects || []).filter((p) => p.status === "active").length,
+    [projects]
+  );
+  const last2Projects = useMemo(() => (projects || []).slice(0, 2), [projects]);
 
   const noFinanceData =
     summary == null ||
@@ -174,19 +189,61 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* Projects (soon) */}
-        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm opacity-60">
+        {/* Projects */}
+        <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-base font-semibold text-zinc-900">Projects</h2>
               <p className="mt-1 text-sm text-zinc-500">
-                Track your projects and focus
+                Track your active projects and progress
               </p>
             </div>
-            <span className="rounded bg-zinc-100 px-1.5 text-xs font-medium text-zinc-400">
-              Coming soon
-            </span>
+            <Link
+              href="/projects"
+              className="shrink-0 text-sm font-medium text-zinc-900 hover:underline"
+            >
+              View Projects →
+            </Link>
           </div>
+
+          {projectsError ? (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {projectsError}
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="mt-6 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+              No projects yet.
+              <div className="mt-3">
+                <Link
+                  href="/projects"
+                  className="inline-flex rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Add a project
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6">
+              <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                Active projects
+              </div>
+              <div className="mt-2 text-3xl font-bold text-zinc-900 tabular-nums">
+                {activeProjectsCount}
+              </div>
+              <div className="mt-4 grid gap-2">
+                {last2Projects.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-zinc-900">
+                      {p.name}
+                    </span>
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+                      {p.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Life */}

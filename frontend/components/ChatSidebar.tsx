@@ -103,6 +103,9 @@ async function buildPageGreeting(pathname: string): Promise<string> {
   if (pathname.startsWith("/timeline")) {
     return `Привет, ${name}! Здесь твои траты по периодам. Выбери два периода для сравнения.`;
   }
+  if (pathname.startsWith("/projects")) {
+    return `Привет, ${name}! Здесь твои проекты. Расскажи что сейчас в работе или обнови статус.`;
+  }
   if (pathname.startsWith("/facts")) {
     return `Привет, ${name}! Здесь всё что я знаю о тебе. Можешь удалить неверное или рассказать больше.`;
   }
@@ -222,22 +225,22 @@ export function ChatSidebar() {
   }
 
   return (
-    <div className="flex h-full min-h-0 max-h-full flex-col overflow-hidden bg-white">
-      <header className="flex h-14 shrink-0 flex-col justify-center border-b border-zinc-100 px-4 leading-tight">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-50">
+      <header className="flex h-14 shrink-0 flex-col justify-center border-b border-zinc-200 bg-white px-4 leading-tight shadow-sm">
         <h2 className="text-sm font-semibold text-zinc-900">AIR4</h2>
         <p className="mt-0.5 truncate text-xs text-zinc-400">{subtitle}</p>
       </header>
 
       <div
         ref={scrollRef}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-4"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-3"
       >
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-2 py-8 text-center text-sm text-zinc-500">
             Ask AIR4 anything about your finances
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {messages.map((m, idx) =>
               m.role === "user" ? (
                 <div
@@ -271,7 +274,7 @@ export function ChatSidebar() {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-zinc-100 p-3">
+      <div className="shrink-0 border-t border-zinc-200 bg-white p-3">
         <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
@@ -285,7 +288,7 @@ export function ChatSidebar() {
             }}
             placeholder="Message…"
             rows={1}
-            className="max-h-[96px] min-h-[40px] flex-1 resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm leading-5 text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-300 focus:bg-white focus:outline-none focus:ring-0"
+            className="max-h-[96px] min-h-[40px] flex-1 resize-none rounded-xl border-0 bg-zinc-100 px-3 py-2 text-sm leading-5 text-zinc-900 placeholder:text-zinc-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-300"
             disabled={busy}
           />
           <button

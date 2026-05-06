@@ -8,6 +8,7 @@ function showChatSidebarForPath(pathname: string): boolean {
     pathname === "/" ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/timeline") ||
+    pathname.startsWith("/projects") ||
     pathname.startsWith("/events") ||
     pathname.startsWith("/facts") ||
     pathname.startsWith("/profile")
@@ -37,7 +38,7 @@ export function MainWithChatPanel({
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-white">
         <div className="mx-auto w-full max-w-6xl px-6 py-8">{children}</div>
       </div>
-      <aside className="sticky top-0 flex h-screen max-h-screen w-[380px] shrink-0 flex-col self-start overflow-hidden border-l border-zinc-100 bg-white">
+      <aside className="sticky top-0 flex h-[calc(100vh-56px)] w-[380px] shrink-0 flex-col self-start overflow-hidden border-l-2 border-zinc-200 bg-zinc-50">
         <ChatSidebar />
       </aside>
     </div>

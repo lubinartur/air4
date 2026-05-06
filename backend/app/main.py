@@ -18,6 +18,7 @@ from app.routers.cross_sphere import router as cross_sphere_router
 from app.routers.observations import router as observations_router
 from app.routers.dilemmas import router as dilemmas_router
 from app.routers.interview import router as interview_router
+from app.routers.fix_transfers import router as fix_transfers_router
 from app.routers.timeline import router as timeline_router
 from app.routers.transactions import router as transactions_router
 from app.routers.upload import router as upload_router
@@ -53,6 +54,7 @@ app.include_router(cross_sphere_router, prefix="/api", tags=["cross-sphere"])
 app.include_router(observations_router, prefix="/api", tags=["observations"])
 app.include_router(dilemmas_router, prefix="/api", tags=["dilemmas"])
 app.include_router(interview_router, prefix="/api", tags=["interview"])
+app.include_router(fix_transfers_router, prefix="/api", tags=["maintenance"])
 app.include_router(timeline_router, prefix="/api", tags=["timeline"])
 
 

@@ -61,32 +61,32 @@ def _format_user_profile_for_prompt(profile: dict[str, Any]) -> str | None:
     lines: list[str] = []
     n = profile.get("name")
     if n is not None and str(n).strip():
-        lines.append(f"- Name: {str(n).strip()}")
+        lines.append(f"- Имя: {str(n).strip()}")
     city = profile.get("city")
     if city is not None and str(city).strip():
-        lines.append(f"- City: {str(city).strip()}")
+        lines.append(f"- Город: {str(city).strip()}")
     prof = profile.get("profession")
     if prof is not None and str(prof).strip():
-        lines.append(f"- Profession: {str(prof).strip()}")
+        lines.append(f"- Профессия: {str(prof).strip()}")
     mi = profile.get("monthly_income")
     if mi is not None:
         try:
             v = float(mi)
-            lines.append(f"- Monthly income: ~€{v:.2f}")
+            lines.append(f"- Доход в месяц: ~€{v:.2f}")
         except (TypeError, ValueError):
             pass
     goals = profile.get("goals")
     if goals is not None and str(goals).strip():
-        lines.append(f"- Goals: {str(goals).strip()}")
+        lines.append(f"- Цели: {str(goals).strip()}")
     trans = profile.get("transport")
     if trans is not None and str(trans).strip():
-        lines.append(f"- Transport: {str(trans).strip()}")
+        lines.append(f"- Транспорт: {str(trans).strip()}")
     ctx = profile.get("context")
     if ctx is not None and str(ctx).strip():
-        lines.append(f"- About: {str(ctx).strip()}")
+        lines.append(f"- О себе: {str(ctx).strip()}")
     if not lines:
         return None
-    return "User profile:\n" + "\n".join(lines)
+    return "Профиль пользователя:\n" + "\n".join(lines)
 
 
 def _parse_complexity_label(raw: str) -> str:
@@ -285,23 +285,23 @@ class OllamaAnalyzer:
         system_content = system
         page = (current_page or "").strip()
         if page:
-            system_content += f"\n\nUser is currently on the {page} page."
+            system_content += f"\n\nПользователь сейчас на странице: {page}."
         if profile:
             profile_block = _format_user_profile_for_prompt(profile)
             if profile_block:
                 system_content += f"\n\n{profile_block}"
-        context = "Spending summary JSON:\n" + json.dumps(summary, ensure_ascii=False)
+        context = "Сводка трат (JSON):\n" + json.dumps(summary, ensure_ascii=False)
         system_content = system_content + "\n\n" + context
         if transactions:
             compact = _format_transactions_for_prompt(transactions, limit=100)
             if compact:
                 system_content += (
-                    "\n\nRecent transactions (date, description, amount, category):\n"
+                    "\n\nНедавние транзакции (дата, описание, сумма, категория):\n"
                     + compact
                 )
         if events:
             system_content += (
-                "\n\nLife events the user told you about (memory; use when relevant):\n"
+                "\n\nСобытия из жизни пользователя (память; используй когда уместно):\n"
                 + json.dumps(events, ensure_ascii=False)
             )
         if user_facts:
@@ -311,7 +311,7 @@ class OllamaAnalyzer:
                 if (f.get("key") or "").strip() and (f.get("value") or "").strip()
             ]
             if fact_lines:
-                system_content += "\n\nFacts about the user:\n" + "\n".join(fact_lines)
+                system_content += "\n\nФакты о пользователе:\n" + "\n".join(fact_lines)
         if projects:
             lines: list[str] = []
             for idx, p in enumerate(projects[:20], start=1):
@@ -324,7 +324,7 @@ class OllamaAnalyzer:
                 tail = f" ({status})" if status else ""
                 lines.append(f"{idx}. {name}{extra}{tail}")
             if lines:
-                system_content += "\n\nActive projects:\n" + "\n".join(lines)
+                system_content += "\n\nАктивные проекты:\n" + "\n".join(lines)
         if confirmed_hypotheses:
             lines: list[str] = []
             for idx, h in enumerate(confirmed_hypotheses[:20], start=1):
@@ -333,7 +333,7 @@ class OllamaAnalyzer:
                     continue
                 lines.append(f"{idx}. {text}")
             if lines:
-                system_content += "\n\nConfirmed patterns about user:\n" + "\n".join(lines)
+                system_content += "\n\nПодтверждённые паттерны:\n" + "\n".join(lines)
         if cross_sphere_insights:
             lines: list[str] = []
             for idx, ins in enumerate(cross_sphere_insights[:10], start=1):
@@ -343,7 +343,7 @@ class OllamaAnalyzer:
                     continue
                 lines.append(f"{idx}. {title}: {desc}")
             if lines:
-                system_content += "\n\nCross-sphere connections:\n" + "\n".join(lines)
+                system_content += "\n\nМежсферные связи:\n" + "\n".join(lines)
         if interview_answers:
             lines: list[str] = []
             for qa in interview_answers[:50]:

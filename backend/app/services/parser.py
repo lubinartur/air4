@@ -105,7 +105,7 @@ def mark_internal_transfers(transactions: list[TransactionIn]) -> None:
     """
     Internal transfer detection (after parsing both files):
     - same amount
-    - date within 1 day
+    - date within 3 days
     - one debit, one credit
     - different account_iban
     Marks both sides as internal transfers.
@@ -141,7 +141,7 @@ def mark_internal_transfers(transactions: list[TransactionIn]) -> None:
                     continue
                 if d.account_iban == c.account_iban:
                     continue
-                if abs((d.date - c.date).days) <= 1:
+                if abs((d.date - c.date).days) <= 3:
                     best = c
                     break
             if best is not None:

@@ -10,6 +10,7 @@ import {
   getSummary,
   getTransactions,
   getPendingFollowups,
+  getHypotheses,
   notifyFactsUpdated,
   type ChatMessage,
   type UserFact,
@@ -56,71 +57,85 @@ function sanitizeDescForGreeting(s: string): string {
 
 async function buildPageGreeting(pathname: string): Promise<string> {
   let name = "Арч";
+  let monthlyIncome: number | null = null;
   try {
     const profile = await getProfile();
     if (profile.name?.trim()) name = profile.name.trim();
+    monthlyIncome =
+      typeof profile.monthly_income === "number" ? profile.monthly_income : null;
   } catch {
     /* keep fallback */
   }
 
-  if (pathname.startsWith("/dashboard")) {
-    try {
-      const summary = await getSummary();
-      const period = formatSpendingPeriodRu(
-        summary.period_start,
-        summary.period_end
-      );
-      const total = summary.total_spent.toFixed(2);
-      const base = period
-        ? `Привет, ${name}! Вижу твои траты за ${period}. Общий расход €${total}. Что хочешь разобрать?`
-        : `Привет, ${name}! Вижу твои траты на дашборде. Общий расход €${total}. Что хочешь разобрать?`;
+  async function buildSmartGreeting(opts: {
+    includeCrossSphere?: boolean;
+    defaultText: string;
+    noDataText?: string;
+  }): Promise<string> {
+    const results = await Promise.allSettled([
+      getObservations(),
+      getPendingFollowups(),
+      getHypotheses(),
+      getSummary(),
+      opts.includeCrossSphere ? getCrossSphereInsights() : Promise.resolve([]),
+    ]);
 
-      try {
-        let prefix = base;
-        try {
-          const obs = await getObservations();
-          const n = (obs || []).filter((o) => !o.is_read).length;
-          if (n > 0) {
-            prefix = `Привет, ${name}! У тебя есть ${n} новых наблюдений от AIR4. Хочешь разобрать?\n\n${base}`;
-          }
-        } catch {
-          /* ignore */
-        }
-        try {
-          const cs = await getCrossSphereInsights();
-          const top = (cs || []).slice(0, 1);
-          if (top.length) {
-            prefix =
-              `${base}\n\nЕщё связь, которую я заметил:\n` +
-              `1. ${top[0].title}`;
-          }
-        } catch {
-          /* ignore */
-        }
+    const obs = results[0].status === "fulfilled" ? results[0].value : [];
+    const pendingFollowups =
+      results[1].status === "fulfilled" ? results[1].value : [];
+    const hypotheses = results[2].status === "fulfilled" ? results[2].value : [];
+    const summary = results[3].status === "fulfilled" ? results[3].value : null;
+    const crossSphere =
+      results[4].status === "fulfilled" ? results[4].value : [];
 
-        const page = await getTransactions({
-          category: "other",
-          is_debit: true,
-          exclude_internal: true,
-          limit: 50,
-          skip: 0,
-        });
-        const topUnknown = page.items
-          .filter((t) => t.amount > 50)
-          .sort((a, b) => b.amount - a.amount)
-          .slice(0, 2);
-        if (topUnknown.length === 0) return prefix;
-        const bullets = topUnknown.map(
-          (t) =>
-            `- '${sanitizeDescForGreeting(t.description)}' — €${t.amount.toFixed(2)}`
-        );
-        return `${prefix}\n\nКстати, заметил несколько непонятных трат:\n${bullets.join("\n")}\n\nЧто это такое?`;
-      } catch {
-        return base;
-      }
-    } catch {
-      return `Привет, ${name}! Что хочешь разобрать?`;
+    const unreadObs = (obs || []).filter((o) => !o.is_read);
+    if (unreadObs.length > 0) {
+      const top = unreadObs[0];
+      return `${name}, заметил кое-что важное: ${top.title}. Хочешь разобрать?`;
     }
+
+    if (opts.includeCrossSphere && (crossSphere || []).length > 0) {
+      const top = (crossSphere || [])[0];
+      if (top?.title) {
+        return `Заметил связь: ${top.title}. Хочешь разобрать?`;
+      }
+    }
+
+    if ((pendingFollowups || []).length > 0) {
+      return `Есть дилемма которая ждёт твоего ответа. Как пошло?`;
+    }
+
+    const pendingHypotheses = (hypotheses || []).filter((h) => h.status === "pending");
+    if (pendingHypotheses.length > 0) {
+      const n = pendingHypotheses.length;
+      return `У тебя ${n} гипотез${n % 10 === 1 && n % 100 !== 11 ? "а" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "ы" : ""} которые я хочу проверить. Зайди в Паттерны.`;
+    }
+
+    const noData =
+      summary == null ||
+      summary.upload_id == null ||
+      (summary.total_spent === 0 && (summary.by_category || []).length === 0);
+    if (noData) {
+      return opts.noDataText || "Загрузи выписку чтобы я начал анализировать.";
+    }
+
+    if (summary && monthlyIncome && monthlyIncome > 0) {
+      const total = Number(summary.total_spent || 0);
+      const threshold = monthlyIncome * 1.2;
+      if (total > threshold) {
+        const pct = ((total / monthlyIncome - 1) * 100);
+        return `В последнем периоде ты потратил €${total.toFixed(
+          2
+        )} при доходе €${monthlyIncome.toFixed(2)}. Это на ${pct.toFixed(0)}% выше дохода.`;
+      }
+    }
+
+    return opts.defaultText;
+  }
+
+  if (pathname.startsWith("/dashboard")) {
+    const defaultText = `Привет, ${name}! Что хочешь разобрать?`;
+    return await buildSmartGreeting({ includeCrossSphere: true, defaultText });
   }
   if (pathname.startsWith("/events")) {
     return `Привет, ${name}! Здесь твои жизненные события. Хочешь добавить что-то новое или найти связи с тратами?`;
@@ -155,7 +170,11 @@ async function buildPageGreeting(pathname: string): Promise<string> {
     return `Привет, ${name}! Здесь твой профиль — обнови данные, и я смогу точнее советовать по финансам.`;
   }
   if (pathname === "/" || pathname === "") {
-    return `Привет, ${name}! Это твой обзор жизни. Финансы, здоровье, проекты — всё в одном месте. Что хочешь разобрать сегодня?`;
+    const defaultText = `Привет, ${name}! Это твой обзор жизни. Что хочешь разобрать сегодня?`;
+    return await buildSmartGreeting({
+      defaultText,
+      noDataText: "Загрузи выписку чтобы я начал анализировать",
+    });
   }
   if (pathname.startsWith("/upload")) {
     return `Привет, ${name}! Загрузи выписку Swedbank и я сразу начну анализ.`;

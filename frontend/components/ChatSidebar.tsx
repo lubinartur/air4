@@ -293,10 +293,10 @@ export function ChatSidebar() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-50">
-      <header className="flex h-14 shrink-0 flex-col justify-center border-b border-zinc-200 bg-white px-4 leading-tight shadow-sm">
-        <h2 className="text-sm font-semibold text-zinc-900">AIR4</h2>
-        <p className="mt-0.5 truncate text-xs text-zinc-400">{subtitle}</p>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-950/30">
+      <header className="flex h-14 shrink-0 flex-col justify-center border-b border-white/5 bg-zinc-950/50 px-4 leading-tight backdrop-blur-md">
+        <h2 className="text-sm font-semibold text-zinc-100">AIR4</h2>
+        <p className="mt-0.5 truncate text-xs text-zinc-500">{subtitle}</p>
       </header>
 
       <div
@@ -313,24 +313,24 @@ export function ChatSidebar() {
               m.role === "user" ? (
                 <div
                   key={idx}
-                  className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm bg-zinc-900 px-4 py-2.5 text-sm leading-5 text-white"
+                  className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm bg-zinc-100 px-4 py-2.5 text-sm font-medium leading-5 text-zinc-900"
                 >
                   {m.content}
                 </div>
               ) : (
                 <div key={idx} className="mr-auto max-w-[95%]">
-                  <div className="rounded-2xl rounded-bl-sm border border-zinc-100 bg-zinc-50 px-4 py-2.5 text-sm leading-5 text-zinc-900">
+                  <div className="rounded-2xl rounded-bl-sm border border-white/5 bg-white/[0.03] px-4 py-2.5 text-sm leading-5 text-zinc-200">
                     {m.content}
                   </div>
                   {m.rememberedTitle ? (
-                    <div className="mt-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] text-emerald-900">
+                    <div className="mt-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] text-emerald-200">
                       ✓ Запомнил: {m.rememberedTitle}
                     </div>
                   ) : null}
                   {m.learnedFacts?.map((fact) => (
                     <div
                       key={fact.id}
-                      className="mt-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[10px] text-blue-900"
+                      className="mt-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2 py-1.5 text-[10px] text-blue-200"
                     >
                       ✓ Узнал: {fact.value}
                     </div>
@@ -342,7 +342,7 @@ export function ChatSidebar() {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-zinc-200 bg-white p-3">
+      <div className="shrink-0 border-t border-white/5 bg-zinc-950/50 p-3 backdrop-blur-md">
         <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
@@ -356,14 +356,14 @@ export function ChatSidebar() {
             }}
             placeholder="Сообщение..."
             rows={1}
-            className="max-h-[96px] min-h-[40px] flex-1 resize-none rounded-xl border-0 bg-zinc-100 px-3 py-2 text-sm leading-5 text-zinc-900 placeholder:text-zinc-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-300"
+            className="max-h-[96px] min-h-[40px] flex-1 resize-none rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm leading-5 text-zinc-200 placeholder:text-zinc-700 focus:border-brand-accent/40 focus:bg-white/[0.04] focus:outline-none focus:ring-0"
             disabled={busy}
           />
           <button
             type="button"
             onClick={() => void onSend()}
             disabled={busy || text.trim().length === 0}
-            className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            className="shrink-0 rounded-xl bg-brand-accent px-4 py-2 text-sm font-medium text-white transition-all active:scale-95 disabled:opacity-60"
           >
             {busy ? "Отправляю..." : "Отправить"}
           </button>

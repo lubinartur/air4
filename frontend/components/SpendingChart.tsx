@@ -11,16 +11,16 @@ import {
 import { categoryLabel } from "@/lib/categories";
 
 const COLORS = [
-  "#18181b",
-  "#3f3f46",
-  "#52525b",
-  "#71717a",
-  "#a1a1aa",
-  "#d4d4d8",
-  "#0ea5e9",
-  "#22c55e",
+  "#3b82f6",
+  "#10b981",
   "#f59e0b",
   "#ef4444",
+  "#a78bfa",
+  "#22d3ee",
+  "#0ea5e9",
+  "#27272a",
+  "#52525b",
+  "#71717a",
 ];
 
 export function SpendingChart({
@@ -38,19 +38,19 @@ export function SpendingChart({
 
   if (chartData.length === 0) {
     return (
-      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-        <div className="text-sm text-zinc-700">No spending data yet.</div>
+      <div className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 shadow-sm backdrop-blur-xl">
+        <div className="text-sm text-zinc-400">No spending data yet.</div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 shadow-sm backdrop-blur-xl">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
           Spending by category
         </h3>
-        <span className="text-xs text-zinc-400">
+        <span className="text-xs text-zinc-600">
           Excludes income & internal transfers
         </span>
       </div>
@@ -74,14 +74,15 @@ export function SpendingChart({
             <Tooltip
               formatter={(value) => `€${Number(value ?? 0).toFixed(2)}`}
               contentStyle={{
-                color: "#18181b",
-                border: "1px solid #e4e4e7",
+                backgroundColor: "#09090b",
+                color: "#e4e4e7",
+                border: "1px solid #ffffff10",
                 borderRadius: 8,
               }}
-              labelStyle={{ color: "#3f3f46", fontWeight: 600 }}
+              labelStyle={{ color: "#a1a1aa", fontWeight: 600 }}
             />
             <Legend
-              wrapperStyle={{ color: "#3f3f46", fontSize: 12 }}
+              wrapperStyle={{ color: "#a1a1aa", fontSize: 12 }}
             />
           </PieChart>
         </ResponsiveContainer>

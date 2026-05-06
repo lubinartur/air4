@@ -163,6 +163,17 @@ export type CrossSphereInsight = {
   created_at?: string | null;
 };
 
+export type ObservationType = "pattern" | "anomaly" | "milestone" | "reminder";
+
+export type Observation = {
+  id: number;
+  title: string;
+  body: string;
+  observation_type: ObservationType;
+  is_read: boolean;
+  created_at?: string | null;
+};
+
 /** Dispatched on `window` after profile save so the header can refresh. */
 export const PROFILE_UPDATED_EVENT = "air4-profile-updated";
 
@@ -425,6 +436,28 @@ export async function analyzeCrossSphere(): Promise<{
 
 export async function deleteCrossSphereInsight(id: number): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/cross-sphere/${id}`, { method: "DELETE" });
+}
+
+export async function getObservations(): Promise<Observation[]> {
+  return await apiFetch<Observation[]>("/api/observations");
+}
+
+export async function generateObservations(): Promise<{
+  created: number;
+  cooldown_days_remaining?: number | null;
+}> {
+  return await apiFetch<{ created: number; cooldown_days_remaining?: number | null }>(
+    "/api/observations/generate",
+    { method: "POST" }
+  );
+}
+
+export async function markObservationRead(id: number): Promise<Observation> {
+  return await apiFetch<Observation>(`/api/observations/${id}/read`, { method: "PUT" });
+}
+
+export async function deleteObservation(id: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/observations/${id}`, { method: "DELETE" });
 }
 
 export async function getProfile(): Promise<UserProfile> {

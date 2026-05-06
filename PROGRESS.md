@@ -67,8 +67,8 @@ Last updated: 6 May 2026
 - [ ] Cross-sphere report section
 
 ## 🔲 Phase 7 — Observation Engine
-- [ ] AIR4 proactively notices patterns
-- [ ] Weekly observation (max 1-2 per week)
+- [x] AIR4 proactively notices patterns (observations feed)
+- [x] Weekly observation (max 1-2 per week)
 - [ ] Behavior change detection
 
 ## 🔲 Phase 8 — Integrations

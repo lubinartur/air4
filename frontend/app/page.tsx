@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  generateObservations,
+  getObservations,
   getCrossSphereInsights,
   getEvents,
   getHypotheses,
@@ -11,11 +13,13 @@ import {
   type CrossSphereInsight,
   type Hypothesis,
   type LifeEvent,
+  type Observation,
   type Project,
   type Summary,
 } from "@/lib/api";
 import { categoryLabel } from "@/lib/categories";
 import { CrossSphereCard } from "@/components/CrossSphereCard";
+import { ObservationCard } from "@/components/ObservationCard";
 
 function eur(n: number) {
   return `€${Number(n || 0).toFixed(2)}`;
@@ -53,6 +57,10 @@ export default function OverviewPage() {
   const [hypothesesError, setHypothesesError] = useState<string | null>(null);
   const [connections, setConnections] = useState<CrossSphereInsight[]>([]);
   const [connectionsError, setConnectionsError] = useState<string | null>(null);
+  const [observations, setObservations] = useState<Observation[]>([]);
+  const [observationsError, setObservationsError] = useState<string | null>(null);
+  const [obsGenerating, setObsGenerating] = useState(false);
+  const [obsInfo, setObsInfo] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +110,17 @@ export default function OverviewPage() {
             e instanceof Error ? e.message : "Failed to load connections"
           );
       }
+
+      setObservationsError(null);
+      try {
+        const os = await getObservations();
+        if (!cancelled) setObservations(os || []);
+      } catch (e) {
+        if (!cancelled)
+          setObservationsError(
+            e instanceof Error ? e.message : "Failed to load observations"
+          );
+      }
     }
     void load();
     return () => {
@@ -132,6 +151,10 @@ export default function OverviewPage() {
     [hypotheses]
   );
   const hasConnections = (connections || []).length > 0;
+  const unreadObservations = useMemo(
+    () => (observations || []).filter((o) => !o.is_read),
+    [observations]
+  );
 
   const noFinanceData =
     summary == null ||
@@ -148,6 +171,73 @@ export default function OverviewPage() {
           Your personal command center — finance, life, projects, and health.
         </p>
       </div>
+
+      {unreadObservations.length > 0 ? (
+        <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+                Observations
+              </h2>
+              <span className="rounded bg-zinc-900 px-1.5 text-xs font-medium text-white tabular-nums">
+                {unreadObservations.length}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                setObsGenerating(true);
+                setObsInfo(null);
+                setObservationsError(null);
+                try {
+                  const r = await generateObservations();
+                  if (r.created > 0) setObsInfo(`Created: ${r.created}`);
+                  else if (r.cooldown_days_remaining != null)
+                    setObsInfo(
+                      `Cooldown: ${r.cooldown_days_remaining.toFixed(1)}d`
+                    );
+                  else setObsInfo("No new observations");
+                  const os = await getObservations();
+                  setObservations(os || []);
+                } catch (e) {
+                  setObservationsError(
+                    e instanceof Error ? e.message : "Generate failed"
+                  );
+                } finally {
+                  setObsGenerating(false);
+                }
+              }}
+              disabled={obsGenerating}
+              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            >
+              {obsGenerating ? "Generating…" : "Generate observations"}
+            </button>
+          </div>
+
+          {obsInfo ? (
+            <p className="mb-3 text-xs text-zinc-500">{obsInfo}</p>
+          ) : null}
+          {observationsError ? (
+            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {observationsError}
+            </div>
+          ) : null}
+
+          <div className="grid gap-3">
+            {unreadObservations.slice(0, 2).map((o) => (
+              <ObservationCard
+                key={o.id}
+                observation={o}
+                onRead={(u) =>
+                  setObservations((prev) =>
+                    prev.map((x) => (x.id === u.id ? u : x))
+                  )
+                }
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Patterns */}

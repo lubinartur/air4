@@ -120,6 +120,15 @@ CREATE TABLE IF NOT EXISTS cross_sphere_insights (
     confidence TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS observations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    observation_type TEXT DEFAULT 'pattern',
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

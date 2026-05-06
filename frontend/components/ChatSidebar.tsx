@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   getCrossSphereInsights,
   chat,
+  getObservations,
   getProfile,
   getSummary,
   getTransactions,
@@ -75,6 +76,15 @@ async function buildPageGreeting(pathname: string): Promise<string> {
 
       try {
         let prefix = base;
+        try {
+          const obs = await getObservations();
+          const n = (obs || []).filter((o) => !o.is_read).length;
+          if (n > 0) {
+            prefix = `Привет, ${name}! У тебя есть ${n} новых наблюдений от AIR4. Хочешь разобрать?\n\n${base}`;
+          }
+        } catch {
+          /* ignore */
+        }
         try {
           const cs = await getCrossSphereInsights();
           const top = (cs || []).slice(0, 1);

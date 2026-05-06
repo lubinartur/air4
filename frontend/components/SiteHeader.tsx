@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   FACTS_UPDATED_EVENT,
   getFacts,
+  getObservations,
   getProfile,
   PROFILE_UPDATED_EVENT,
 } from "@/lib/api";
@@ -70,6 +71,7 @@ function DropdownItem({
 export function SiteHeader() {
   const [brand, setBrand] = useState("AIR4");
   const [factsCount, setFactsCount] = useState(0);
+  const [unreadObsCount, setUnreadObsCount] = useState(0);
   const pathname = usePathname();
   const [open, setOpen] = useState<null | "finance" | "projects" | "life">(null);
   const financeRef = useRef<HTMLDivElement>(null);
@@ -108,6 +110,25 @@ export function SiteHeader() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadObsCount() {
+      try {
+        const obs = await getObservations();
+        const n = (obs || []).filter((o) => !o.is_read).length;
+        if (!cancelled) setUnreadObsCount(n);
+      } catch {
+        if (!cancelled) setUnreadObsCount(0);
+      }
+    }
+    void loadObsCount();
+    const i = window.setInterval(() => void loadObsCount(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(i);
+    };
+  }, []);
+
+  useEffect(() => {
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node | null;
       if (!t) return;
@@ -139,7 +160,16 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
         <div className="font-semibold text-zinc-900">{brand}</div>
         <nav className="flex items-center gap-6">
-          <NavLink href="/">Overview</NavLink>
+          <NavLink href="/">
+            <span className="inline-flex items-center gap-2">
+              <span>Overview</span>
+              {unreadObsCount > 0 ? (
+                <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-medium text-white tabular-nums">
+                  {unreadObsCount}
+                </span>
+              ) : null}
+            </span>
+          </NavLink>
 
           <div className="relative" ref={financeRef}>
             <button

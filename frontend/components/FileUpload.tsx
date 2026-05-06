@@ -99,7 +99,7 @@ export function FileUpload() {
   return (
     <div>
       <label className={`block ${busy ? "pointer-events-none opacity-60" : "cursor-pointer"}`}>
-        <div className="rounded-2xl border-2 border-dashed border-zinc-200 bg-white p-12 text-center transition-colors hover:border-zinc-400">
+        <div className="glass-card border-2 border-dashed border-white/15 p-12 text-center transition-colors hover:border-brand-accent/40">
           <input
             type="file"
             accept=".csv,text/csv"
@@ -112,7 +112,7 @@ export function FileUpload() {
               setError(null);
             }}
           />
-          <p className="text-sm font-medium text-zinc-900">
+          <p className="text-sm font-medium text-zinc-100">
             Перетащи CSV Swedbank или нажми для выбора
           </p>
           <p className="mt-2 text-xs text-zinc-500">
@@ -123,9 +123,9 @@ export function FileUpload() {
 
       <div className="mt-4 text-center text-sm">
         {files.length === 0 ? (
-          <span className="text-zinc-400">Файл не выбран</span>
+          <span className="text-zinc-600">Файл не выбран</span>
         ) : (
-          <ul className="inline-block list-none text-left text-zinc-700">
+          <ul className="inline-block list-none text-left text-zinc-400">
             {files.map((f) => (
               <li key={`${f.name}-${f.size}`}>{f.name}</li>
             ))}
@@ -134,10 +134,10 @@ export function FileUpload() {
       </div>
 
       {msg ? (
-        <div className="mt-4 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm text-zinc-800">
-          <p className="font-medium text-zinc-900">{msg}</p>
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+          <p className="font-medium text-zinc-100">{msg}</p>
           {longWait && (phase === "uploading" || phase === "categorizing") ? (
-            <p className="mt-2 text-sm text-zinc-600">
+            <p className="mt-2 text-sm text-zinc-500">
               Ещё работаю... Ollama обрабатывает транзакции
             </p>
           ) : null}
@@ -145,7 +145,7 @@ export function FileUpload() {
       ) : null}
 
       {error ? (
-        <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           {error}
         </div>
       ) : null}
@@ -154,7 +154,7 @@ export function FileUpload() {
         type="button"
         onClick={() => void onSubmit()}
         disabled={!canUpload || busy}
-        className="mt-6 w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition-opacity disabled:opacity-50"
+        className="btn-primary mt-6 w-full transition-opacity disabled:opacity-50"
       >
         {busy
           ? phase === "done"

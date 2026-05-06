@@ -5,21 +5,19 @@ import { ChatWindow } from "@/components/ChatWindow";
 
 export default function ChatPage() {
   return (
-    <div className="grid gap-6">
-      <div className="flex items-start justify-between gap-4 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+    <div className="space-y-8">
+      <header className="glass-card flex flex-wrap items-start justify-between gap-6 p-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Chat</h1>
-          <p className="mt-2 text-sm text-zinc-500">
+          <div className="mono-label mb-2 text-zinc-500">Conversation</div>
+          <h1 className="text-4xl font-light tracking-tight text-zinc-100">Chat</h1>
+          <p className="mt-3 text-sm font-light text-zinc-500">
             Ask questions like “Where am I overspending?” or “Any unusual spikes?”
           </p>
         </div>
-        <Link
-          href="/dashboard"
-          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-900"
-        >
+        <Link href="/dashboard" className="btn-ghost self-start">
           Back to dashboard
         </Link>
-      </div>
+      </header>
 
       <ChatWindow />
     </div>

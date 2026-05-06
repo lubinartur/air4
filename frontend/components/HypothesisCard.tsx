@@ -31,18 +31,18 @@ export function HypothesisCard({
 
   return (
     <div
-      className={`rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm transition-opacity ${
+      className={`glass-card p-5 transition-opacity ${
         done ? "opacity-60" : "opacity-100"
       }`}
     >
-      <p className="text-sm leading-6 text-zinc-900">{hypothesis.text}</p>
+      <p className="text-sm leading-6 text-zinc-200">{hypothesis.text}</p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => void act("confirmed")}
           disabled={busy !== null}
-          className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-60"
         >
           {busy === "confirmed" ? "…" : "Да, верно"}
         </button>
@@ -50,7 +50,7 @@ export function HypothesisCard({
           type="button"
           onClick={() => void act("rejected")}
           disabled={busy !== null}
-          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="rounded-xl border border-red-500/30 bg-red-500/15 px-4 py-2 text-sm font-medium text-red-100 hover:bg-red-500/25 disabled:opacity-60"
         >
           {busy === "rejected" ? "…" : "Нет, не так"}
         </button>
@@ -61,7 +61,7 @@ export function HypothesisCard({
         ) : null}
       </div>
 
-      {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-red-300">{error}</p> : null}
     </div>
   );
 }

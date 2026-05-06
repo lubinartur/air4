@@ -29,6 +29,41 @@ type ChatLine =
 const TEXTAREA_MAX_ROWS = 4;
 const TEXTAREA_LINE_PX = 20;
 
+function IconActivity({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  );
+}
+
+function IconSend({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
+    </svg>
+  );
+}
+
 function formatSpendingPeriodRu(
   start: string | null,
   end: string | null
@@ -293,44 +328,64 @@ export function ChatSidebar() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-950/30">
-      <header className="flex h-14 shrink-0 flex-col justify-center border-b border-white/5 bg-zinc-950/50 px-4 leading-tight backdrop-blur-md">
-        <h2 className="text-sm font-semibold text-zinc-100">AIR4</h2>
-        <p className="mt-0.5 truncate text-xs text-zinc-500">{subtitle}</p>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-white/5 bg-zinc-950/30 backdrop-blur-3xl">
+      <header className="shrink-0 border-b border-white/5 px-6 py-6 sm:px-8">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-accent animate-pulse" />
+            <div className="min-w-0">
+              <span className="mono-label !tracking-[0.28em] !text-zinc-400 block">
+                AIR4 CONSOLE
+              </span>
+              <p className="mt-2 truncate font-mono text-[10px] leading-tight tracking-tight text-zinc-600">
+                {subtitle}
+              </p>
+            </div>
+          </div>
+          <IconActivity className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" />
+        </div>
       </header>
 
       <div
         ref={scrollRef}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-3"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-6 py-8 sm:px-8 sm:py-10"
       >
         {messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-2 py-8 text-center text-sm text-zinc-500">
-            Спроси AIR4 о своих финансах
+          <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+            <p className="mono-label text-zinc-600">Awaiting input</p>
+            <p className="mt-3 max-w-[240px] text-sm font-light leading-relaxed text-zinc-500">
+              Спроси AIR4 о финансах, событиях или следующем шаге.
+            </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-8">
             {messages.map((m, idx) =>
               m.role === "user" ? (
                 <div
                   key={idx}
-                  className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm bg-zinc-100 px-4 py-2.5 text-sm font-medium leading-5 text-zinc-900"
+                  className="flex max-w-[100%] flex-col items-end self-end"
                 >
-                  {m.content}
+                  <div className="rounded-lg border border-white/10 bg-zinc-800/90 px-5 py-4 text-[13px] font-medium leading-[1.6] text-zinc-100">
+                    {m.content}
+                  </div>
                 </div>
               ) : (
-                <div key={idx} className="mr-auto max-w-[95%]">
-                  <div className="rounded-2xl rounded-bl-sm border border-white/5 bg-white/[0.03] px-4 py-2.5 text-sm leading-5 text-zinc-200">
+                <div
+                  key={idx}
+                  className="flex max-w-[100%] flex-col items-start self-start"
+                >
+                  <div className="rounded-lg border border-white/5 bg-white/[0.03] px-5 py-4 text-[13px] leading-[1.6] text-zinc-300 backdrop-blur-sm">
                     {m.content}
                   </div>
                   {m.rememberedTitle ? (
-                    <div className="mt-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] text-emerald-200">
+                    <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] leading-snug text-emerald-200">
                       ✓ Запомнил: {m.rememberedTitle}
                     </div>
                   ) : null}
                   {m.learnedFacts?.map((fact) => (
                     <div
                       key={fact.id}
-                      className="mt-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2 py-1.5 text-[10px] text-blue-200"
+                      className="mt-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] leading-snug text-blue-200"
                     >
                       ✓ Узнал: {fact.value}
                     </div>
@@ -338,12 +393,19 @@ export function ChatSidebar() {
                 </div>
               )
             )}
+            {busy ? (
+              <div className="flex gap-1.5 px-1" aria-hidden>
+                <span className="h-1 w-1 animate-bounce rounded-full bg-brand-accent" />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-brand-accent [animation-delay:120ms]" />
+                <span className="h-1 w-1 animate-bounce rounded-full bg-brand-accent [animation-delay:240ms]" />
+              </div>
+            ) : null}
           </div>
         )}
       </div>
 
-      <div className="shrink-0 border-t border-white/5 bg-zinc-950/50 p-3 backdrop-blur-md">
-        <div className="flex items-end gap-2">
+      <div className="shrink-0 border-t border-white/5 bg-zinc-950/50 px-6 py-6 backdrop-blur-md sm:px-8 sm:py-8">
+        <div className="relative group">
           <textarea
             ref={textareaRef}
             value={text}
@@ -354,19 +416,25 @@ export function ChatSidebar() {
                 void onSend();
               }
             }}
-            placeholder="Сообщение..."
+            placeholder="Запрос к консоли…"
             rows={1}
-            className="max-h-[96px] min-h-[40px] flex-1 resize-none rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-sm leading-5 text-zinc-200 placeholder:text-zinc-700 focus:border-brand-accent/40 focus:bg-white/[0.04] focus:outline-none focus:ring-0"
+            className="max-h-[96px] min-h-[80px] w-full resize-none rounded-lg border border-white/10 bg-white/[0.02] py-4 pl-5 pr-14 pb-11 text-[13px] leading-[1.6] text-zinc-200 placeholder:text-zinc-600 transition-all focus:border-brand-accent/40 focus:bg-white/[0.04] focus:outline-none focus:ring-0 disabled:opacity-50"
             disabled={busy}
           />
-          <button
-            type="button"
-            onClick={() => void onSend()}
-            disabled={busy || text.trim().length === 0}
-            className="shrink-0 rounded-xl bg-brand-accent px-4 py-2 text-sm font-medium text-white transition-all active:scale-95 disabled:opacity-60"
-          >
-            {busy ? "Отправляю..." : "Отправить"}
-          </button>
+          <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-3">
+            <span className="hidden text-[9px] font-mono text-zinc-600 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 sm:block">
+              Enter — отправить
+            </span>
+            <button
+              type="button"
+              onClick={() => void onSend()}
+              disabled={busy || text.trim().length === 0}
+              aria-label={busy ? "Отправка…" : "Отправить"}
+              className="pointer-events-auto rounded-md bg-brand-accent p-2 text-white shadow-[0_0_20px_-6px_rgba(59,130,246,0.6)] transition-all hover:bg-brand-accent/90 active:scale-90 disabled:opacity-20"
+            >
+              <IconSend className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

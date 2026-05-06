@@ -178,7 +178,7 @@ export function SiteHeader() {
     pathname.startsWith("/hypotheses");
 
   return (
-    <header className="border-b border-white/5 bg-zinc-950/50 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-zinc-950/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
         <div className="font-semibold text-zinc-100">{brand}</div>
         <nav className="flex items-center gap-6">

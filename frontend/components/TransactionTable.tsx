@@ -115,7 +115,7 @@ export function TransactionTable() {
                         className="rounded-xl border border-white/10 bg-white/[0.02] px-2 py-1 text-sm text-zinc-200 focus:border-brand-accent/40 focus:ring-0 focus:outline-none"
                       >
                         {CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
+                          <option key={c} value={c} className="bg-zinc-900">
                             {categoryLabel(c)}
                           </option>
                         ))}

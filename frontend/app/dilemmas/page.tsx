@@ -36,7 +36,7 @@ function renderMultilineParagraphs(text: string) {
     .map((l) => l.trimEnd())
     .filter((l) => l.trim().length > 0)
     .map((line, idx) => (
-      <p key={idx} className="text-sm text-zinc-600 leading-relaxed">
+      <p key={idx} className="text-sm text-zinc-400 leading-relaxed">
         {line}
       </p>
     ));
@@ -81,7 +81,7 @@ function renderSectionBody(body: string) {
   const parts = (body || "").split(" - ").map((p) => p.trim()).filter(Boolean);
   if (parts.length <= 1) {
     return (
-      <div className="text-sm text-zinc-700 leading-relaxed mb-3">
+      <div className="text-sm text-zinc-300 leading-relaxed mb-3">
         {body.trim()}
       </div>
     );
@@ -89,10 +89,10 @@ function renderSectionBody(body: string) {
   const [first, ...rest] = parts;
   return (
     <div className="mb-3">
-      <div className="text-sm text-zinc-700 leading-relaxed">{first}</div>
+      <div className="text-sm text-zinc-300 leading-relaxed">{first}</div>
       <div className="mt-2 grid gap-1">
         {rest.map((x, idx) => (
-          <div key={idx} className="text-sm text-zinc-700 leading-relaxed">
+          <div key={idx} className="text-sm text-zinc-300 leading-relaxed">
             · {x}
           </div>
         ))}
@@ -204,50 +204,44 @@ export default function DilemmasPage() {
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          Дилеммы
-        </h1>
-        <p className="mt-2 text-sm text-zinc-500">
+    <div className="space-y-8">
+      <header className="glass-card p-8">
+        <div className="mono-label mb-2 text-zinc-500">Decision Intelligence</div>
+        <h1 className="text-4xl font-light tracking-tight text-zinc-100">Дилеммы</h1>
+        <p className="mt-3 text-sm font-light leading-relaxed text-zinc-500">
           Опиши выбор — AIR4 разложит его с учётом твоего контекста
         </p>
-      </div>
+      </header>
 
       {pendingFollowups.length > 0 ? (
-        <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+        <section className="glass-card p-8">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-              Фоллоу-ап
-            </h2>
-            <div className="text-xs text-zinc-500">
+            <h2 className="mono-label text-zinc-300">Фоллоу-ап</h2>
+            <div className="text-xs font-mono text-zinc-600">
               Ждут ответа: {pendingFollowups.length}
             </div>
           </div>
 
           <div className="grid gap-3">
             {pendingFollowups.map((d) => (
-              <div
-                key={d.id}
-                className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
-              >
+              <div key={d.id} className="glass-card p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-medium text-zinc-900">{d.title}</div>
+                    <div className="font-medium text-zinc-100">{d.title}</div>
                     {d.analysis ? (
                       <div className="mt-3">{renderStructuredText(d.analysis)}</div>
                     ) : null}
                     {d.recommendation ? (
                       <div className="mt-3">{renderStructuredText(d.recommendation)}</div>
                     ) : null}
-                    <div className="mt-3 text-sm font-medium text-zinc-900">
+                    <div className="mt-3 text-sm font-medium text-zinc-200">
                       Как пошло? Ты принял решение?
                     </div>
                   </div>
                 </div>
 
                 {followupThanks[d.id] ? (
-                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                  <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
                     Спасибо! AIR4 учтёт это.
                   </div>
                 ) : (
@@ -261,7 +255,7 @@ export default function DilemmasPage() {
                         }))
                       }
                       rows={3}
-                      className="mt-4 w-full resize-y rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-400 focus:ring-0 focus:outline-none"
+                      className="mt-4 w-full resize-y rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-white/20 focus:ring-0 focus:outline-none"
                       placeholder="Твой ответ..."
                       disabled={followupBusy === d.id}
                     />
@@ -273,7 +267,7 @@ export default function DilemmasPage() {
                           followupBusy === d.id ||
                           (followupAnswers[d.id] || "").trim().length === 0
                         }
-                        className="rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+                        className="btn-primary px-5 py-2.5 disabled:opacity-60"
                       >
                         {followupBusy === d.id ? "Отправляю…" : "Ответить"}
                       </button>
@@ -286,12 +280,10 @@ export default function DilemmasPage() {
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+      <section className="glass-card p-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-            Разбор
-          </h2>
-          <div className="text-xs text-zinc-500">Открытых дилемм: {openCount}</div>
+          <h2 className="mono-label text-zinc-300">Разбор</h2>
+          <div className="text-xs font-mono text-zinc-600">Открытых дилемм: {openCount}</div>
         </div>
 
         <textarea
@@ -299,7 +291,7 @@ export default function DilemmasPage() {
           onChange={(e) => setText(e.target.value)}
           rows={5}
           placeholder="Опиши свою дилемму..."
-          className="w-full resize-y rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-400 focus:ring-0 focus:outline-none"
+          className="w-full resize-y rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-white/20 focus:ring-0 focus:outline-none"
           disabled={creating}
         />
         <div className="mt-3 flex items-center justify-between gap-3">
@@ -307,7 +299,7 @@ export default function DilemmasPage() {
             type="button"
             onClick={() => void onCreate()}
             disabled={creating || text.trim().length === 0}
-            className="rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            className="btn-primary px-5 py-2.5 disabled:opacity-60"
           >
             {creating ? "AIR4 анализирует..." : "Разобрать"}
           </button>
@@ -315,28 +307,26 @@ export default function DilemmasPage() {
             type="button"
             onClick={() => void load()}
             disabled={creating || loading}
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 disabled:opacity-60"
+            className="btn-ghost px-4 py-2.5 disabled:opacity-60"
           >
             Обновить
           </button>
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {error}
           </div>
         ) : null}
       </section>
 
-      <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
-          История
-        </h2>
+      <section className="glass-card p-8">
+        <h2 className="mono-label mb-6 text-zinc-300">История</h2>
 
         {loading ? (
-          <div className="text-sm text-zinc-600">Загружаю…</div>
+          <div className="text-sm text-zinc-500">Загружаю…</div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-100 bg-zinc-50 p-8 text-center text-sm text-zinc-700">
+          <div className="glass-card border border-dashed border-white/10 p-8 text-center text-sm text-zinc-500">
             Дилемм пока нет.
           </div>
         ) : (
@@ -344,10 +334,7 @@ export default function DilemmasPage() {
             {items.map((d) => {
               const isOpen = !!expanded[d.id];
               return (
-                <div
-                  key={d.id}
-                  className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
-                >
+                <div key={d.id} className="glass-card p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <button
                       type="button"
@@ -357,15 +344,15 @@ export default function DilemmasPage() {
                       className="min-w-0 text-left"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-zinc-400">
+                        <span className="text-xs text-zinc-500">
                           {isOpen ? "▼" : "▶"}
                         </span>
-                        <div className="font-medium text-zinc-900">{d.title}</div>
+                        <div className="font-medium text-zinc-100">{d.title}</div>
                       </div>
                       <div className="mt-1 text-xs text-zinc-500">
                         {formatDateRu(d.created_at)}
                       </div>
-                      <div className="mt-2 text-sm text-zinc-700">
+                      <div className="mt-2 text-sm text-zinc-400">
                         {preview(d.recommendation)}
                       </div>
                     </button>
@@ -374,7 +361,7 @@ export default function DilemmasPage() {
                       type="button"
                       onClick={() => void onDelete(d.id)}
                       disabled={deletingId === d.id}
-                      className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
+                      className="shrink-0 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-50"
                     >
                       {deletingId === d.id ? "Удаляю…" : "Удалить"}
                     </button>
@@ -383,28 +370,22 @@ export default function DilemmasPage() {
                   {isOpen ? (
                     <div className="mt-4 grid gap-4">
                       {d.description ? (
-                        <div className="rounded-xl border border-zinc-100 bg-zinc-50 p-4">
-                          <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                            Дилемма
-                          </div>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-800">
+                        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                          <div className="mono-label text-zinc-500">Дилемма</div>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-300">
                             {d.description}
                           </p>
                         </div>
                       ) : null}
                       {d.analysis ? (
-                        <div className="rounded-xl border border-zinc-100 bg-white p-4">
-                          <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                            Разбор
-                          </div>
+                        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                          <div className="mono-label text-zinc-500">Разбор</div>
                           <div className="mt-2">{renderStructuredText(d.analysis)}</div>
                         </div>
                       ) : null}
                       {d.recommendation ? (
-                        <div className="rounded-xl border border-zinc-100 bg-white p-4">
-                          <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
-                            Рекомендация
-                          </div>
+                        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                          <div className="mono-label text-zinc-500">Рекомендация</div>
                           <div className="mt-2">{renderStructuredText(d.recommendation)}</div>
                         </div>
                       ) : null}

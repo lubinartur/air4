@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { getEvents, getHypotheses, getProjects, getSummary, type Hypothesis, type LifeEvent, type Project, type Summary } from "@/lib/api";
+import {
+  getCrossSphereInsights,
+  getEvents,
+  getHypotheses,
+  getProjects,
+  getSummary,
+  type CrossSphereInsight,
+  type Hypothesis,
+  type LifeEvent,
+  type Project,
+  type Summary,
+} from "@/lib/api";
 import { categoryLabel } from "@/lib/categories";
+import { CrossSphereCard } from "@/components/CrossSphereCard";
 
 function eur(n: number) {
   return `€${Number(n || 0).toFixed(2)}`;
@@ -39,6 +51,8 @@ export default function OverviewPage() {
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
   const [hypothesesError, setHypothesesError] = useState<string | null>(null);
+  const [connections, setConnections] = useState<CrossSphereInsight[]>([]);
+  const [connectionsError, setConnectionsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +91,17 @@ export default function OverviewPage() {
             e instanceof Error ? e.message : "Failed to load patterns"
           );
       }
+
+      setConnectionsError(null);
+      try {
+        const cs = await getCrossSphereInsights();
+        if (!cancelled) setConnections(cs || []);
+      } catch (e) {
+        if (!cancelled)
+          setConnectionsError(
+            e instanceof Error ? e.message : "Failed to load connections"
+          );
+      }
     }
     void load();
     return () => {
@@ -106,6 +131,7 @@ export default function OverviewPage() {
     () => (hypotheses || []).filter((h) => h.status === "pending").length,
     [hypotheses]
   );
+  const hasConnections = (connections || []).length > 0;
 
   const noFinanceData =
     summary == null ||
@@ -336,6 +362,33 @@ export default function OverviewPage() {
           )}
         </div>
       </div>
+
+      {hasConnections ? (
+        <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+              AIR4 found connections
+            </h2>
+            <Link
+              href="/dashboard"
+              className="text-sm font-medium text-zinc-900 hover:underline"
+            >
+              See all →
+            </Link>
+          </div>
+          {connectionsError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {connectionsError}
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {connections.slice(0, 2).map((ins) => (
+                <CrossSphereCard key={ins.id} insight={ins} />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -61,9 +61,9 @@ Last updated: 6 May 2026
 - [x] Confirmed meanings stored and used in chat
 
 ## 🔲 Phase 6 — Cross-Sphere Intelligence
-- [ ] Finance ↔ Events correlation
-- [ ] Spending patterns around life events
-- [ ] "When stressed, you spend more on food delivery" type insights
+- [x] Finance ↔ Events correlation
+- [x] Spending patterns around life events
+- [x] "When stressed, you spend more on food delivery" type insights
 - [ ] Cross-sphere report section
 
 ## 🔲 Phase 7 — Observation Engine

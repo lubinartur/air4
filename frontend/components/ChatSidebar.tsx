@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
+  getCrossSphereInsights,
   chat,
   getProfile,
   getSummary,
@@ -73,6 +74,19 @@ async function buildPageGreeting(pathname: string): Promise<string> {
         : `Привет, ${name}! Вижу твои траты на дашборде. Общий расход €${total}. Что хочешь разобрать?`;
 
       try {
+        let prefix = base;
+        try {
+          const cs = await getCrossSphereInsights();
+          const top = (cs || []).slice(0, 1);
+          if (top.length) {
+            prefix =
+              `${base}\n\nЕщё связь, которую я заметил:\n` +
+              `1. ${top[0].title}`;
+          }
+        } catch {
+          /* ignore */
+        }
+
         const page = await getTransactions({
           category: "other",
           is_debit: true,
@@ -84,12 +98,12 @@ async function buildPageGreeting(pathname: string): Promise<string> {
           .filter((t) => t.amount > 50)
           .sort((a, b) => b.amount - a.amount)
           .slice(0, 2);
-        if (topUnknown.length === 0) return base;
+        if (topUnknown.length === 0) return prefix;
         const bullets = topUnknown.map(
           (t) =>
             `- '${sanitizeDescForGreeting(t.description)}' — €${t.amount.toFixed(2)}`
         );
-        return `${base}\n\nКстати, заметил несколько непонятных трат:\n${bullets.join("\n")}\n\nЧто это такое?`;
+        return `${prefix}\n\nКстати, заметил несколько непонятных трат:\n${bullets.join("\n")}\n\nЧто это такое?`;
       } catch {
         return base;
       }

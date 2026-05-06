@@ -158,6 +158,16 @@ async def chat(
         """,
     )
 
+    cross_sphere_rows = await fetch_all(
+        db,
+        """
+        SELECT sphere1, sphere2, title, description, confidence, created_at
+        FROM cross_sphere_insights
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT 10
+        """,
+    )
+
     analyzer = OllamaAnalyzer()
     response = await analyzer.chat(
         body.message,
@@ -169,6 +179,7 @@ async def chat(
         user_facts=user_facts_rows,
         projects=active_projects_rows,
         confirmed_hypotheses=confirmed_hypotheses_rows,
+        cross_sphere_insights=cross_sphere_rows,
         current_page=body.current_page,
     )
     return ChatOut(

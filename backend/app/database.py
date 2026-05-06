@@ -110,6 +110,16 @@ CREATE TABLE IF NOT EXISTS hypotheses (
     rejected_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS cross_sphere_insights (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sphere1 TEXT,
+    sphere2 TEXT,
+    title TEXT,
+    description TEXT,
+    confidence TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 

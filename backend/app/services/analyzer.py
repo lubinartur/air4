@@ -229,6 +229,7 @@ class OllamaAnalyzer:
         user_facts: list[dict[str, Any]] | None = None,
         projects: list[dict[str, Any]] | None = None,
         confirmed_hypotheses: list[dict[str, Any]] | None = None,
+        cross_sphere_insights: list[dict[str, Any]] | None = None,
         current_page: str | None = None,
     ) -> str:
         complexity = await self.classify_query(message)
@@ -308,6 +309,16 @@ class OllamaAnalyzer:
                 lines.append(f"{idx}. {text}")
             if lines:
                 system_content += "\n\nConfirmed patterns about user:\n" + "\n".join(lines)
+        if cross_sphere_insights:
+            lines: list[str] = []
+            for idx, ins in enumerate(cross_sphere_insights[:10], start=1):
+                title = str(ins.get("title") or "").replace("\n", " ").strip()
+                desc = str(ins.get("description") or "").replace("\n", " ").strip()
+                if not title or not desc:
+                    continue
+                lines.append(f"{idx}. {title}: {desc}")
+            if lines:
+                system_content += "\n\nCross-sphere connections:\n" + "\n".join(lines)
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
         for m in history[-20:]:
             role = m.get("role")

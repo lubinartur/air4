@@ -150,6 +150,19 @@ export type Hypothesis = {
   created_at?: string | null;
 };
 
+export type Sphere = "finance" | "life" | "projects" | "health";
+export type Confidence = "high" | "medium" | "low";
+
+export type CrossSphereInsight = {
+  id: number;
+  sphere1: Sphere | null;
+  sphere2: Sphere | null;
+  title: string;
+  description: string;
+  confidence: Confidence | null;
+  created_at?: string | null;
+};
+
 /** Dispatched on `window` after profile save so the header can refresh. */
 export const PROFILE_UPDATED_EVENT = "air4-profile-updated";
 
@@ -394,6 +407,24 @@ export async function updateHypothesis(
 
 export async function deleteHypothesis(id: number): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/api/hypotheses/${id}`, { method: "DELETE" });
+}
+
+export async function getCrossSphereInsights(): Promise<CrossSphereInsight[]> {
+  return await apiFetch<CrossSphereInsight[]>("/api/cross-sphere");
+}
+
+export async function analyzeCrossSphere(): Promise<{
+  created: number;
+  cooldown_hours_remaining?: number | null;
+}> {
+  return await apiFetch<{ created: number; cooldown_hours_remaining?: number | null }>(
+    "/api/cross-sphere/analyze",
+    { method: "POST" }
+  );
+}
+
+export async function deleteCrossSphereInsight(id: number): Promise<void> {
+  await apiFetch<{ ok: boolean }>(`/api/cross-sphere/${id}`, { method: "DELETE" });
 }
 
 export async function getProfile(): Promise<UserProfile> {

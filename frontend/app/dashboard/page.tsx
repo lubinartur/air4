@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  analyzeCrossSphere,
   generateReport,
+  getCrossSphereInsights,
   getInsights,
   getSummary,
   getTransactions,
+  type CrossSphereInsight,
   type Insight,
   type Summary,
   type Transaction,
@@ -15,6 +18,7 @@ import { categoryLabel } from "@/lib/categories";
 import { SpendingChart } from "@/components/SpendingChart";
 import { InsightCard } from "@/components/InsightCard";
 import { TransactionTable } from "@/components/TransactionTable";
+import { CrossSphereCard } from "@/components/CrossSphereCard";
 
 function formatSpendingPeriod(
   start: string | null,
@@ -91,6 +95,11 @@ export default function DashboardPage() {
   const [reportText, setReportText] = useState<string | null>(null);
   const [reportExpanded, setReportExpanded] = useState(true);
   const [copyDone, setCopyDone] = useState(false);
+  const [crossSphere, setCrossSphere] = useState<CrossSphereInsight[]>([]);
+  const [crossSphereLoading, setCrossSphereLoading] = useState(false);
+  const [crossSphereError, setCrossSphereError] = useState<string | null>(null);
+  const [crossSphereAnalyzing, setCrossSphereAnalyzing] = useState(false);
+  const [crossSphereInfo, setCrossSphereInfo] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +114,29 @@ export default function DashboardPage() {
       }
     }
     void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCrossSphere() {
+      setCrossSphereError(null);
+      setCrossSphereLoading(true);
+      try {
+        const data = await getCrossSphereInsights();
+        if (!cancelled) setCrossSphere(data || []);
+      } catch (e) {
+        if (!cancelled)
+          setCrossSphereError(
+            e instanceof Error ? e.message : "Failed to load connections"
+          );
+      } finally {
+        if (!cancelled) setCrossSphereLoading(false);
+      }
+    }
+    void loadCrossSphere();
     return () => {
       cancelled = true;
     };
@@ -207,6 +239,32 @@ export default function DashboardPage() {
       window.setTimeout(() => setCopyDone(false), 2000);
     } catch {
       setReportError("Could not copy to clipboard");
+    }
+  }
+
+  async function runAnalyzeConnections() {
+    setCrossSphereError(null);
+    setCrossSphereInfo(null);
+    setCrossSphereAnalyzing(true);
+    try {
+      const res = await analyzeCrossSphere();
+      if (res.created > 0) {
+        setCrossSphereInfo(`Created: ${res.created}`);
+      } else if (res.cooldown_hours_remaining != null) {
+        setCrossSphereInfo(
+          `Cooldown: ${res.cooldown_hours_remaining.toFixed(1)}h`
+        );
+      } else {
+        setCrossSphereInfo("No new connections");
+      }
+      const data = await getCrossSphereInsights();
+      setCrossSphere(data || []);
+    } catch (e) {
+      setCrossSphereError(
+        e instanceof Error ? e.message : "Failed to analyze connections"
+      );
+    } finally {
+      setCrossSphereAnalyzing(false);
     }
   }
 
@@ -369,6 +427,49 @@ export default function DashboardPage() {
               again, or see backend logs.
             </div>
           ) : null}
+
+          <div className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+                Cross-sphere connections
+              </h3>
+              <button
+                type="button"
+                onClick={() => void runAnalyzeConnections()}
+                disabled={crossSphereAnalyzing}
+                className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+              >
+                {crossSphereAnalyzing ? "Analyzing…" : "Analyze connections"}
+              </button>
+            </div>
+
+            {crossSphereInfo ? (
+              <p className="mb-3 text-xs text-zinc-500">{crossSphereInfo}</p>
+            ) : null}
+            {crossSphereError ? (
+              <p className="mb-3 text-xs text-red-700">{crossSphereError}</p>
+            ) : null}
+
+            {crossSphereLoading ? (
+              <p className="text-sm text-zinc-600">Loading…</p>
+            ) : crossSphere.length === 0 ? (
+              <p className="text-sm text-zinc-600">
+                No connections yet. Click “Analyze connections”.
+              </p>
+            ) : (
+              <div className="grid gap-3">
+                {crossSphere.slice(0, 3).map((ins) => (
+                  <CrossSphereCard
+                    key={ins.id}
+                    insight={ins}
+                    onDeleted={(id) =>
+                      setCrossSphere((prev) => prev.filter((x) => x.id !== id))
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

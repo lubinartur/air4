@@ -38,9 +38,38 @@ function formatSpendingPeriod(
   const a = new Date(start.includes("T") ? start : `${start}T12:00:00`);
   const b = new Date(end.includes("T") ? end : `${end}T12:00:00`);
   if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
-  const startOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-  const endOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric" };
-  return `${a.toLocaleDateString("en-GB", startOpts)} — ${b.toLocaleDateString("en-GB", endOpts)}`;
+  const sameYear = a.getFullYear() === b.getFullYear();
+  const left = a.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+  const right = b.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    ...(sameYear ? {} : { year: "numeric" as const }),
+  });
+  return `${left} — ${right}`;
+}
+
+function ruSphereTag(s: string): string {
+  const key = s.toLowerCase();
+  const map: Record<string, string> = {
+    finance: "Финансы",
+    life: "Жизнь",
+    projects: "Проекты",
+    work: "Работа",
+    health: "Здоровье",
+    travel: "Путешествия",
+    other: "Другое",
+  };
+  return map[key] ?? s;
+}
+
+function observationTypeRu(t: string): string {
+  const map: Record<string, string> = {
+    anomaly: "аномалия",
+    reminder: "напоминание",
+    milestone: "веха",
+    pattern: "паттерн",
+  };
+  return map[t] ?? t;
 }
 
 function isWithinLastDays(isoDate: string | null | undefined, days: number): boolean {
@@ -194,7 +223,10 @@ export default function OverviewPage() {
         const s = await getSummary();
         if (!cancelled) setSummary(s);
       } catch (e) {
-        if (!cancelled) setSummaryError(e instanceof Error ? e.message : "Failed to load finance summary");
+        if (!cancelled)
+          setSummaryError(
+            e instanceof Error ? e.message : "Не удалось загрузить сводку по финансам"
+          );
       }
 
       setEventsError(null);
@@ -202,7 +234,10 @@ export default function OverviewPage() {
         const ev = await getEvents();
         if (!cancelled) setEvents(ev || []);
       } catch (e) {
-        if (!cancelled) setEventsError(e instanceof Error ? e.message : "Failed to load life events");
+        if (!cancelled)
+          setEventsError(
+            e instanceof Error ? e.message : "Не удалось загрузить события"
+          );
       }
 
       setDilemmasError(null);
@@ -212,7 +247,7 @@ export default function OverviewPage() {
       } catch (e) {
         if (!cancelled)
           setDilemmasError(
-            e instanceof Error ? e.message : "Failed to load dilemmas"
+            e instanceof Error ? e.message : "Не удалось загрузить дилеммы"
           );
       }
 
@@ -223,7 +258,7 @@ export default function OverviewPage() {
       } catch (e) {
         if (!cancelled)
           setFollowupsError(
-            e instanceof Error ? e.message : "Failed to load pending followups"
+            e instanceof Error ? e.message : "Не удалось загрузить ожидающие фоллоу-апы"
           );
       }
 
@@ -234,7 +269,7 @@ export default function OverviewPage() {
       } catch (e) {
         if (!cancelled)
           setInterviewError(
-            e instanceof Error ? e.message : "Failed to load interview answers"
+            e instanceof Error ? e.message : "Не удалось загрузить ответы интервью"
           );
       }
 
@@ -243,7 +278,10 @@ export default function OverviewPage() {
         const ps = await getProjects();
         if (!cancelled) setProjects(ps || []);
       } catch (e) {
-        if (!cancelled) setProjectsError(e instanceof Error ? e.message : "Failed to load projects");
+        if (!cancelled)
+          setProjectsError(
+            e instanceof Error ? e.message : "Не удалось загрузить проекты"
+          );
       }
 
       setHypothesesError(null);
@@ -253,7 +291,7 @@ export default function OverviewPage() {
       } catch (e) {
         if (!cancelled)
           setHypothesesError(
-            e instanceof Error ? e.message : "Failed to load patterns"
+            e instanceof Error ? e.message : "Не удалось загрузить гипотезы"
           );
       }
 
@@ -264,7 +302,7 @@ export default function OverviewPage() {
       } catch (e) {
         if (!cancelled)
           setConnectionsError(
-            e instanceof Error ? e.message : "Failed to load connections"
+            e instanceof Error ? e.message : "Не удалось загрузить связи"
           );
       }
 
@@ -275,7 +313,7 @@ export default function OverviewPage() {
       } catch (e) {
         if (!cancelled)
           setObservationsError(
-            e instanceof Error ? e.message : "Failed to load observations"
+            e instanceof Error ? e.message : "Не удалось загрузить наблюдения"
           );
       }
     }
@@ -377,7 +415,7 @@ export default function OverviewPage() {
         title: "Фоллоу-ап по дилемме",
         description: "Нужен твой ответ, чтобы зафиксировать решение.",
         severity: "high",
-        sphere: "Life",
+        sphere: "Жизнь",
         href: "/dilemmas",
         rightMeta: `${pendingFollowupsCount} ждут`,
       });
@@ -389,9 +427,9 @@ export default function OverviewPage() {
         title: "Паттерны на проверку",
         description: "Подтверди или отклони гипотезы — это уточняет модель.",
         severity: "medium",
-        sphere: "Patterns",
+        sphere: "Паттерны",
         href: "/hypotheses",
-        rightMeta: `${pendingHypothesesCount} pending`,
+        rightMeta: `${pendingHypothesesCount} на проверке`,
       });
     }
 
@@ -401,9 +439,9 @@ export default function OverviewPage() {
         title: "Открытые дилеммы",
         description: "Есть разборы без закрытия статуса.",
         severity: "low",
-        sphere: "Life",
+        sphere: "Жизнь",
         href: "/dilemmas",
-        rightMeta: `${openDilemmasCount} open`,
+        rightMeta: `${openDilemmasCount} открыто`,
       });
     }
 
@@ -413,8 +451,8 @@ export default function OverviewPage() {
         title: o.title,
         description: o.body.length > 220 ? `${o.body.slice(0, 220)}…` : o.body,
         severity: observationSeverity(o),
-        sphere: "Signal",
-        rightMeta: o.observation_type,
+        sphere: "Сигнал",
+        rightMeta: observationTypeRu(o.observation_type),
       });
     }
 
@@ -460,39 +498,39 @@ export default function OverviewPage() {
       return {
         value: "—",
         trend: "down" as const,
-        detail: "error",
+        detail: "ошибка",
       };
     }
     if (noFinanceData) {
-      return { value: "—", trend: "down" as const, detail: "no data" };
+      return { value: "—", trend: "down" as const, detail: "нет данных" };
     }
     const total = summary?.total_spent ?? 0;
     return {
       value: eur(total),
       trend: "up" as const,
-      detail: financePeriod ? "period" : "loaded",
+      detail: financePeriod ? "Период" : "данные",
     };
   }, [summaryError, noFinanceData, summary, financePeriod]);
 
   const projectsSphere = useMemo(() => {
     if (projectsError) {
-      return { value: "—", trend: "down" as const, detail: "error" };
+      return { value: "—", trend: "down" as const, detail: "ошибка" };
     }
     return {
       value: String(activeProjectsCount),
       trend: activeProjectsCount > 0 ? ("up" as const) : ("down" as const),
-      detail: "active",
+      detail: "Активных",
     };
   }, [projectsError, activeProjectsCount]);
 
   const lifeSphere = useMemo(() => {
     if (eventsError) {
-      return { value: "—", trend: "down" as const, detail: "error" };
+      return { value: "—", trend: "down" as const, detail: "ошибка" };
     }
     return {
       value: String(eventsThisWeekCount),
       trend: eventsThisWeekCount > 0 ? ("up" as const) : ("down" as const),
-      detail: "events / 7d",
+      detail: "Событий / 7д",
     };
   }, [eventsError, eventsThisWeekCount]);
 
@@ -502,11 +540,11 @@ export default function OverviewPage() {
         <div className="mb-4 flex items-center gap-4">
           <div className="h-px w-8 bg-brand-accent/50" />
           <p className="mono-label !tracking-[0.3em] text-zinc-500">
-            Operational Status / Optimized
+            Статус системы / Активен
           </p>
         </div>
-        <h1 className="text-5xl font-light capitalize leading-tight tracking-tight text-white">
-          Command Center
+        <h1 className="text-5xl font-light leading-tight tracking-tight text-white">
+          Командный центр
         </h1>
       </header>
 
@@ -519,7 +557,7 @@ export default function OverviewPage() {
           <div className="relative z-10">
             <div className="mono-label mb-6 flex items-center gap-2 text-zinc-300">
               <span className="h-1 w-1 animate-pulse rounded-full bg-brand-accent" />
-              Neural Sync Analysis
+              Анализ данных
             </div>
             <div className="max-w-3xl text-2xl font-light leading-relaxed text-zinc-100">
               {heroNarrative.kind === "finance" && heroNarrative.accent ? (
@@ -594,14 +632,14 @@ export default function OverviewPage() {
         </div>
 
         <OverviewSphereCard
-          title="Finance"
+          title="Финансы"
           icon={<IconWallet />}
           value={financeSphere.value}
           trend={financeSphere.trend}
           detail={financeSphere.detail}
         />
         <OverviewSphereCard
-          title="Projects"
+          title="Проекты"
           icon={<IconBriefcase />}
           value={projectsSphere.value}
           trend={projectsSphere.trend}
@@ -618,10 +656,10 @@ export default function OverviewPage() {
         {/* Critical Signals — real rows only */}
         <div className="col-span-full mt-8">
           <div className="mb-8 flex items-center justify-between">
-            <h3 className="text-lg font-light text-zinc-100">Critical Signals</h3>
+            <h3 className="text-lg font-light text-zinc-100">Критические сигналы</h3>
             <div className="mx-8 h-px flex-1 bg-white/5" />
             <div className="mono-label">
-              {pendingActionsCount} pending {pendingActionsCount === 1 ? "action" : "actions"}
+              Ожидают действия ({pendingActionsCount})
             </div>
           </div>
 
@@ -749,7 +787,7 @@ export default function OverviewPage() {
           <div className="glass-card p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="mono-label mb-2 text-zinc-300">Finance</div>
+                <div className="mono-label mb-2 text-zinc-300">Финансы</div>
                 <h2 className="text-lg font-light text-zinc-100">Сводка</h2>
                 <p className="mt-2 text-sm font-light text-zinc-500">
                   Сводка трат за последний период
@@ -798,7 +836,7 @@ export default function OverviewPage() {
           <div className="glass-card p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="mono-label mb-2 text-zinc-300">Life</div>
+                <div className="mono-label mb-2 text-zinc-300">Жизнь</div>
                 <h2 className="text-lg font-light text-zinc-100">Жизнь</h2>
                 <p className="mt-2 text-sm font-light text-zinc-500">
                   События и контекст
@@ -878,7 +916,7 @@ export default function OverviewPage() {
         <div className="col-span-full glass-card p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="mono-label mb-2 text-zinc-300">Projects</div>
+              <div className="mono-label mb-2 text-zinc-300">Проекты</div>
               <h2 className="text-lg font-light text-zinc-100">Проекты</h2>
               <p className="mt-2 text-sm font-light text-zinc-500">Активные проекты и прогресс</p>
             </div>
@@ -927,7 +965,7 @@ export default function OverviewPage() {
           <div className="col-span-full glass-card p-8 lg:col-span-1">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="mono-label mb-2 text-zinc-300">Patterns</div>
+                <div className="mono-label mb-2 text-zinc-300">Паттерны</div>
                 <div className="text-2xl font-light tabular-nums text-zinc-100">
                   {pendingHypothesesCount}
                 </div>
@@ -946,7 +984,7 @@ export default function OverviewPage() {
         <div className="col-span-full glass-card p-8 opacity-60">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="mono-label mb-2 text-zinc-300">Health</div>
+              <div className="mono-label mb-2 text-zinc-300">Здоровье</div>
               <h2 className="text-lg font-light text-zinc-100">Здоровье и спорт</h2>
               <p className="mt-2 text-sm font-light text-zinc-500">Тренировки, сон и энергия</p>
             </div>

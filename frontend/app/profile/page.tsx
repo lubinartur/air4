@@ -48,7 +48,9 @@ export default function ProfilePage() {
         setAbout(p.context ?? "");
       } catch (e) {
         if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load profile");
+          setError(
+            e instanceof Error ? e.message : "Не удалось загрузить профиль"
+          );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -82,7 +84,7 @@ export default function ProfilePage() {
       setSaved(true);
       notifyProfileUpdated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : "Не удалось сохранить");
     } finally {
       setSaving(false);
     }
@@ -91,7 +93,7 @@ export default function ProfilePage() {
   return (
     <div className="mx-auto max-w-xl">
       <header className="mb-8">
-        <div className="mono-label mb-2 text-zinc-500">Identity</div>
+        <div className="mono-label mb-2 text-zinc-500">Профиль</div>
         <h1 className="text-4xl font-light tracking-tight text-zinc-100">
           Профиль
         </h1>

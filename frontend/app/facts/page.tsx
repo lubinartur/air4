@@ -33,7 +33,9 @@ export default function FactsPage() {
       const data = await getFacts();
       setFacts(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load facts");
+      setError(
+        e instanceof Error ? e.message : "Не удалось загрузить факты"
+      );
     } finally {
       setLoading(false);
     }
@@ -51,7 +53,7 @@ export default function FactsPage() {
       setFacts((prev) => prev.filter((f) => f.id !== id));
       notifyFactsUpdated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      setError(e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeletingId(null);
     }
@@ -61,7 +63,7 @@ export default function FactsPage() {
     <div className="space-y-8">
       <header className="glass-card flex flex-wrap items-start justify-between gap-6 p-8">
         <div>
-          <div className="mono-label mb-2 text-zinc-500">Knowledge base</div>
+          <div className="mono-label mb-2 text-zinc-500">База знаний</div>
           <h1 className="text-4xl font-light tracking-tight text-zinc-100">
             Что знает AIR4
           </h1>

@@ -39,7 +39,16 @@ function formatSpendingPeriod(
     month: "short",
     year: "numeric",
   };
-  return `${a.toLocaleDateString("en-GB", startOpts)} — ${b.toLocaleDateString("en-GB", endOpts)}`;
+  return `${a.toLocaleDateString("ru-RU", startOpts)} — ${b.toLocaleDateString("ru-RU", endOpts)}`;
+}
+
+function ruTxnWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "транзакция";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20))
+    return "транзакции";
+  return "транзакций";
 }
 
 function formatUploadLastUpdated(iso: string | null | undefined): string | null {
@@ -47,15 +56,17 @@ function formatUploadLastUpdated(iso: string | null | undefined): string | null 
   const normalized = iso.includes("T") ? iso : iso.replace(" ", "T");
   const d = new Date(normalized);
   if (Number.isNaN(d.getTime())) return null;
-  const day = d.getDate();
-  const month = d.toLocaleDateString("en-GB", { month: "long" });
-  const year = d.getFullYear();
-  const time = d.toLocaleTimeString("en-GB", {
+  const date = d.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("ru-RU", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
-  return `${day} ${month} ${year} at ${time}`;
+  return `${date} в ${time}`;
 }
 
 async function fetchAllDebitTransactions(uploadId: number | undefined) {
@@ -110,7 +121,9 @@ export default function DashboardPage() {
         if (!cancelled) setSummary(s);
       } catch (e) {
         if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load dashboard");
+          setError(
+            e instanceof Error ? e.message : "Не удалось загрузить дашборд"
+          );
       }
     }
     void load();
@@ -130,7 +143,7 @@ export default function DashboardPage() {
       } catch (e) {
         if (!cancelled)
           setCrossSphereError(
-            e instanceof Error ? e.message : "Failed to load connections"
+            e instanceof Error ? e.message : "Не удалось загрузить связи"
           );
       } finally {
         if (!cancelled) setCrossSphereLoading(false);
@@ -185,7 +198,7 @@ export default function DashboardPage() {
       } catch (e) {
         if (!cancelled)
           setTopExpensesError(
-            e instanceof Error ? e.message : "Failed to load top expenses"
+            e instanceof Error ? e.message : "Не удалось загрузить крупные траты"
           );
       } finally {
         if (!cancelled) setTopExpensesLoading(false);
@@ -206,7 +219,7 @@ export default function DashboardPage() {
       setInsights(data);
     } catch (e) {
       setInsightsError(
-        e instanceof Error ? e.message : "Failed to load insights"
+        e instanceof Error ? e.message : "Не удалось загрузить инсайты"
       );
     } finally {
       setInsightsLoading(false);
@@ -224,7 +237,7 @@ export default function DashboardPage() {
       setReportExpanded(true);
     } catch (e) {
       setReportError(
-        e instanceof Error ? e.message : "Failed to generate report"
+        e instanceof Error ? e.message : "Не удалось сгенерировать отчёт"
       );
     } finally {
       setReportLoading(false);
@@ -238,7 +251,7 @@ export default function DashboardPage() {
       setCopyDone(true);
       window.setTimeout(() => setCopyDone(false), 2000);
     } catch {
-      setReportError("Could not copy to clipboard");
+      setReportError("Не удалось скопировать в буфер обмена");
     }
   }
 
@@ -249,19 +262,19 @@ export default function DashboardPage() {
     try {
       const res = await analyzeCrossSphere();
       if (res.created > 0) {
-        setCrossSphereInfo(`Created: ${res.created}`);
+        setCrossSphereInfo(`Создано: ${res.created}`);
       } else if (res.cooldown_hours_remaining != null) {
         setCrossSphereInfo(
-          `Cooldown: ${res.cooldown_hours_remaining.toFixed(1)}h`
+          `Пауза: ${res.cooldown_hours_remaining.toFixed(1)} ч`
         );
       } else {
-        setCrossSphereInfo("No new connections");
+        setCrossSphereInfo("Новых связей нет");
       }
       const data = await getCrossSphereInsights();
       setCrossSphere(data || []);
     } catch (e) {
       setCrossSphereError(
-        e instanceof Error ? e.message : "Failed to analyze connections"
+        e instanceof Error ? e.message : "Не удалось проанализировать связи"
       );
     } finally {
       setCrossSphereAnalyzing(false);
@@ -287,11 +300,11 @@ export default function DashboardPage() {
         <div className="mb-4 flex items-center gap-4">
           <div className="h-px w-8 bg-brand-accent/50" />
           <p className="mono-label !tracking-[0.3em] text-zinc-500">
-            Spending Intelligence / Live
+            Аналитика трат / Онлайн
           </p>
         </div>
         <h1 className="text-5xl font-light tracking-tight text-zinc-100">
-          Finance
+          Финансы
         </h1>
         <p className="mt-3 max-w-3xl text-sm font-light leading-relaxed text-zinc-500">
           Без учёта доходов и внутренних переводов.
@@ -324,11 +337,11 @@ export default function DashboardPage() {
                 <div className="mb-10 flex items-center justify-between gap-6">
                   <div>
                     <div className="mono-label mb-2 text-zinc-300">
-                      Spending Velocity / Latest period
+                      Динамика трат / Текущий период
                     </div>
                     <p className="text-sm text-zinc-500">
                       {periodLabel || "—"}
-                      {lastUpdatedLabel ? ` • Updated ${lastUpdatedLabel}` : ""}
+                      {lastUpdatedLabel ? ` • Обновлено ${lastUpdatedLabel}` : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -355,7 +368,7 @@ export default function DashboardPage() {
             {/* Side column (prototype right rail) */}
             <div className="space-y-8">
               <div className="glass-card p-8">
-                <div className="mono-label mb-6 text-zinc-300">Aggregate Burn</div>
+                <div className="mono-label mb-6 text-zinc-300">Суммарный расход</div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-light text-zinc-100 tracking-tight tabular-nums">
                     €{summary?.total_spent?.toFixed(2) ?? "0.00"}
@@ -363,14 +376,14 @@ export default function DashboardPage() {
                 </div>
                 {txnTotal != null ? (
                   <div className="mt-4 inline-flex items-center gap-2 rounded border border-white/10 bg-white/[0.02] px-2 py-1 text-[10px] font-mono text-zinc-400">
-                    {txnTotal} transactions
+                    {txnTotal} {ruTxnWord(txnTotal)}
                   </div>
                 ) : null}
               </div>
 
               <div className="glass-card p-8 bg-brand-accent/[0.02] border border-brand-accent/10">
                 <div className="mono-label mb-6 text-brand-accent">
-                  AI Optimization
+                  Оптимизация (ИИ)
                 </div>
                 <p className="text-sm font-light text-zinc-300 leading-relaxed mb-8">
                   {insights[0]?.description
@@ -406,19 +419,21 @@ export default function DashboardPage() {
           {/* “Anomaly Transcript” — driven by real top expenses */}
           <div className="glass-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/5 px-8 py-6">
-              <div className="mono-label text-zinc-300">Anomaly Transcript</div>
+              <div className="mono-label text-zinc-300">Лента крупных трат</div>
               <div className="text-[10px] font-mono text-zinc-600">
-                {lastUpdatedLabel ? `Updated ${lastUpdatedLabel}` : "Updated —"}
+                {lastUpdatedLabel
+                  ? `Обновлено ${lastUpdatedLabel}`
+                  : "Обновлено —"}
               </div>
             </div>
 
             {topExpensesError ? (
               <div className="px-8 py-6 text-sm text-red-300">{topExpensesError}</div>
             ) : topExpensesLoading ? (
-              <div className="px-8 py-6 text-sm text-zinc-500">Loading…</div>
+              <div className="px-8 py-6 text-sm text-zinc-500">Загрузка…</div>
             ) : topExpenses.length === 0 ? (
               <div className="px-8 py-6 text-sm text-zinc-500">
-                No debit transactions in this period.
+                В этом периоде нет дебетовых операций.
               </div>
             ) : (
               <div className="divide-y divide-white/5">
@@ -523,7 +538,7 @@ export default function DashboardPage() {
           {/* Cross-sphere connections (same logic) */}
           <div className="glass-card p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="mono-label text-zinc-300">Cross-sphere</h3>
+              <h3 className="mono-label text-zinc-300">Межсферные связи</h3>
               <button
                 type="button"
                 onClick={() => void runAnalyzeConnections()}
@@ -542,7 +557,7 @@ export default function DashboardPage() {
             ) : null}
 
             {crossSphereLoading ? (
-              <p className="text-sm text-zinc-500">Loading…</p>
+              <p className="text-sm text-zinc-500">Загрузка…</p>
             ) : crossSphere.length === 0 ? (
               <p className="text-sm text-zinc-500">
                 Связей пока нет. Нажми «Анализировать связи».

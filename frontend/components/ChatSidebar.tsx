@@ -316,8 +316,8 @@ export function ChatSidebar() {
           role: "assistant",
           content:
             e instanceof Error
-              ? `Error: ${e.message}`
-              : "Error: failed to contact backend",
+              ? `Ошибка: ${e.message}`
+              : "Ошибка: не удалось связаться с сервером",
           rememberedTitle: null,
           learnedFacts: undefined,
         },
@@ -352,7 +352,7 @@ export function ChatSidebar() {
       >
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
-            <p className="mono-label text-zinc-600">Awaiting input</p>
+            <p className="mono-label text-zinc-600">Ожидание запроса</p>
             <p className="mt-3 max-w-[240px] text-sm font-light leading-relaxed text-zinc-500">
               Спроси AIR4 о финансах, событиях или следующем шаге.
             </p>

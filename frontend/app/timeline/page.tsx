@@ -56,7 +56,9 @@ export default function TimelinePage() {
         if (!cancelled) setUploads(res.uploads || []);
       } catch (e) {
         if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load timeline");
+          setError(
+            e instanceof Error ? e.message : "Не удалось загрузить таймлайн"
+          );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -81,7 +83,7 @@ export default function TimelinePage() {
       } catch (e) {
         if (!cancelled)
           setCompareError(
-            e instanceof Error ? e.message : "Failed to compare periods"
+            e instanceof Error ? e.message : "Не удалось сравнить периоды"
           );
       } finally {
         if (!cancelled) setCompareLoading(false);
@@ -123,7 +125,7 @@ export default function TimelinePage() {
   return (
     <div className="space-y-8">
       <header className="glass-card p-8">
-        <div className="mono-label mb-2 text-zinc-500">Temporal spend</div>
+        <div className="mono-label mb-2 text-zinc-500">Траты во времени</div>
         <h1 className="text-4xl font-light tracking-tight text-zinc-100">
           История
         </h1>

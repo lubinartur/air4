@@ -13,10 +13,10 @@ import {
 } from "@/lib/api";
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
-  active: "active",
-  paused: "paused",
-  completed: "completed",
-  archived: "archived",
+  active: "Активен",
+  paused: "Пауза",
+  completed: "Завершён",
+  archived: "Архив",
 };
 
 function statusBadgeClass(status: ProjectStatus): string {
@@ -57,7 +57,9 @@ export default function ProjectsPage() {
       const data = await getProjects();
       setItems(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load projects");
+      setError(
+        e instanceof Error ? e.message : "Не удалось загрузить проекты"
+      );
     } finally {
       setLoading(false);
     }
@@ -128,7 +130,7 @@ export default function ProjectsPage() {
       setOpenNoteFor(null);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Add note failed");
+      setError(e instanceof Error ? e.message : "Не удалось добавить заметку");
     } finally {
       setAddingNoteFor(null);
     }
@@ -146,7 +148,7 @@ export default function ProjectsPage() {
         return next;
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      setError(e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeletingId(null);
     }
@@ -158,20 +160,20 @@ export default function ProjectsPage() {
         <div className="mb-4 flex items-center gap-4">
           <div className="h-px w-8 bg-brand-accent/50" />
           <p className="mono-label !tracking-[0.3em] text-zinc-500">
-            Active Workstreams / Live
+            Активные потоки / Онлайн
           </p>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <h1 className="text-5xl font-light tracking-tight text-zinc-100">
-              Projects
+              Проекты
             </h1>
             <p className="mt-3 max-w-2xl text-sm font-light leading-relaxed text-zinc-500">
               Активные проекты, статусы и заметки прогресса.
             </p>
           </div>
           <div className="glass-card px-6 py-4 text-right">
-            <div className="mono-label text-zinc-500">ACTIVE</div>
+            <div className="mono-label text-zinc-500">АКТИВНЫХ</div>
             <div className="mt-1 text-3xl font-light tabular-nums text-zinc-100">
               {activeCount}
             </div>
@@ -188,7 +190,7 @@ export default function ProjectsPage() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <div className="glass-card p-8">
-            <div className="mono-label mb-6 text-zinc-300">Add project</div>
+            <div className="mono-label mb-6 text-zinc-300">Новый проект</div>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1">
                 <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
@@ -210,9 +212,9 @@ export default function ProjectsPage() {
                   onChange={(e) => setStatus(e.target.value as ProjectStatus)}
                   className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 focus:border-white/20 focus:ring-0 focus:outline-none"
                 >
-                  {Object.keys(STATUS_LABEL).map((k) => (
+                  {(Object.keys(STATUS_LABEL) as ProjectStatus[]).map((k) => (
                     <option key={k} value={k} className="bg-zinc-900">
-                      {k}
+                      {STATUS_LABEL[k]}
                     </option>
                   ))}
                 </select>
@@ -279,7 +281,7 @@ export default function ProjectsPage() {
                           <span
                             className={`rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider ${statusCls}`}
                           >
-                            {p.status}
+                            {STATUS_LABEL[p.status]}
                           </span>
                         </div>
                         {p.description ? (
@@ -356,7 +358,7 @@ export default function ProjectsPage() {
 
         <aside className="space-y-6">
           <div className="glass-card p-8 border border-amber-500/20 bg-amber-500/5">
-            <div className="mono-label mb-4 text-amber-300">Focus Snapshot</div>
+            <div className="mono-label mb-4 text-amber-300">Снимок фокуса</div>
             <p className="text-sm font-light leading-relaxed text-zinc-300">
               {items.length === 0
                 ? "Добавь проект, чтобы начать отслеживать прогресс."
@@ -364,13 +366,13 @@ export default function ProjectsPage() {
             </p>
             <div className="mt-6 grid gap-3">
               <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <div className="mono-label text-zinc-500">Total projects</div>
+                <div className="mono-label text-zinc-500">Всего проектов</div>
                 <div className="mt-1 text-2xl font-light tabular-nums text-zinc-100">
                   {items.length}
                 </div>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <div className="mono-label text-zinc-500">Active</div>
+                <div className="mono-label text-zinc-500">Активных</div>
                 <div className="mt-1 text-2xl font-light tabular-nums text-emerald-200">
                   {activeCount}
                 </div>

@@ -4,7 +4,7 @@ export default function UploadPage() {
   return (
     <div className="mx-auto max-w-lg">
       <header className="glass-card mb-8 p-8 text-center">
-        <div className="mono-label mb-2 text-zinc-500">Ingest</div>
+        <div className="mono-label mb-2 text-zinc-500">Импорт данных</div>
         <h1 className="text-4xl font-light tracking-tight text-zinc-100">
           Загрузить выписку
         </h1>

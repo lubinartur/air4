@@ -39,7 +39,7 @@ export function SpendingChart({
   if (chartData.length === 0) {
     return (
       <div className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 shadow-sm backdrop-blur-xl">
-        <div className="text-sm text-zinc-400">No spending data yet.</div>
+        <div className="text-sm text-zinc-400">Данных о тратах пока нет.</div>
       </div>
     );
   }
@@ -48,10 +48,10 @@ export function SpendingChart({
     <div className="rounded-2xl border border-white/5 bg-zinc-900/40 p-6 shadow-sm backdrop-blur-xl">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
-          Spending by category
+          Траты по категориям
         </h3>
         <span className="text-xs text-zinc-600">
-          Excludes income & internal transfers
+          Без учёта доходов и внутренних переводов
         </span>
       </div>
       <div className="h-72">

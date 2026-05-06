@@ -19,6 +19,25 @@ function categorySortKey(cat: string): number {
   return i === -1 ? 100 + cat.charCodeAt(0) : i;
 }
 
+const CATEGORY_LABEL_RU: Record<string, string> = {
+  life: "Жизнь",
+  health: "Здоровье",
+  work: "Работа",
+  project: "Проект",
+  finance: "Финансы",
+  travel: "Путешествия",
+  other: "Другое",
+};
+
+function ruEventsWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "событие";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20))
+    return "события";
+  return "событий";
+}
+
 export default function EventsPage() {
   const [events, setEvents] = useState<LifeEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +51,9 @@ export default function EventsPage() {
       const data = await getEvents();
       setEvents(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load events");
+      setError(
+        e instanceof Error ? e.message : "Не удалось загрузить события"
+      );
     } finally {
       setLoading(false);
     }
@@ -65,7 +86,7 @@ export default function EventsPage() {
       await deleteEvent(id);
       setEvents((prev) => prev.filter((e) => e.id !== id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      setError(e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeletingId(null);
     }
@@ -77,13 +98,13 @@ export default function EventsPage() {
         <div className="mb-4 flex items-center gap-4">
           <div className="h-px w-8 bg-brand-accent/50" />
           <p className="mono-label !tracking-[0.3em] text-zinc-500">
-            Life Signals / Indexed
+            Сигналы жизни / Индекс
           </p>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <h1 className="text-5xl font-light tracking-tight text-zinc-100">
-              Events
+              События
             </h1>
             <p className="mt-3 max-w-3xl text-sm font-light leading-relaxed text-zinc-500">
               События из чата или добавленные вручную, сгруппированы по категориям.
@@ -112,10 +133,12 @@ export default function EventsPage() {
           {grouped.map(({ category, items }) => (
             <section key={category}>
               <div className="mb-5 flex items-center justify-between gap-4">
-                <h2 className="mono-label text-zinc-300">{category}</h2>
+                <h2 className="mono-label text-zinc-300">
+                  {CATEGORY_LABEL_RU[category] ?? category}
+                </h2>
                 <div className="mx-8 h-px flex-1 bg-white/5" />
                 <div className="mono-label text-zinc-600">
-                  {items.length} {items.length === 1 ? "event" : "events"}
+                  {items.length} {ruEventsWord(items.length)}
                 </div>
               </div>
               <ul className="grid gap-3">

@@ -34,7 +34,9 @@ export function TransactionTable() {
       setItems(res.items);
       setTotal(res.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load transactions");
+      setError(
+        e instanceof Error ? e.message : "Не удалось загрузить транзакции"
+      );
     } finally {
       setLoading(false);
     }
@@ -52,7 +54,7 @@ export function TransactionTable() {
     try {
       await updateTransactionCategory(id, category);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed");
+      setError(e instanceof Error ? e.message : "Не удалось обновить");
       void load();
     }
   }

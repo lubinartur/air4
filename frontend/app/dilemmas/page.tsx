@@ -206,7 +206,7 @@ export default function DilemmasPage() {
   return (
     <div className="space-y-8">
       <header className="glass-card p-8">
-        <div className="mono-label mb-2 text-zinc-500">Decision Intelligence</div>
+        <div className="mono-label mb-2 text-zinc-500">Разбор решений</div>
         <h1 className="text-4xl font-light tracking-tight text-zinc-100">Дилеммы</h1>
         <p className="mt-3 text-sm font-light leading-relaxed text-zinc-500">
           Опиши выбор — AIR4 разложит его с учётом твоего контекста

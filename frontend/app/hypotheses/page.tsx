@@ -53,7 +53,9 @@ export default function HypothesesPage() {
       const data = await getHypotheses();
       setItems(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load hypotheses");
+      setError(
+        e instanceof Error ? e.message : "Не удалось загрузить гипотезы"
+      );
     } finally {
       setLoading(false);
     }
@@ -107,7 +109,7 @@ export default function HypothesesPage() {
       await deleteHypothesis(id);
       setItems((prev) => prev.filter((h) => h.id !== id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed");
+      setError(e instanceof Error ? e.message : "Не удалось удалить");
     }
   }
 
@@ -115,7 +117,7 @@ export default function HypothesesPage() {
     <div className="space-y-8">
       <header className="glass-card flex flex-wrap items-start justify-between gap-6 p-8">
         <div>
-          <div className="mono-label mb-2 text-zinc-500">Pattern Recognition</div>
+          <div className="mono-label mb-2 text-zinc-500">Распознавание паттернов</div>
           <h1 className="text-4xl font-light tracking-tight text-zinc-100">
             Паттерны
           </h1>

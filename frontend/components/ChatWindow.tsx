@@ -60,8 +60,8 @@ export function ChatWindow() {
           role: "assistant",
           content:
             e instanceof Error
-              ? `Error: ${e.message}`
-              : "Error: failed to contact backend",
+              ? `Ошибка: ${e.message}`
+              : "Ошибка: не удалось связаться с сервером",
           rememberedTitle: null,
           learnedFacts: undefined,
         },
@@ -74,9 +74,9 @@ export function ChatWindow() {
   return (
     <div className="glass-card overflow-hidden">
       <div className="border-b border-white/5 px-6 py-4">
-        <h2 className="mono-label text-zinc-300">Ask about your spending</h2>
+        <h2 className="mono-label text-zinc-300">Спроси про траты</h2>
         <p className="mt-2 text-xs text-zinc-500">
-          The assistant automatically uses your current spending summary as context.
+          Ассистент автоматически подставляет текущую сводку по расходам в контекст.
         </p>
       </div>
 
@@ -102,7 +102,7 @@ export function ChatWindow() {
                   </div>
                   {m.rememberedTitle ? (
                     <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
-                      ✓ Remembered: {m.rememberedTitle}
+                      ✓ Запомнил: {m.rememberedTitle}
                     </div>
                   ) : null}
                   {m.learnedFacts?.map((fact) => (
@@ -127,7 +127,7 @@ export function ChatWindow() {
           onKeyDown={(e) => {
             if (e.key === "Enter") void onSend();
           }}
-          placeholder="Type your question…"
+          placeholder="Введи вопрос…"
           className="min-h-[40px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-brand-accent/40 focus:bg-white/[0.05] focus:outline-none focus:ring-0"
           disabled={busy}
         />
@@ -137,7 +137,7 @@ export function ChatWindow() {
           disabled={busy || text.trim().length === 0}
           className="btn-primary shrink-0 disabled:opacity-60"
         >
-          {busy ? "Sending…" : "Send"}
+          {busy ? "Отправка…" : "Отправить"}
         </button>
       </div>
     </div>

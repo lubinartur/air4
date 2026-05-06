@@ -107,7 +107,7 @@ export default function InterviewPage() {
   return (
     <div className="space-y-8">
       <header className="glass-card p-8">
-        <div className="mono-label mb-2 text-zinc-500">Deep context</div>
+        <div className="mono-label mb-2 text-zinc-500">Глубокий контекст</div>
         <h1 className="text-4xl font-light tracking-tight text-zinc-100">
           Интервью
         </h1>

@@ -21,8 +21,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
       href={href}
       className={`inline-flex items-center gap-2 text-sm transition-colors ${
         active
-          ? "font-medium text-zinc-100"
-          : "text-zinc-500 hover:text-zinc-200"
+          ? "font-medium text-zinc-900"
+          : "text-zinc-500 hover:text-zinc-900"
       }`}
     >
       {children}
@@ -32,7 +32,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 function SoonBadge() {
   return (
-    <span className="rounded border border-white/10 bg-white/[0.03] px-1.5 text-xs font-medium text-zinc-400">
+    <span className="rounded bg-zinc-100 px-1.5 text-xs font-medium text-zinc-400">
       Скоро
     </span>
   );
@@ -56,14 +56,12 @@ function DropdownItem({
       href={href}
       onClick={onSelect}
       className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
-        active
-          ? "bg-white/[0.03] text-zinc-100"
-          : "text-zinc-300 hover:bg-white/[0.03]"
+        active ? "bg-zinc-50 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
       }`}
     >
       <span className={active ? "font-medium" : undefined}>{label}</span>
       {badge != null && badge > 0 ? (
-        <span className="rounded bg-zinc-100 px-1.5 text-xs font-medium text-zinc-900 tabular-nums">
+        <span className="rounded bg-zinc-900 px-1.5 text-xs font-medium text-white tabular-nums">
           {badge}
         </span>
       ) : null}
@@ -178,9 +176,9 @@ export function SiteHeader() {
     pathname.startsWith("/hypotheses");
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-zinc-950/95 backdrop-blur-sm">
+    <header className="border-b border-zinc-100 bg-white">
       <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
-        <div className="font-semibold text-zinc-100">{brand}</div>
+        <div className="font-semibold text-zinc-900">{brand}</div>
         <nav className="flex items-center gap-6">
           <NavLink href="/">
             <span className="inline-flex items-center gap-2">
@@ -199,8 +197,8 @@ export function SiteHeader() {
               onClick={() => setOpen((v) => (v === "finance" ? null : "finance"))}
               className={`inline-flex items-center gap-2 text-sm transition-colors ${
                 financeActive
-                  ? "font-medium text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-200"
+                  ? "font-medium text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-900"
               }`}
               aria-expanded={open === "finance"}
             >
@@ -208,7 +206,7 @@ export function SiteHeader() {
               <span className="text-xs text-zinc-400">▾</span>
             </button>
             {open === "finance" ? (
-              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/10 bg-zinc-950/80 p-2 shadow-lg backdrop-blur-xl">
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
                 <DropdownItem
                   href="/dashboard"
                   label="Дашборд"
@@ -229,7 +227,7 @@ export function SiteHeader() {
           </div>
 
           <div
-            className="inline-flex items-center gap-2 text-sm text-zinc-500"
+            className="inline-flex items-center gap-2 text-sm text-zinc-300"
             title="Скоро"
           >
             <span className="cursor-not-allowed">Здоровье</span>
@@ -244,8 +242,8 @@ export function SiteHeader() {
               }
               className={`inline-flex items-center gap-2 text-sm transition-colors ${
                 projectsActive
-                  ? "font-medium text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-200"
+                  ? "font-medium text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-900"
               }`}
               aria-expanded={open === "projects"}
             >
@@ -253,7 +251,7 @@ export function SiteHeader() {
               <span className="text-xs text-zinc-400">▾</span>
             </button>
             {open === "projects" ? (
-              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/10 bg-zinc-950/80 p-2 shadow-lg backdrop-blur-xl">
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
                 <DropdownItem
                   href="/projects"
                   label="Все проекты"
@@ -269,8 +267,8 @@ export function SiteHeader() {
               onClick={() => setOpen((v) => (v === "life" ? null : "life"))}
               className={`inline-flex items-center gap-2 text-sm transition-colors ${
                 lifeActive
-                  ? "font-medium text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-200"
+                  ? "font-medium text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-900"
               }`}
               aria-expanded={open === "life"}
             >
@@ -285,7 +283,7 @@ export function SiteHeader() {
               <span className="text-xs text-zinc-400">▾</span>
             </button>
             {open === "life" ? (
-              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/10 bg-zinc-950/80 p-2 shadow-lg backdrop-blur-xl">
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-100 bg-white p-2 shadow-lg">
                 <DropdownItem
                   href="/events"
                   label="События"

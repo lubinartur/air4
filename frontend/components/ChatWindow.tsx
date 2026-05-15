@@ -60,8 +60,8 @@ export function ChatWindow() {
           role: "assistant",
           content:
             e instanceof Error
-              ? `Ошибка: ${e.message}`
-              : "Ошибка: не удалось связаться с сервером",
+              ? `Error: ${e.message}`
+              : "Error: failed to contact backend",
           rememberedTitle: null,
           learnedFacts: undefined,
         },
@@ -72,11 +72,13 @@ export function ChatWindow() {
   }
 
   return (
-    <div className="glass-card overflow-hidden">
-      <div className="border-b border-white/5 px-6 py-4">
-        <h2 className="mono-label text-zinc-300">Спроси про траты</h2>
-        <p className="mt-2 text-xs text-zinc-500">
-          Ассистент автоматически подставляет текущую сводку по расходам в контекст.
+    <div className="rounded-2xl border border-zinc-100 bg-white shadow-sm">
+      <div className="border-b border-zinc-100 px-6 py-4">
+        <h2 className="text-sm font-semibold text-zinc-900">
+          Ask about your spending
+        </h2>
+        <p className="mt-1 text-xs text-zinc-400">
+          The assistant automatically uses your current spending summary as context.
         </p>
       </div>
 
@@ -91,24 +93,24 @@ export function ChatWindow() {
               m.role === "user" ? (
                 <div
                   key={idx}
-                  className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm border border-white/10 bg-zinc-800 px-4 py-2.5 text-sm font-medium leading-6 text-zinc-100"
+                  className="ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-zinc-900 px-4 py-2.5 text-sm font-medium leading-6 text-white"
                 >
                   {m.content}
                 </div>
               ) : (
                 <div key={idx} className="mr-auto max-w-[85%]">
-                  <div className="rounded-2xl rounded-bl-sm border border-white/5 bg-white/[0.03] px-4 py-2.5 text-sm leading-6 text-zinc-200">
+                  <div className="rounded-2xl rounded-bl-sm border border-zinc-100 bg-zinc-50 px-4 py-2.5 text-sm leading-6 text-zinc-900">
                     {m.content}
                   </div>
                   {m.rememberedTitle ? (
-                    <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
-                      ✓ Запомнил: {m.rememberedTitle}
+                    <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                      ✓ Remembered: {m.rememberedTitle}
                     </div>
                   ) : null}
                   {m.learnedFacts?.map((fact) => (
                     <div
                       key={fact.id}
-                      className="mt-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-200"
+                      className="mt-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900"
                     >
                       ✓ Learned: {fact.value}
                     </div>
@@ -120,24 +122,24 @@ export function ChatWindow() {
         )}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-white/5 px-6 py-4">
+      <div className="flex items-center gap-2 border-t border-zinc-100 px-6 py-4">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") void onSend();
           }}
-          placeholder="Введи вопрос…"
-          className="min-h-[40px] flex-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-brand-accent/40 focus:bg-white/[0.05] focus:outline-none focus:ring-0"
+          placeholder="Type your question…"
+          className="min-h-[40px] flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-300 focus:bg-white focus:outline-none focus:ring-0"
           disabled={busy}
         />
         <button
           type="button"
           onClick={() => void onSend()}
           disabled={busy || text.trim().length === 0}
-          className="btn-primary shrink-0 disabled:opacity-60"
+          className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
-          {busy ? "Отправка…" : "Отправить"}
+          {busy ? "Sending…" : "Send"}
         </button>
       </div>
     </div>

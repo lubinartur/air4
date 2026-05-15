@@ -4,13 +4,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   getCrossSphereInsights,
-  chat,
+  chatStream,
   getObservations,
   getProfile,
   getSummary,
   getTransactions,
   getPendingFollowups,
-  getHypotheses,
   notifyFactsUpdated,
   type ChatMessage,
   type UserFact,
@@ -28,41 +27,6 @@ type ChatLine =
 
 const TEXTAREA_MAX_ROWS = 4;
 const TEXTAREA_LINE_PX = 20;
-
-function IconActivity({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  );
-}
-
-function IconSend({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="m22 2-7 20-4-9-9-4Z" />
-      <path d="M22 2 11 13" />
-    </svg>
-  );
-}
 
 function formatSpendingPeriodRu(
   start: string | null,
@@ -92,85 +56,71 @@ function sanitizeDescForGreeting(s: string): string {
 
 async function buildPageGreeting(pathname: string): Promise<string> {
   let name = "Арч";
-  let monthlyIncome: number | null = null;
   try {
     const profile = await getProfile();
     if (profile.name?.trim()) name = profile.name.trim();
-    monthlyIncome =
-      typeof profile.monthly_income === "number" ? profile.monthly_income : null;
   } catch {
     /* keep fallback */
   }
 
-  async function buildSmartGreeting(opts: {
-    includeCrossSphere?: boolean;
-    defaultText: string;
-    noDataText?: string;
-  }): Promise<string> {
-    const results = await Promise.allSettled([
-      getObservations(),
-      getPendingFollowups(),
-      getHypotheses(),
-      getSummary(),
-      opts.includeCrossSphere ? getCrossSphereInsights() : Promise.resolve([]),
-    ]);
-
-    const obs = results[0].status === "fulfilled" ? results[0].value : [];
-    const pendingFollowups =
-      results[1].status === "fulfilled" ? results[1].value : [];
-    const hypotheses = results[2].status === "fulfilled" ? results[2].value : [];
-    const summary = results[3].status === "fulfilled" ? results[3].value : null;
-    const crossSphere =
-      results[4].status === "fulfilled" ? results[4].value : [];
-
-    const unreadObs = (obs || []).filter((o) => !o.is_read);
-    if (unreadObs.length > 0) {
-      const top = unreadObs[0];
-      return `${name}, заметил кое-что важное: ${top.title}. Хочешь разобрать?`;
-    }
-
-    if (opts.includeCrossSphere && (crossSphere || []).length > 0) {
-      const top = (crossSphere || [])[0];
-      if (top?.title) {
-        return `Заметил связь: ${top.title}. Хочешь разобрать?`;
-      }
-    }
-
-    if ((pendingFollowups || []).length > 0) {
-      return `Есть дилемма которая ждёт твоего ответа. Как пошло?`;
-    }
-
-    const pendingHypotheses = (hypotheses || []).filter((h) => h.status === "pending");
-    if (pendingHypotheses.length > 0) {
-      const n = pendingHypotheses.length;
-      return `У тебя ${n} гипотез${n % 10 === 1 && n % 100 !== 11 ? "а" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? "ы" : ""} которые я хочу проверить. Зайди в Паттерны.`;
-    }
-
-    const noData =
-      summary == null ||
-      summary.upload_id == null ||
-      (summary.total_spent === 0 && (summary.by_category || []).length === 0);
-    if (noData) {
-      return opts.noDataText || "Загрузи выписку чтобы я начал анализировать.";
-    }
-
-    if (summary && monthlyIncome && monthlyIncome > 0) {
-      const total = Number(summary.total_spent || 0);
-      const threshold = monthlyIncome * 1.2;
-      if (total > threshold) {
-        const pct = ((total / monthlyIncome - 1) * 100);
-        return `В последнем периоде ты потратил €${total.toFixed(
-          2
-        )} при доходе €${monthlyIncome.toFixed(2)}. Это на ${pct.toFixed(0)}% выше дохода.`;
-      }
-    }
-
-    return opts.defaultText;
-  }
-
   if (pathname.startsWith("/dashboard")) {
-    const defaultText = `Привет, ${name}! Что хочешь разобрать?`;
-    return await buildSmartGreeting({ includeCrossSphere: true, defaultText });
+    try {
+      const summary = await getSummary();
+      const period = formatSpendingPeriodRu(
+        summary.period_start,
+        summary.period_end
+      );
+      const total = summary.total_spent.toFixed(2);
+      const base = period
+        ? `Привет, ${name}! Вижу твои траты за ${period}. Общий расход €${total}. Что хочешь разобрать?`
+        : `Привет, ${name}! Вижу твои траты на дашборде. Общий расход €${total}. Что хочешь разобрать?`;
+
+      try {
+        let prefix = base;
+        try {
+          const obs = await getObservations();
+          const n = (obs || []).filter((o) => !o.is_read).length;
+          if (n > 0) {
+            prefix = `Привет, ${name}! У тебя есть ${n} новых наблюдений от AIR4. Хочешь разобрать?\n\n${base}`;
+          }
+        } catch {
+          /* ignore */
+        }
+        try {
+          const cs = await getCrossSphereInsights();
+          const top = (cs || []).slice(0, 1);
+          if (top.length) {
+            prefix =
+              `${base}\n\nЕщё связь, которую я заметил:\n` +
+              `1. ${top[0].title}`;
+          }
+        } catch {
+          /* ignore */
+        }
+
+        const page = await getTransactions({
+          category: "other",
+          is_debit: true,
+          exclude_internal: true,
+          limit: 50,
+          skip: 0,
+        });
+        const topUnknown = page.items
+          .filter((t) => t.amount > 50)
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 2);
+        if (topUnknown.length === 0) return prefix;
+        const bullets = topUnknown.map(
+          (t) =>
+            `- '${sanitizeDescForGreeting(t.description)}' — €${t.amount.toFixed(2)}`
+        );
+        return `${prefix}\n\nКстати, заметил несколько непонятных трат:\n${bullets.join("\n")}\n\nЧто это такое?`;
+      } catch {
+        return base;
+      }
+    } catch {
+      return `Привет, ${name}! Что хочешь разобрать?`;
+    }
   }
   if (pathname.startsWith("/events")) {
     return `Привет, ${name}! Здесь твои жизненные события. Хочешь добавить что-то новое или найти связи с тратами?`;
@@ -205,11 +155,7 @@ async function buildPageGreeting(pathname: string): Promise<string> {
     return `Привет, ${name}! Здесь твой профиль — обнови данные, и я смогу точнее советовать по финансам.`;
   }
   if (pathname === "/" || pathname === "") {
-    const defaultText = `Привет, ${name}! Это твой обзор жизни. Что хочешь разобрать сегодня?`;
-    return await buildSmartGreeting({
-      defaultText,
-      noDataText: "Загрузи выписку чтобы я начал анализировать",
-    });
+    return `Привет, ${name}! Это твой обзор жизни. Финансы, здоровье, проекты — всё в одном месте. Что хочешь разобрать сегодня?`;
   }
   if (pathname.startsWith("/upload")) {
     return `Привет, ${name}! Загрузи выписку Swedbank и я сразу начну анализ.`;
@@ -290,102 +236,120 @@ export function ChatSidebar() {
 
     setText("");
     setBusy(true);
-    const next: ChatLine[] = [...messages, { role: "user", content: msg }];
-    setMessages(next);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: msg },
+      { role: "assistant", content: "" },
+    ]);
 
     try {
-      const res = await chat(msg, history, { currentPage: pageCtx });
-      const learned =
-        res.facts_saved && res.facts_saved.length > 0
-          ? res.facts_saved
-          : undefined;
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: res.response,
-          rememberedTitle: res.event_saved?.title ?? null,
-          learnedFacts: learned,
+      await chatStream(msg, history, {
+        currentPage: pageCtx,
+        onMeta: (meta) => {
+          const learned =
+            meta.facts_saved && meta.facts_saved.length > 0
+              ? meta.facts_saved
+              : undefined;
+          if (learned?.length) notifyFactsUpdated();
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.role !== "assistant") return prev;
+            next[next.length - 1] = {
+              ...last,
+              rememberedTitle: meta.event_saved?.title ?? null,
+              learnedFacts: learned,
+            };
+            return next;
+          });
         },
-      ]);
-      if (learned?.length) notifyFactsUpdated();
+        onDelta: (chunk) => {
+          if (!chunk) return;
+          setMessages((prev) => {
+            const next = [...prev];
+            const last = next[next.length - 1];
+            if (last?.role !== "assistant") return prev;
+            next[next.length - 1] = {
+              ...last,
+              content: last.content + chunk,
+            };
+            return next;
+          });
+        },
+      });
     } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            e instanceof Error
-              ? `Ошибка: ${e.message}`
-              : "Ошибка: не удалось связаться с сервером",
-          rememberedTitle: null,
-          learnedFacts: undefined,
-        },
-      ]);
+      setMessages((prev) => {
+        const next = [...prev];
+        const last = next[next.length - 1];
+        if (last?.role === "assistant") {
+          next[next.length - 1] = {
+            ...last,
+            content:
+              e instanceof Error
+                ? `Error: ${e.message}`
+                : "Error: failed to contact backend",
+            rememberedTitle: null,
+            learnedFacts: undefined,
+          };
+          return next;
+        }
+        return [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              e instanceof Error
+                ? `Error: ${e.message}`
+                : "Error: failed to contact backend",
+            rememberedTitle: null,
+            learnedFacts: undefined,
+          },
+        ];
+      });
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-white/5 bg-zinc-950/30 backdrop-blur-3xl">
-      <header className="shrink-0 border-b border-white/5 px-6 py-6 sm:px-8">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-accent animate-pulse" />
-            <div className="min-w-0">
-              <span className="mono-label !tracking-[0.28em] !text-zinc-400 block">
-                AIR4 CONSOLE
-              </span>
-              <p className="mt-2 truncate font-mono text-[10px] leading-tight tracking-tight text-zinc-600">
-                {subtitle}
-              </p>
-            </div>
-          </div>
-          <IconActivity className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" />
-        </div>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-50">
+      <header className="flex h-14 shrink-0 flex-col justify-center border-b border-zinc-200 bg-white px-4 leading-tight shadow-sm">
+        <h2 className="text-sm font-semibold text-zinc-900">AIR4</h2>
+        <p className="mt-0.5 truncate text-xs text-zinc-400">{subtitle}</p>
       </header>
 
       <div
         ref={scrollRef}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-6 py-8 sm:px-8 sm:py-10"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-3"
       >
         {messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
-            <p className="mono-label text-zinc-600">Ожидание запроса</p>
-            <p className="mt-3 max-w-[240px] text-sm font-light leading-relaxed text-zinc-500">
-              Спроси AIR4 о финансах, событиях или следующем шаге.
-            </p>
+          <div className="flex flex-1 flex-col items-center justify-center px-2 py-8 text-center text-sm text-zinc-500">
+            Спроси AIR4 о своих финансах
           </div>
         ) : (
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-3">
             {messages.map((m, idx) =>
               m.role === "user" ? (
                 <div
                   key={idx}
-                  className="flex max-w-[100%] flex-col items-end self-end"
+                  className="ml-auto max-w-[92%] rounded-2xl rounded-br-sm bg-zinc-900 px-4 py-2.5 text-sm leading-5 text-white"
                 >
-                  <div className="rounded-lg border border-white/10 bg-zinc-800/90 px-5 py-4 text-[13px] font-medium leading-[1.6] text-zinc-100">
-                    {m.content}
-                  </div>
+                  {m.content}
                 </div>
               ) : (
-                <div
-                  key={idx}
-                  className="flex max-w-[100%] flex-col items-start self-start"
-                >
-                  <div className="rounded-lg border border-white/5 bg-white/[0.03] px-5 py-4 text-[13px] leading-[1.6] text-zinc-300 backdrop-blur-sm">
+                <div key={idx} className="mr-auto max-w-[95%]">
+                  <div className="rounded-2xl rounded-bl-sm border border-zinc-100 bg-zinc-50 px-4 py-2.5 text-sm leading-5 text-zinc-900">
                     {m.content}
                   </div>
                   {m.rememberedTitle ? (
-                    <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] leading-snug text-emerald-200">
+                    <div className="mt-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] text-emerald-900">
                       ✓ Запомнил: {m.rememberedTitle}
                     </div>
                   ) : null}
                   {m.learnedFacts?.map((fact) => (
                     <div
                       key={fact.id}
-                      className="mt-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] leading-snug text-blue-200"
+                      className="mt-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1.5 text-[10px] text-blue-900"
                     >
                       ✓ Узнал: {fact.value}
                     </div>
@@ -393,19 +357,12 @@ export function ChatSidebar() {
                 </div>
               )
             )}
-            {busy ? (
-              <div className="flex gap-1.5 px-1" aria-hidden>
-                <span className="h-1 w-1 animate-bounce rounded-full bg-brand-accent" />
-                <span className="h-1 w-1 animate-bounce rounded-full bg-brand-accent [animation-delay:120ms]" />
-                <span className="h-1 w-1 animate-bounce rounded-full bg-brand-accent [animation-delay:240ms]" />
-              </div>
-            ) : null}
           </div>
         )}
       </div>
 
-      <div className="shrink-0 border-t border-white/5 bg-zinc-950/50 px-6 py-6 backdrop-blur-md sm:px-8 sm:py-8">
-        <div className="relative group">
+      <div className="shrink-0 border-t border-zinc-200 bg-white p-3">
+        <div className="flex items-end gap-2">
           <textarea
             ref={textareaRef}
             value={text}
@@ -416,25 +373,19 @@ export function ChatSidebar() {
                 void onSend();
               }
             }}
-            placeholder="Запрос к консоли…"
+            placeholder="Сообщение..."
             rows={1}
-            className="max-h-[96px] min-h-[80px] w-full resize-none rounded-lg border border-white/10 bg-white/[0.02] py-4 pl-5 pr-14 pb-11 text-[13px] leading-[1.6] text-zinc-200 placeholder:text-zinc-600 transition-all focus:border-brand-accent/40 focus:bg-white/[0.04] focus:outline-none focus:ring-0 disabled:opacity-50"
+            className="max-h-[96px] min-h-[40px] flex-1 resize-none rounded-xl border-0 bg-zinc-100 px-3 py-2 text-sm leading-5 text-zinc-900 placeholder:text-zinc-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-300"
             disabled={busy}
           />
-          <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-3">
-            <span className="hidden text-[9px] font-mono text-zinc-600 opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 sm:block">
-              Enter — отправить
-            </span>
-            <button
-              type="button"
-              onClick={() => void onSend()}
-              disabled={busy || text.trim().length === 0}
-              aria-label={busy ? "Отправка…" : "Отправить"}
-              className="pointer-events-auto rounded-md bg-brand-accent p-2 text-white shadow-[0_0_20px_-6px_rgba(59,130,246,0.6)] transition-all hover:bg-brand-accent/90 active:scale-90 disabled:opacity-20"
-            >
-              <IconSend className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => void onSend()}
+            disabled={busy || text.trim().length === 0}
+            className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          >
+            {busy ? "Отправляю..." : "Отправить"}
+          </button>
         </div>
       </div>
     </div>

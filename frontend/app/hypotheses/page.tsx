@@ -21,15 +21,17 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="glass-card p-6">
+    <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
       <button
         type="button"
         onClick={onToggle}
         className="mb-4 flex w-full items-center justify-between gap-3 text-left"
         aria-expanded={!collapsed}
       >
-        <h2 className="mono-label text-zinc-300">{title}</h2>
-        <span className="text-xs text-zinc-500">{collapsed ? "▶" : "▼"}</span>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+          {title}
+        </h2>
+        <span className="text-xs text-zinc-400">{collapsed ? "▶" : "▼"}</span>
       </button>
       {!collapsed ? children : null}
     </section>
@@ -53,9 +55,7 @@ export default function HypothesesPage() {
       const data = await getHypotheses();
       setItems(data);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Не удалось загрузить гипотезы"
-      );
+      setError(e instanceof Error ? e.message : "Failed to load hypotheses");
     } finally {
       setLoading(false);
     }
@@ -109,19 +109,18 @@ export default function HypothesesPage() {
       await deleteHypothesis(id);
       setItems((prev) => prev.filter((h) => h.id !== id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось удалить");
+      setError(e instanceof Error ? e.message : "Delete failed");
     }
   }
 
   return (
-    <div className="space-y-8">
-      <header className="glass-card flex flex-wrap items-start justify-between gap-6 p-8">
+    <div className="grid gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
         <div>
-          <div className="mono-label mb-2 text-zinc-500">Распознавание паттернов</div>
-          <h1 className="text-4xl font-light tracking-tight text-zinc-100">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
             Паттерны
           </h1>
-          <p className="mt-3 text-sm font-light leading-relaxed text-zinc-500">
+          <p className="mt-2 text-sm text-zinc-500">
             Гипотезы которые AIR4 хочет проверить с тобой
           </p>
         </div>
@@ -129,36 +128,38 @@ export default function HypothesesPage() {
           type="button"
           onClick={() => void onGenerate()}
           disabled={genBusy}
-          className="btn-primary self-start disabled:opacity-60"
+          className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           {genBusy ? "Генерирую…" : "Сгенерировать гипотезы"}
         </button>
-      </header>
+      </div>
 
       {genInfo ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300">
+        <div className="rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3 text-sm text-zinc-800">
           {genInfo}
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="text-sm text-zinc-500">Загружаю…</div>
+        <div className="text-sm text-zinc-600">Загружаю…</div>
       ) : items.length === 0 ? (
-        <div className="glass-card border border-dashed border-white/10 p-10 text-center text-sm text-zinc-500">
+        <div className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-700 shadow-sm">
           Пока нет гипотез. Нажми «Сгенерировать гипотезы».
         </div>
       ) : (
         <div className="grid gap-6">
-          <section className="glass-card p-8">
-            <h2 className="mono-label mb-6 text-zinc-300">Ожидают ответа</h2>
+          <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
+              ОЖИДАЮТ ОТВЕТА
+            </h2>
             {pending.length === 0 ? (
-              <p className="text-sm text-zinc-500">Нет новых гипотез.</p>
+              <p className="text-sm text-zinc-600">Нет новых гипотез.</p>
             ) : (
               <div className="grid gap-3">
                 {pending.map((h) => (
@@ -174,7 +175,7 @@ export default function HypothesesPage() {
                     <button
                       type="button"
                       onClick={() => void onDelete(h.id)}
-                      className="mt-2 text-xs font-medium text-zinc-500 hover:text-zinc-200"
+                      className="mt-2 text-xs font-medium text-zinc-500 hover:text-zinc-900"
                     >
                       Удалить
                     </button>
@@ -190,12 +191,15 @@ export default function HypothesesPage() {
             onToggle={() => setConfirmedCollapsed((c) => !c)}
           >
             {confirmed.length === 0 ? (
-              <p className="text-sm text-zinc-500">Нет подтверждённых гипотез.</p>
+              <p className="text-sm text-zinc-600">Нет подтверждённых гипотез.</p>
             ) : (
               <ul className="grid gap-3">
                 {confirmed.map((h) => (
-                  <li key={h.id} className="glass-card p-5">
-                    <p className="text-sm leading-6 text-zinc-200">{h.text}</p>
+                  <li
+                    key={h.id}
+                    className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
+                  >
+                    <p className="text-sm leading-6 text-zinc-900">{h.text}</p>
                   </li>
                 ))}
               </ul>
@@ -208,12 +212,15 @@ export default function HypothesesPage() {
             onToggle={() => setRejectedCollapsed((c) => !c)}
           >
             {rejected.length === 0 ? (
-              <p className="text-sm text-zinc-500">Нет отклонённых гипотез.</p>
+              <p className="text-sm text-zinc-600">Нет отклонённых гипотез.</p>
             ) : (
               <ul className="grid gap-3">
                 {rejected.map((h) => (
-                  <li key={h.id} className="glass-card p-5">
-                    <p className="text-sm leading-6 text-zinc-200">{h.text}</p>
+                  <li
+                    key={h.id}
+                    className="rounded-2xl border border-zinc-100 bg-white p-5 shadow-sm"
+                  >
+                    <p className="text-sm leading-6 text-zinc-900">{h.text}</p>
                   </li>
                 ))}
               </ul>

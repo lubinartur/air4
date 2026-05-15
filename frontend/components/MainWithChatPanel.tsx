@@ -28,8 +28,8 @@ export function MainWithChatPanel({
 
   if (!showSidebar) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-zinc-950">
-        <div className="mx-auto w-full max-w-6xl flex-1 bg-zinc-950 px-6 py-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white">
+        <div className="mx-auto w-full max-w-6xl flex-1 bg-white px-6 py-8">
           {children}
         </div>
       </div>
@@ -38,10 +38,10 @@ export function MainWithChatPanel({
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-zinc-950">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-white">
         <div className="mx-auto w-full max-w-6xl px-6 py-8">{children}</div>
       </div>
-      <aside className="sticky top-0 flex h-[calc(100vh-56px)] w-[380px] shrink-0 flex-col self-start overflow-hidden border-l border-white/5 bg-zinc-950/30 backdrop-blur-3xl">
+      <aside className="sticky top-0 flex h-[calc(100vh-56px)] w-[380px] shrink-0 flex-col self-start overflow-hidden border-l-2 border-zinc-200 bg-zinc-50">
         <ChatSidebar />
       </aside>
     </div>

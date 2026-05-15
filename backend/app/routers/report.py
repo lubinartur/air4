@@ -4,6 +4,7 @@ import asyncio
 import logging
 from typing import Any
 
+import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.database import fetch_all, fetch_one, get_db

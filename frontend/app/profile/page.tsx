@@ -14,7 +14,7 @@ function emptyToNull(s: string): string | null {
 }
 
 const inputClass =
-  "w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-white/20 focus:ring-0";
+  "w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-zinc-900 outline-none focus:border-zinc-400 focus:ring-0";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -48,9 +48,7 @@ export default function ProfilePage() {
         setAbout(p.context ?? "");
       } catch (e) {
         if (!cancelled)
-          setError(
-            e instanceof Error ? e.message : "Не удалось загрузить профиль"
-          );
+          setError(e instanceof Error ? e.message : "Failed to load profile");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -84,7 +82,7 @@ export default function ProfilePage() {
       setSaved(true);
       notifyProfileUpdated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось сохранить");
+      setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -92,24 +90,21 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <header className="mb-8">
-        <div className="mono-label mb-2 text-zinc-500">Профиль</div>
-        <h1 className="text-4xl font-light tracking-tight text-zinc-100">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
           Профиль
         </h1>
-        <p className="mt-3 text-sm font-light text-zinc-500">
+        <p className="mt-2 text-sm text-zinc-500">
           Расскажи AIR4 о себе — это используется в чате и инсайтах.
         </p>
-      </header>
+      </div>
 
       {loading ? (
         <p className="text-sm text-zinc-500">Загружаю…</p>
       ) : (
-        <div className="glass-card grid gap-5 p-8">
+        <div className="grid gap-5 rounded-2xl border border-zinc-100 bg-white p-8 shadow-sm">
           <label className="grid gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Имя
-            </span>
+            <span className="text-sm font-medium text-zinc-700">Имя</span>
             <input
               type="text"
               value={name}
@@ -119,9 +114,7 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Город
-            </span>
+            <span className="text-sm font-medium text-zinc-700">Город</span>
             <input
               type="text"
               value={city}
@@ -131,9 +124,7 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Профессия
-            </span>
+            <span className="text-sm font-medium text-zinc-700">Профессия</span>
             <input
               type="text"
               value={profession}
@@ -143,7 +134,7 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+            <span className="text-sm font-medium text-zinc-700">
               Месячный доход
             </span>
             <input
@@ -158,9 +149,7 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Главные цели
-            </span>
+            <span className="text-sm font-medium text-zinc-700">Главные цели</span>
             <textarea
               value={goals}
               onChange={(e) => setGoals(e.target.value)}
@@ -170,9 +159,7 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Транспорт
-            </span>
+            <span className="text-sm font-medium text-zinc-700">Транспорт</span>
             <input
               type="text"
               value={transport}
@@ -182,9 +169,7 @@ export default function ProfilePage() {
             />
           </label>
           <label className="grid gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-              О себе
-            </span>
+            <span className="text-sm font-medium text-zinc-700">О себе</span>
             <textarea
               value={about}
               onChange={(e) => setAbout(e.target.value)}
@@ -198,17 +183,17 @@ export default function ProfilePage() {
               type="button"
               onClick={() => void onSave()}
               disabled={saving}
-              className="btn-primary w-full disabled:opacity-60"
+              className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-60"
             >
               {saving ? "Сохраняю…" : "Сохранить"}
             </button>
             {saved ? (
-              <p className="mt-3 text-center text-sm font-medium text-emerald-400">
+              <p className="mt-3 text-center text-sm font-medium text-emerald-700">
                 Сохранено ✓
               </p>
             ) : null}
           </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {error ? <p className="text-sm text-red-700">{error}</p> : null}
         </div>
       )}
     </div>

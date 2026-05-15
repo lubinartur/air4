@@ -569,3 +569,94 @@ export async function chat(
   });
 }
 
+export type ChatStreamMeta = {
+  event_saved?: LifeEvent | null;
+  facts_saved?: UserFact[];
+};
+
+export async function chatStream(
+  message: string,
+  history: ChatMessage[],
+  opts: {
+    uploadId?: number;
+    currentPage?: string;
+    signal?: AbortSignal;
+    onMeta?: (meta: ChatStreamMeta) => void;
+    onDelta?: (text: string) => void;
+    onDone?: () => void;
+  }
+): Promise<void> {
+  const { uploadId, currentPage, signal, onMeta, onDelta, onDone } = opts;
+  const q = uploadId ? `?upload_id=${encodeURIComponent(String(uploadId))}` : "";
+  const res = await fetch(`${API_BASE}/api/chat${q}`, {
+    method: "POST",
+    headers: {
+      Accept: "text/event-stream",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message,
+      history,
+      current_page: currentPage ?? null,
+    }),
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Request failed (${res.status})`);
+  }
+  const reader = res.body?.getReader();
+  if (!reader) {
+    throw new Error("No response body");
+  }
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const dispatchLine = (line: string) => {
+    const trimmed = line.replace(/\r$/, "");
+    if (!trimmed.startsWith("data: ")) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed.slice(6));
+    } catch {
+      return;
+    }
+    if (!parsed || typeof parsed !== "object" || !("type" in parsed)) return;
+    const rec = parsed as { type: string };
+    if (rec.type === "meta") {
+      const m = parsed as {
+        type: "meta";
+        event_saved?: LifeEvent | null;
+        facts_saved?: UserFact[];
+      };
+      onMeta?.({
+        event_saved: m.event_saved,
+        facts_saved: m.facts_saved,
+      });
+    } else if (rec.type === "delta") {
+      const d = parsed as { type: "delta"; text?: string };
+      onDelta?.(d.text ?? "");
+    } else if (rec.type === "done") {
+      onDone?.();
+    }
+  };
+  while (true) {
+    const { done, value } = await reader.read();
+    if (value) {
+      buffer += decoder.decode(value, { stream: true });
+    }
+    const parts = buffer.split("\n");
+    buffer = parts.pop() ?? "";
+    for (const line of parts) {
+      dispatchLine(line);
+    }
+    if (done) break;
+  }
+  buffer += decoder.decode();
+  if (buffer.length > 0) {
+    for (const line of buffer.split("\n")) {
+      dispatchLine(line);
+    }
+  }
+}
+

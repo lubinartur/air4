@@ -32,8 +32,8 @@ function periodLabel(u: { period_start: string | null; period_end: string | null
 }
 
 function diffTone(diff: number): string {
-  if (diff > 0.01) return "text-red-400";
-  if (diff < -0.01) return "text-emerald-400";
+  if (diff > 0.01) return "text-red-700";
+  if (diff < -0.01) return "text-emerald-700";
   return "text-zinc-500";
 }
 
@@ -56,9 +56,7 @@ export default function TimelinePage() {
         if (!cancelled) setUploads(res.uploads || []);
       } catch (e) {
         if (!cancelled)
-          setError(
-            e instanceof Error ? e.message : "Не удалось загрузить таймлайн"
-          );
+          setError(e instanceof Error ? e.message : "Failed to load timeline");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -83,7 +81,7 @@ export default function TimelinePage() {
       } catch (e) {
         if (!cancelled)
           setCompareError(
-            e instanceof Error ? e.message : "Не удалось сравнить периоды"
+            e instanceof Error ? e.message : "Failed to compare periods"
           );
       } finally {
         if (!cancelled) setCompareLoading(false);
@@ -123,33 +121,34 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="glass-card p-8">
-        <div className="mono-label mb-2 text-zinc-500">Траты во времени</div>
-        <h1 className="text-4xl font-light tracking-tight text-zinc-100">
+    <div className="grid gap-6">
+      <div className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
           История
         </h1>
-        <p className="mt-3 text-sm font-light text-zinc-500">
+        <p className="mt-2 text-sm text-zinc-500">
           Твои траты по всем периодам
         </p>
-      </header>
+      </div>
 
       {error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="text-sm text-zinc-500">Загружаю…</div>
+        <div className="text-sm text-zinc-600">Загружаю…</div>
       ) : uploads.length === 0 ? (
-        <div className="glass-card border border-dashed border-white/10 p-10 text-center text-sm text-zinc-500">
+        <div className="rounded-2xl border border-zinc-100 bg-white p-8 text-center text-sm text-zinc-700 shadow-sm">
           Пока нет периодов. Загрузи CSV Swedbank чтобы начать.
         </div>
       ) : (
         <>
-          <section className="glass-card p-8">
-            <h2 className="mono-label mb-6 text-zinc-300">Периоды</h2>
+          <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
+              ПЕРИОДЫ
+            </h2>
             <div className="flex gap-3 overflow-x-auto pb-2">
               {uploads.map((u) => {
                 const active = selected.includes(u.upload_id);
@@ -159,29 +158,29 @@ export default function TimelinePage() {
                     key={u.upload_id}
                     type="button"
                     onClick={() => toggleSelect(u.upload_id)}
-                    className={`min-w-[260px] rounded-2xl border p-4 text-left transition-colors ${
+                    className={`min-w-[260px] rounded-2xl border p-4 text-left shadow-sm transition-colors ${
                       active
-                        ? "border-brand-accent/40 bg-brand-accent/10 text-zinc-100 shadow-[0_0_24px_-8px_rgba(59,130,246,0.35)]"
-                        : "border-white/10 bg-white/[0.02] text-zinc-100 hover:border-white/20"
+                        ? "border-zinc-900 bg-zinc-900 text-white"
+                        : "border-zinc-100 bg-white hover:border-zinc-300"
                     }`}
                   >
                     <div
-                      className={`text-xs font-mono uppercase tracking-wider ${
-                        active ? "text-brand-accent/90" : "text-zinc-500"
+                      className={`text-xs font-medium uppercase tracking-wider ${
+                        active ? "text-zinc-200" : "text-zinc-400"
                       }`}
                     >
                       {u.period_start ?? "—"} — {u.period_end ?? "—"}
                     </div>
                     <div
-                      className={`mt-2 text-2xl font-light tabular-nums ${
-                        active ? "text-zinc-100" : "text-zinc-100"
+                      className={`mt-2 text-2xl font-bold tabular-nums ${
+                        active ? "text-white" : "text-zinc-900"
                       }`}
                     >
                       {eur(u.total_spent)}
                     </div>
                     <div
                       className={`mt-2 text-sm ${
-                        active ? "text-zinc-400" : "text-zinc-500"
+                        active ? "text-zinc-200" : "text-zinc-500"
                       }`}
                     >
                       {top2.length === 0
@@ -191,8 +190,8 @@ export default function TimelinePage() {
                             .join(" · ")}
                     </div>
                     <div
-                      className={`mt-2 text-xs font-mono ${
-                        active ? "text-zinc-500" : "text-zinc-600"
+                      className={`mt-2 text-xs ${
+                        active ? "text-zinc-200" : "text-zinc-400"
                       }`}
                     >
                       {u.transaction_count} транзакций
@@ -201,94 +200,102 @@ export default function TimelinePage() {
                 );
               })}
             </div>
-            <p className="mt-3 text-xs text-zinc-600">
+            <p className="mt-3 text-xs text-zinc-500">
               Выбери два периода для сравнения.
             </p>
           </section>
 
-          <section className="glass-card p-8">
-            <h2 className="mono-label mb-6 text-zinc-300">Сравнение</h2>
+          <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
+              СРАВНЕНИЕ
+            </h2>
 
             {selected.length !== 2 ? (
-              <div className="text-sm text-zinc-500">
+              <div className="text-sm text-zinc-600">
                 Выбери два периода выше.
               </div>
             ) : compareLoading ? (
-              <div className="text-sm text-zinc-500">Сравниваю…</div>
+              <div className="text-sm text-zinc-600">Сравниваю…</div>
             ) : compareError ? (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 {compareError}
               </div>
             ) : compare ? (
               <div className="grid gap-6">
                 <div className="grid gap-4 md:grid-cols-3">
-                  <div className="glass-card p-5">
-                    <div className="mono-label text-zinc-500">Период 1</div>
-                    <div className="mt-1 text-sm text-zinc-500">
+                  <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
+                    <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                      ПЕРИОД 1
+                    </div>
+                    <div className="mt-1 text-sm text-zinc-600">
                       {compare.period1.period_start ?? "—"} —{" "}
                       {compare.period1.period_end ?? "—"}
                     </div>
-                    <div className="mt-2 text-2xl font-light tabular-nums text-zinc-100">
+                    <div className="mt-2 text-2xl font-bold tabular-nums text-zinc-900">
                       {eur(compare.period1.total_spent)}
                     </div>
                   </div>
-                  <div className="glass-card p-5">
-                    <div className="mono-label text-zinc-500">Период 2</div>
-                    <div className="mt-1 text-sm text-zinc-500">
+                  <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
+                    <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                      ПЕРИОД 2
+                    </div>
+                    <div className="mt-1 text-sm text-zinc-600">
                       {compare.period2.period_start ?? "—"} —{" "}
                       {compare.period2.period_end ?? "—"}
                     </div>
-                    <div className="mt-2 text-2xl font-light tabular-nums text-zinc-100">
+                    <div className="mt-2 text-2xl font-bold tabular-nums text-zinc-900">
                       {eur(compare.period2.total_spent)}
                     </div>
                   </div>
-                  <div className="glass-card p-5">
-                    <div className="mono-label text-zinc-500">Изменение</div>
-                    <div className="mt-1 text-sm text-zinc-400">
+                  <div className="rounded-2xl border border-zinc-100 bg-white p-4 shadow-sm">
+                    <div className="text-xs font-medium uppercase tracking-wider text-zinc-400">
+                      ИЗМЕНЕНИЕ
+                    </div>
+                    <div className="mt-1 text-sm text-zinc-600">
                       {compare.diff.total > 0 ? "▲" : compare.diff.total < 0 ? "▼" : "→"}{" "}
                       <span className={diffTone(compare.diff.total)}>
                         {eur(compare.diff.total)}
                       </span>{" "}
-                      <span className="text-zinc-600">
+                      <span className="text-zinc-500">
                         ({compare.diff.total_pct.toFixed(1)}%)
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={askAboutComparison}
-                      className="btn-primary mt-3 w-full"
+                      className="mt-3 w-full rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white"
                     >
                       Спросить AIR4
                     </button>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto rounded-xl border border-white/5">
+                <div className="overflow-x-auto">
                   <table className="w-full min-w-[720px] text-left text-sm">
-                    <thead className="border-b border-white/10 bg-zinc-950/50 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <thead className="border-y border-zinc-100 bg-zinc-50 text-xs font-semibold uppercase tracking-wide text-zinc-700">
                       <tr>
-                        <th className="px-4 py-3">Категория</th>
-                        <th className="px-4 py-3">Период 1</th>
-                        <th className="px-4 py-3">Период 2</th>
-                        <th className="px-4 py-3">Разница</th>
+                        <th className="px-4 py-3">КАТЕГОРИЯ</th>
+                        <th className="px-4 py-3">ПЕРИОД 1</th>
+                        <th className="px-4 py-3">ПЕРИОД 2</th>
+                        <th className="px-4 py-3">РАЗНИЦА</th>
                       </tr>
                     </thead>
                     <tbody>
                       {compare.diff.by_category.map((r) => (
-                        <tr key={r.category} className="border-t border-white/5">
-                          <td className="px-4 py-3 font-medium text-zinc-200">
+                        <tr key={r.category} className="border-t border-zinc-100">
+                          <td className="px-4 py-3 font-medium text-zinc-900">
                             {categoryLabel(r.category)}
                           </td>
-                          <td className="px-4 py-3 tabular-nums text-zinc-400">
+                          <td className="px-4 py-3 tabular-nums text-zinc-700">
                             {eur(r.period1_amount)}
                           </td>
-                          <td className="px-4 py-3 tabular-nums text-zinc-400">
+                          <td className="px-4 py-3 tabular-nums text-zinc-700">
                             {eur(r.period2_amount)}
                           </td>
                           <td className={`px-4 py-3 tabular-nums ${diffTone(r.diff)}`}>
                             {r.diff > 0 ? "+" : ""}
                             {eur(r.diff)}{" "}
-                            <span className="text-xs text-zinc-600">
+                            <span className="text-xs text-zinc-500">
                               ({r.diff_pct.toFixed(1)}%)
                             </span>
                           </td>
@@ -301,28 +308,29 @@ export default function TimelinePage() {
             ) : null}
           </section>
 
-          <section className="glass-card p-8">
-            <h2 className="mono-label mb-6 text-zinc-300">Тренд</h2>
+          <section className="rounded-2xl border border-zinc-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-400">
+              ТРЕНД
+            </h2>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ left: 8, right: 8 }}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "#a1a1aa", fontSize: 12 }} />
+                  <CartesianGrid stroke="#f4f4f5" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "#71717a", fontSize: 12 }} />
                   <YAxis
-                    tick={{ fill: "#a1a1aa", fontSize: 12 }}
+                    tick={{ fill: "#71717a", fontSize: 12 }}
                     tickFormatter={(v) => `€${Number(v).toFixed(0)}`}
                   />
                   <Tooltip
                     formatter={(value) => `€${Number(value ?? 0).toFixed(2)}`}
                     contentStyle={{
-                      backgroundColor: "#18181b",
-                      color: "#e4e4e7",
-                      border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#18181b",
+                      border: "1px solid #e4e4e7",
                       borderRadius: 8,
                     }}
-                    labelStyle={{ color: "#a1a1aa", fontWeight: 600 }}
+                    labelStyle={{ color: "#3f3f46", fontWeight: 600 }}
                   />
-                  <Bar dataKey="total" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                  <Bar dataKey="total" fill="#18181b" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

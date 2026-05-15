@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -137,12 +138,15 @@ class OllamaAnalyzer:
                 r = await client.post(f"{self.base_url}/api/chat", json=payload)
                 r.raise_for_status()
                 content = str(r.json()["message"]["content"])
-            return _parse_complexity_label(content)
+            label = _parse_complexity_label(content)
+            print(f"[AIR4] classify_query: {label} (classifier model: {self.fast_model})")
+            return label
         except Exception:
             logger.warning(
                 "classify_query failed, falling back to COMPLEX",
                 exc_info=True,
             )
+            print(f"[AIR4] classify_query: COMPLEX (fallback, classifier model: {self.fast_model})")
             return "COMPLEX"
 
     async def generate_insights(self, compact: dict[str, Any]) -> list[InsightOut]:
@@ -218,7 +222,7 @@ class OllamaAnalyzer:
             )
         return insights
 
-    async def chat(
+    async def _prepare_chat_messages(
         self,
         message: str,
         history: list[dict[str, Any]],
@@ -233,10 +237,10 @@ class OllamaAnalyzer:
         solved_dilemmas: list[dict[str, Any]] | None = None,
         interview_answers: list[dict[str, Any]] | None = None,
         current_page: str | None = None,
-    ) -> str:
+    ) -> tuple[list[dict[str, Any]], str]:
         complexity = await self.classify_query(message)
         chat_model = self.fast_model if complexity == "SIMPLE" else self.model
-        logger.info("Query classified as %s, using %s", complexity, chat_model)
+        print(f"[AIR4] Query classified as: {complexity} → using model: {chat_model}")
 
         system = (
             "Ты — AIR4. Персональный советник, аналитик и компаньон пользователя.\n\n"
@@ -379,7 +383,39 @@ class OllamaAnalyzer:
             if role in ("user", "assistant") and isinstance(content, str):
                 messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": message})
+        return messages, chat_model
 
+    async def chat(
+        self,
+        message: str,
+        history: list[dict[str, Any]],
+        summary: dict[str, Any],
+        events: list[dict[str, Any]] | None = None,
+        profile: dict[str, Any] | None = None,
+        transactions: list[dict[str, Any]] | None = None,
+        user_facts: list[dict[str, Any]] | None = None,
+        projects: list[dict[str, Any]] | None = None,
+        confirmed_hypotheses: list[dict[str, Any]] | None = None,
+        cross_sphere_insights: list[dict[str, Any]] | None = None,
+        solved_dilemmas: list[dict[str, Any]] | None = None,
+        interview_answers: list[dict[str, Any]] | None = None,
+        current_page: str | None = None,
+    ) -> str:
+        messages, chat_model = await self._prepare_chat_messages(
+            message,
+            history,
+            summary,
+            events=events,
+            profile=profile,
+            transactions=transactions,
+            user_facts=user_facts,
+            projects=projects,
+            confirmed_hypotheses=confirmed_hypotheses,
+            cross_sphere_insights=cross_sphere_insights,
+            solved_dilemmas=solved_dilemmas,
+            interview_answers=interview_answers,
+            current_page=current_page,
+        )
         payload = {
             "model": chat_model,
             "temperature": 0.3,
@@ -393,6 +429,77 @@ class OllamaAnalyzer:
                 return str(r.json()["message"]["content"]).strip()
         except (httpx.HTTPError, KeyError, TypeError, ValueError):
             return "I couldn't reach Ollama right now. Please ensure it's running and try again."
+
+    async def chat_stream(
+        self,
+        message: str,
+        history: list[dict[str, Any]],
+        summary: dict[str, Any],
+        events: list[dict[str, Any]] | None = None,
+        profile: dict[str, Any] | None = None,
+        transactions: list[dict[str, Any]] | None = None,
+        user_facts: list[dict[str, Any]] | None = None,
+        projects: list[dict[str, Any]] | None = None,
+        confirmed_hypotheses: list[dict[str, Any]] | None = None,
+        cross_sphere_insights: list[dict[str, Any]] | None = None,
+        solved_dilemmas: list[dict[str, Any]] | None = None,
+        interview_answers: list[dict[str, Any]] | None = None,
+        current_page: str | None = None,
+    ) -> AsyncIterator[str]:
+        messages, chat_model = await self._prepare_chat_messages(
+            message,
+            history,
+            summary,
+            events=events,
+            profile=profile,
+            transactions=transactions,
+            user_facts=user_facts,
+            projects=projects,
+            confirmed_hypotheses=confirmed_hypotheses,
+            cross_sphere_insights=cross_sphere_insights,
+            solved_dilemmas=solved_dilemmas,
+            interview_answers=interview_answers,
+            current_page=current_page,
+        )
+        payload = {
+            "model": chat_model,
+            "temperature": 0.3,
+            "messages": messages,
+            "stream": True,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_s) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/chat",
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+                    accumulated = ""
+                    async for line in response.aiter_lines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            event = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        msg = event.get("message") or {}
+                        piece = str(msg.get("content") or "")
+                        if not piece and event.get("done"):
+                            break
+                        if not piece:
+                            continue
+                        if piece.startswith(accumulated):
+                            delta = piece[len(accumulated) :]
+                            accumulated = piece
+                        else:
+                            accumulated += piece
+                            delta = piece
+                        if delta:
+                            yield delta
+        except (httpx.HTTPError, TypeError, ValueError):
+            yield "I couldn't reach Ollama right now. Please ensure it's running and try again."
 
     async def generate_monthly_report(
         self,

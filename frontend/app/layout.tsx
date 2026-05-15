@@ -27,15 +27,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-zinc-950 text-zinc-100`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
+      <body className="flex min-h-screen flex-col bg-white text-zinc-950">
         <SiteHeader />
         <main className="flex min-h-0 flex-1 flex-col">
           <MainWithChatPanel>{children}</MainWithChatPanel>
         </main>
-        <footer className="border-t border-white/5 bg-zinc-950/50 backdrop-blur-md">
-          <div className="mx-auto w-full max-w-6xl px-6 py-4 text-xs text-zinc-600">
+        <footer className="border-t border-zinc-100 bg-white">
+          <div className="mx-auto w-full max-w-6xl px-6 py-4 text-xs text-zinc-500">
             Backend: http://localhost:8000 • Ollama: http://localhost:11434
           </div>
         </footer>

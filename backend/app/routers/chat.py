@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
+
 import aiosqlite
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 
 from app.database import execute, fetch_all, fetch_one, get_db
 from app.models.event import EventOut
 from app.models.fact import UserFactOut
-from app.models.transaction import ChatIn, ChatOut
+from app.models.transaction import ChatIn
 from app.routers.summary import _latest_upload_id, get_summary
 from app.services.analyzer import OllamaAnalyzer
 from app.services.event_extractor import EventExtractor
@@ -16,12 +19,12 @@ from app.services.fact_extractor import FactExtractor
 router = APIRouter()
 
 
-@router.post("/chat", response_model=ChatOut)
+@router.post("/chat")
 async def chat(
     body: ChatIn,
     upload_id: int | None = Query(None),
     db: aiosqlite.Connection = Depends(get_db),
-) -> ChatOut:
+):
     event_saved: EventOut | None = None
     extractor = EventExtractor()
     extracted = await extractor.extract_event(body.message)
@@ -192,24 +195,38 @@ async def chat(
     )
 
     analyzer = OllamaAnalyzer()
-    response = await analyzer.chat(
-        body.message,
-        body.history or [],
-        summary,
-        events=events_rows,
-        profile=profile_dict,
-        transactions=tx_rows,
-        user_facts=user_facts_rows,
-        projects=active_projects_rows,
-        confirmed_hypotheses=confirmed_hypotheses_rows,
-        cross_sphere_insights=cross_sphere_rows,
-        solved_dilemmas=solved_dilemmas_rows,
-        interview_answers=interview_answers_rows,
-        current_page=body.current_page,
-    )
-    return ChatOut(
-        response=response,
-        event_saved=event_saved,
-        facts_saved=facts_saved,
+
+    async def generate():
+        meta = {
+            "type": "meta",
+            "event_saved": event_saved.model_dump() if event_saved else None,
+            "facts_saved": [f.model_dump() for f in facts_saved],
+        }
+        yield f"data: {json.dumps(meta, ensure_ascii=False)}\n\n"
+        async for delta in analyzer.chat_stream(
+            body.message,
+            body.history or [],
+            summary,
+            events=events_rows,
+            profile=profile_dict,
+            transactions=tx_rows,
+            user_facts=user_facts_rows,
+            projects=active_projects_rows,
+            confirmed_hypotheses=confirmed_hypotheses_rows,
+            cross_sphere_insights=cross_sphere_rows,
+            solved_dilemmas=solved_dilemmas_rows,
+            interview_answers=interview_answers_rows,
+            current_page=body.current_page,
+        ):
+            yield f"data: {json.dumps({'type': 'delta', 'text': delta}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
     )
 

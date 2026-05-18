@@ -1,3 +1,24 @@
+# Sensitive data & exports
+*.csv
 s4.csv
 s5.csv
+s6.csv
+s7.csv
+backend/data/
+coaich-backup*.json
+statement*.csv
+
+# Local databases
 data/*.db
+
+# JSON — ignore by default, allow config manifests
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
+!**/tsconfig*.json
+!components.json
+!**/components.json
+!**/package.json
+!**/package-lock.json

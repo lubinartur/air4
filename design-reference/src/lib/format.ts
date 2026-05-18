@@ -1,0 +1,57 @@
+export function daysSince(iso: string | null | undefined): number {
+  if (!iso) return 999;
+  const normalized = iso.includes("T") ? iso : iso.replace(" ", "T") + "Z";
+  const t = Date.parse(normalized);
+  if (Number.isNaN(t)) return 999;
+  return Math.floor((Date.now() - t) / 86_400_000);
+}
+
+export function formatRelativeActivity(updatedAt?: string | null): string {
+  if (!updatedAt) return "no recent activity";
+  const days = daysSince(updatedAt);
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
+export function formatProjectStatus(status: string): string {
+  return status.replace(/_/g, " ");
+}
+
+export function formatWorkoutType(type?: string | null): string {
+  if (!type) return "Workout";
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+/** snake_case fact key → readable label */
+export function formatFactKey(key: string): string {
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function formatConfidencePercent(confidence: number): string {
+  const pct = Math.round(Math.min(1, Math.max(0, confidence)) * 100);
+  return `${pct}%`;
+}
+
+export function domainIcon(domain: string): string {
+  switch (domain) {
+    case "health":
+      return "💪";
+    case "finance":
+      return "💰";
+    case "projects":
+      return "🚀";
+    case "life":
+      return "⭐";
+    case "personal":
+      return "👤";
+    default:
+      return "📌";
+  }
+}
+
+export function formatDomainLabel(domain: string): string {
+  return domain.replace(/_/g, " ");
+}

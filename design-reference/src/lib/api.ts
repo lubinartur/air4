@@ -454,6 +454,38 @@ export type HypothesesResponse = {
   hypotheses: Hypothesis[];
 };
 
+export type InterviewQuestion = {
+  has_question: boolean;
+  question?: string | null;
+  domain?: string | null;
+};
+
+export async function fetchInterviewQuestion(): Promise<InterviewQuestion> {
+  const data = await apiFetch<InterviewQuestion>("/api/interview/question");
+  return {
+    has_question: data.has_question === true,
+    question: data.question ?? null,
+    domain: data.domain ?? null,
+  };
+}
+
+export async function submitInterviewAnswer(
+  question: string,
+  answer: string
+): Promise<{ saved: boolean }> {
+  const res = await fetch("/api/interview/answer", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, answer }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `interview/answer failed (${res.status})`);
+  }
+  const data = (await res.json()) as { saved?: boolean };
+  return { saved: data.saved === true };
+}
+
 export async function fetchHypotheses(): Promise<HypothesesResponse> {
   const data = await apiFetch<HypothesesResponse>("/api/hypotheses");
   return {

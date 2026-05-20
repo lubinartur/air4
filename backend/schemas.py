@@ -248,3 +248,18 @@ class FinanceObligationOut(BaseModel):
 
 class ObligationsListOut(BaseModel):
     obligations: list[FinanceObligationOut] = Field(default_factory=list)
+
+
+class InterviewQuestionOut(BaseModel):
+    has_question: bool = False
+    question: str | None = None
+    domain: str | None = None
+
+
+class InterviewAnswerIn(BaseModel):
+    question: str
+    answer: str
+
+
+class InterviewAnswerOut(BaseModel):
+    saved: bool

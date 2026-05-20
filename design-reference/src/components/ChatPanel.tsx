@@ -3,7 +3,11 @@ import { RefreshCw, Send } from "lucide-react";
 import { Message, Page } from "../types";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
-import type { Observation } from "../lib/api";
+import {
+  fetchInterviewQuestion,
+  submitInterviewAnswer,
+  type Observation,
+} from "../lib/api";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
 
 interface ChatPanelProps {
@@ -28,6 +32,7 @@ export function ChatPanel({
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [interviewQuestion, setInterviewQuestion] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,21 +51,58 @@ export function ChatPanel({
     onPendingMessageConsumed?.();
   }, [pendingMessage, onPendingMessageConsumed]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetchInterviewQuestion()
+      .then((res) => {
+        if (cancelled) return;
+        if (res.has_question && res.question) {
+          setInterviewQuestion(res.question);
+        } else {
+          setInterviewQuestion(null);
+        }
+      })
+      .catch(() => {
+        /* interview is optional */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const previewBubble = useMemo((): Message | null => {
-    if (messages.length > 0) return null;
+    if (messages.length > 0 || interviewQuestion) return null;
     const body = observation?.body?.trim();
     if (!body) return null;
     return { role: "assistant", content: body };
-  }, [messages.length, observation?.body]);
+  }, [messages.length, interviewQuestion, observation?.body]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const text = input.trim();
+    const pendingInterview = interviewQuestion;
     const userMessage: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
+
+    if (pendingInterview) {
+      setInterviewQuestion(null);
+      try {
+        await Promise.race([
+          submitInterviewAnswer(pendingInterview, text),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("interview answer timeout (5s)")),
+              5000
+            )
+          ),
+        ]);
+      } catch (error) {
+        console.error("Interview answer save skipped:", error);
+      }
+    }
 
     try {
       const response = await fetch("/api/chat", {
@@ -147,6 +189,16 @@ export function ChatPanel({
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6">
+        {interviewQuestion && (
+          <div className="rounded-2xl bg-indigo-50/70 border border-indigo-100 p-4 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-600">
+              AIR4 хочет узнать тебя лучше
+            </p>
+            <p className="text-[14px] leading-relaxed text-[#111827]">
+              {interviewQuestion}
+            </p>
+          </div>
+        )}
         {messages.map((msg, i) => renderBubble(msg, i))}
         {previewBubble && renderBubble(previewBubble, "preview")}
         {isLoading && (

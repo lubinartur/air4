@@ -229,6 +229,28 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.get("/api/interview/question", async (req, res) => {
+    try {
+      await proxyJson(res, backendUrl("/api/interview/question", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.put("/api/interview/answer", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/interview/answer`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post("/api/observations/generate", async (req, res) => {
     try {
       await proxyJson(res, `${BACKEND_URL}/api/observations/generate`, {

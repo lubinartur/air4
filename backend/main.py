@@ -16,6 +16,7 @@ from routers import (
     health,
     hypotheses,
     insights,
+    interview,
     observations,
     profile,
     projects,
@@ -55,6 +56,7 @@ app.include_router(events.router, prefix="/api", tags=["events"])
 app.include_router(goals.router, prefix="/api", tags=["goals"])
 app.include_router(finance_facts.router, prefix="/api", tags=["finance"])
 app.include_router(hypotheses.router, prefix="/api", tags=["hypotheses"])
+app.include_router(interview.router, prefix="/api", tags=["interview"])
 
 
 @app.on_event("startup")

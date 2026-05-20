@@ -144,16 +144,29 @@ class BodyMetricOut(BaseModel):
     created_at: str | None = None
 
 
+class WorkoutSetOut(BaseModel):
+    setNumber: int
+    weight: float | None = None
+    reps: int | None = None
+
+
+class WorkoutExerciseOut(BaseModel):
+    exerciseName: str
+    muscleGroup: str | None = None
+    sets: list[WorkoutSetOut] = Field(default_factory=list)
+
+
 class WorkoutOut(BaseModel):
     id: int
     date: str
     type: str | None = None
     duration: int | None = None
-    exercises: str | None = None
+    exercises: list[WorkoutExerciseOut] = Field(default_factory=list)
     energy_level: int | None = None
     notes: str | None = None
     source: str = "chat"
     created_at: str | None = None
+    total_volume: float | None = None
 
 
 class UserProfileSectionOut(BaseModel):

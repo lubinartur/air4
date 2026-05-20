@@ -196,33 +196,83 @@ export async function fetchBodyMetrics(): Promise<BodyMetric[]> {
   );
 }
 
+export type WorkoutSet = {
+  setNumber: number;
+  weight: number | null;
+  reps: number | null;
+};
+
+export type WorkoutExercise = {
+  exerciseName: string;
+  muscleGroup: string | null;
+  sets: WorkoutSet[];
+};
+
 export type Workout = {
   id: number;
   date: string;
   type?: string | null;
   duration?: number | null;
-  exercises?: string | null;
+  exercises: WorkoutExercise[];
   energy_level?: number | null;
   notes?: string | null;
   source?: string;
   created_at?: string | null;
+  total_volume?: number | null;
 };
+
+function normalizeWorkoutExercises(raw: unknown): WorkoutExercise[] {
+  if (!Array.isArray(raw)) return [];
+  const out: WorkoutExercise[] = [];
+  raw.forEach((item, idx) => {
+    if (!item || typeof item !== "object") return;
+    const ex = item as Record<string, unknown>;
+    const name = String(ex.exerciseName ?? ex.name ?? "").trim();
+    if (!name) return;
+    const muscle =
+      ex.muscleGroup != null ? String(ex.muscleGroup).trim() || null : null;
+    const setsRaw = Array.isArray(ex.sets) ? (ex.sets as unknown[]) : [];
+    const sets: WorkoutSet[] = setsRaw
+      .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
+      .map((s, i) => {
+        const setNumber = Number(s.setNumber ?? i + 1) || i + 1;
+        const weight = s.weight != null ? Number(s.weight) : null;
+        const reps = s.reps != null ? Number(s.reps) : null;
+        return {
+          setNumber,
+          weight: weight != null && Number.isFinite(weight) ? weight : null,
+          reps: reps != null && Number.isFinite(reps) ? reps : null,
+        };
+      });
+    out.push({
+      exerciseName: name,
+      muscleGroup: muscle,
+      sets,
+    });
+    void idx;
+  });
+  return out;
+}
 
 export async function fetchWorkouts(): Promise<Workout[]> {
   const rows = await apiFetch<unknown>("/api/health/workouts");
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => {
     const raw = row as Record<string, unknown>;
+    const totalVolume =
+      raw.total_volume != null ? Number(raw.total_volume) : null;
     return {
       id: Number(raw.id),
       date: String(raw.date ?? ""),
       type: raw.type != null ? String(raw.type) : null,
       duration: raw.duration != null ? Number(raw.duration) : null,
-      exercises: raw.exercises != null ? String(raw.exercises) : null,
+      exercises: normalizeWorkoutExercises(raw.exercises),
       energy_level: raw.energy_level != null ? Number(raw.energy_level) : null,
       notes: raw.notes != null ? String(raw.notes) : null,
       source: raw.source != null ? String(raw.source) : undefined,
       created_at: raw.created_at != null ? String(raw.created_at) : null,
+      total_volume:
+        totalVolume != null && Number.isFinite(totalVolume) ? totalVolume : null,
     };
   });
 }

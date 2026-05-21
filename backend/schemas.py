@@ -70,9 +70,60 @@ class ProjectOut(BaseModel):
     name: str
     description: str | None = None
     status: str = "active"
+    priority: int = 2
     started_at: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+
+
+class ProjectLogOut(BaseModel):
+    id: int
+    note: str
+    log_type: str = "update"
+    duration_minutes: int | None = None
+    source: str = "manual"
+    created_at: str | None = None
+
+
+class ActiveSessionOut(BaseModel):
+    started_at: str
+
+
+class ProjectDetailOut(ProjectOut):
+    logs: list[ProjectLogOut] = Field(default_factory=list)
+    total_sessions_minutes: int = 0
+    active_session: ActiveSessionOut | None = None
+
+
+class ProjectLogIn(BaseModel):
+    note: str = Field(min_length=1, max_length=2000)
+    log_type: str = "update"
+
+
+class SessionStartOut(BaseModel):
+    started_at: str
+    log_id: int
+
+
+class SessionStopIn(BaseModel):
+    label: str = Field(min_length=1, max_length=200)
+
+
+class ProjectTodoOut(BaseModel):
+    id: int
+    project_id: int
+    text: str
+    done: bool = False
+    done_at: str | None = None
+    created_at: str | None = None
+
+
+class ProjectTodoIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+
+class ProjectTodosListOut(BaseModel):
+    todos: list[ProjectTodoOut] = Field(default_factory=list)
 
 
 class DilemmaOut(BaseModel):

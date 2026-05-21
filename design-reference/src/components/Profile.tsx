@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { User } from "lucide-react";
 import { fetchProfile, formatEuro, type ProfileBundle } from "../lib/api";
 import { formatConfidencePercent, formatFactKey } from "../lib/format";
 import { cn } from "../lib/utils";
@@ -110,14 +109,6 @@ export function Profile() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-              <User size={20} />
-            </div>
-            <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em]">
-              Profile
-            </h2>
-          </div>
           <ProfileField label="Name" value={profile.name} />
           <ProfileField label="City" value={profile.city} />
           <ProfileField label="Profession" value={profile.profession} />

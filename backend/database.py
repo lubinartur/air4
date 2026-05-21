@@ -126,11 +126,21 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 CREATE TABLE IF NOT EXISTS project_logs (
+    id                INTEGER PRIMARY KEY,
+    project_id        INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    note              TEXT NOT NULL,
+    log_type          TEXT DEFAULT 'update',
+    duration_minutes  INTEGER,
+    source            TEXT DEFAULT 'manual',
+    created_at        TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS project_todos (
     id          INTEGER PRIMARY KEY,
     project_id  INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-    note        TEXT NOT NULL,
-    log_type    TEXT DEFAULT 'update',
-    source      TEXT DEFAULT 'manual',
+    text        TEXT NOT NULL,
+    done        INTEGER DEFAULT 0,
+    done_at     TEXT,
     created_at  TEXT DEFAULT (datetime('now'))
 );
 
@@ -234,6 +244,8 @@ CREATE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(transaction_has
 CREATE INDEX IF NOT EXISTS idx_transactions_debit ON transactions(is_debit, is_internal_transfer);
 CREATE INDEX IF NOT EXISTS idx_project_logs_project ON project_logs(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_logs_date ON project_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_project_todos_project ON project_todos(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_todos_done ON project_todos(done);
 CREATE INDEX IF NOT EXISTS idx_observations_read ON observations(is_read);
 CREATE INDEX IF NOT EXISTS idx_observations_expires ON observations(expires_at);
 CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date);
@@ -349,7 +361,10 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         _ensure_columns(
             conn,
             "project_logs",
-            [("log_type", "TEXT DEFAULT 'update'")],
+            [
+                ("log_type", "TEXT DEFAULT 'update'"),
+                ("duration_minutes", "INTEGER"),
+            ],
         )
 
     if "interview_answers" in tables:

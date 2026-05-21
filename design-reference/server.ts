@@ -140,6 +140,115 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.get("/api/projects/:projectId", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/projects/${encodeURIComponent(req.params.projectId)}`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/projects/:projectId/logs", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/projects/${encodeURIComponent(req.params.projectId)}/logs`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/projects/:projectId/sessions/start", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/projects/${encodeURIComponent(req.params.projectId)}/sessions/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/projects/:projectId/sessions/stop", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/projects/${encodeURIComponent(req.params.projectId)}/sessions/stop`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/projects/:projectId/todos", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/projects/${encodeURIComponent(req.params.projectId)}/todos`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/projects/:projectId/todos", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/projects/${encodeURIComponent(req.params.projectId)}/todos`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.put("/api/projects/todos/:todoId", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/projects/todos/${encodeURIComponent(req.params.todoId)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/dilemmas", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/dilemmas", req.query));

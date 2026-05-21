@@ -22,9 +22,38 @@ export type Project = {
   name: string;
   description?: string | null;
   status: string;
+  priority?: number;
   started_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+};
+
+export type ProjectLog = {
+  id: number;
+  note: string;
+  log_type: string;
+  duration_minutes: number | null;
+  source: string;
+  created_at: string | null;
+};
+
+export type ActiveSession = {
+  started_at: string;
+};
+
+export type ProjectDetail = Project & {
+  logs: ProjectLog[];
+  total_sessions_minutes: number;
+  active_session: ActiveSession | null;
+};
+
+export type ProjectTodo = {
+  id: number;
+  project_id: number;
+  text: string;
+  done: boolean;
+  done_at: string | null;
+  created_at: string | null;
 };
 
 export type Dilemma = {
@@ -403,6 +432,76 @@ export async function uploadStatement(file: File): Promise<UploadResult> {
 
 export async function getProjects(): Promise<Project[]> {
   return apiFetch<Project[]>("/api/projects");
+}
+
+export async function fetchProject(id: number): Promise<ProjectDetail> {
+  const data = await apiFetch<ProjectDetail>(`/api/projects/${id}`);
+  return {
+    ...data,
+    logs: data.logs ?? [],
+    total_sessions_minutes: data.total_sessions_minutes ?? 0,
+    active_session: data.active_session ?? null,
+  };
+}
+
+async function jsonPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Request failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
+async function jsonPut<T>(path: string, body: unknown = {}): Promise<T> {
+  const res = await fetch(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Request failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function addProjectLog(
+  id: number,
+  note: string,
+  log_type: string = "update"
+): Promise<ProjectLog> {
+  return jsonPost<ProjectLog>(`/api/projects/${id}/logs`, { note, log_type });
+}
+
+export async function startSession(
+  id: number
+): Promise<{ started_at: string; log_id: number }> {
+  return jsonPost(`/api/projects/${id}/sessions/start`, {});
+}
+
+export async function stopSession(
+  id: number,
+  label: string
+): Promise<ProjectLog> {
+  return jsonPost<ProjectLog>(`/api/projects/${id}/sessions/stop`, { label });
+}
+
+export async function fetchTodos(id: number): Promise<ProjectTodo[]> {
+  const data = await apiFetch<{ todos?: ProjectTodo[] }>(`/api/projects/${id}/todos`);
+  return data.todos ?? [];
+}
+
+export async function addTodo(id: number, text: string): Promise<ProjectTodo> {
+  return jsonPost<ProjectTodo>(`/api/projects/${id}/todos`, { text });
+}
+
+export async function toggleTodo(todoId: number): Promise<ProjectTodo> {
+  return jsonPut<ProjectTodo>(`/api/projects/todos/${todoId}`);
 }
 
 export async function fetchDilemmas(): Promise<Dilemma[]> {

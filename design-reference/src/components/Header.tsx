@@ -11,7 +11,7 @@ export function Header({ currentPage }: HeaderProps) {
   return (
     <header className="flex items-center justify-between mb-10">
       <div>
-        {!["Finance", "Projects", "Health", "Goals", "Dilemmas", "Patterns", "Memory", "Settings"].includes(currentPage) && (
+        {!["Finance", "Projects", "Health", "Goals", "Dilemmas", "Patterns", "Memory", "Profile", "Settings"].includes(currentPage) && (
           <h1 className="text-4xl font-black text-[#111827] tracking-tight">{currentPage}</h1>
         )}
         <p className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mt-1">Thinking Companion</p>

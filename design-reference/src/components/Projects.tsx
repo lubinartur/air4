@@ -1,31 +1,43 @@
-import { useEffect, useState } from "react";
-import { Clock, FolderKanban } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronRight, Clock, FolderKanban } from "lucide-react";
 import { getProjects, type Project } from "../lib/api";
 import { formatProjectStatus, formatRelativeActivity } from "../lib/format";
 import { cn } from "../lib/utils";
 import { PageEmptyState } from "./PageEmptyState";
+import { ProjectDetail } from "./ProjectDetail";
 
 export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getProjects();
+      setProjects(data);
+    } catch {
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await getProjects();
-        if (!cancelled) setProjects(data);
-      } catch {
-        if (!cancelled) setProjects([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadProjects();
+  }, [loadProjects]);
+
+  if (selectedId != null) {
+    return (
+      <ProjectDetail
+        projectId={selectedId}
+        onBack={() => {
+          setSelectedId(null);
+          void loadProjects();
+        }}
+      />
+    );
+  }
 
   const header = (
     <div>
@@ -70,9 +82,11 @@ export function Projects() {
           {projects.map((p) => {
             const activity = formatRelativeActivity(p.updated_at);
             return (
-              <div
+              <button
                 key={p.id}
-                className="flex items-center justify-between gap-4 p-4 bg-gray-50/30 rounded-2xl border border-gray-50"
+                type="button"
+                onClick={() => setSelectedId(p.id)}
+                className="w-full text-left flex items-center justify-between gap-4 p-4 bg-gray-50/30 rounded-2xl border border-gray-50 hover:bg-gray-50 hover:border-gray-100 transition-colors group"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -98,7 +112,11 @@ export function Projects() {
                     <span>{activity}</span>
                   </div>
                 </div>
-              </div>
+                <ChevronRight
+                  size={18}
+                  className="shrink-0 text-gray-300 group-hover:text-gray-500 transition-colors"
+                />
+              </button>
             );
           })}
         </div>

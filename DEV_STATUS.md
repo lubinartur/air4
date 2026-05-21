@@ -6,7 +6,7 @@
 
 ---
 
-## Текущий статус: Sprint 3 завершён
+## Текущий статус: Sprint 4 завершён
 
 **Дата:** Май 2026  
 **Фаза:** Phase 6.5 — Real Usage Validation
@@ -158,10 +158,47 @@ cd design-reference && npm run dev
 
 ---
 
+## Sprint 4 — UI Redesign & New Features (май 2026)
+
+### Backend — новые endpoints
+- `POST /api/projects` — создание проектов
+- `GET/POST /api/health/metrics` — запись веса/роста
+- `GET/POST /api/health/workouts` — тренировки (manual + coaich)
+- `GET /api/health/checkups` — маркеры анализов крови
+- `GET /api/projects/{id}` — детальная страница проекта
+- `GET/POST /api/projects/{id}/todos`, `PUT /api/projects/todos/{id}` — todo
+- `POST /api/projects/{id}/sessions/start|stop` — таймер сессий
+- `GET/POST /api/interview/question|answer` — interview режим (cooldown 3 дня)
+- `POST /api/health/metrics` — запись веса через форму
+
+### Backend — новые скрипты
+- `import_health_checkup.py` — импорт анализов крови (18 маркеров, 2026-03-12)
+
+### Frontend — редизайн страниц
+- Единый стиль баннера на всех страницах (Health, Sport, Projects, Goals, Dilemmas, Patterns, Memory, Profile, Finance, Settings)
+- **Health** — маркеры крови с группировкой CBC/Biochemistry/Lipids/Hormones, date picker, Biomarker Insight Panel, кликабельные маркеры
+- **Sport** — Athletic Command дизайн, Weight Trajectory chart, Log Session форма, кликабельные тренировки с деталями упражнений
+- **Projects** — Command Center дизайн, momentum bars, Focus Distribution, детальная страница с таймером Pomodoro и todo списком
+- **Goals** — карточки целей с прогресс-барами, Wishlist, Deadlines timeline, Weekly Focus
+- **Memory** — фильтры по доменам (ALL/FINANCE/HEALTH/PROJECTS/LIFE/PERSONAL), grid layout
+- **Health/Sport** разделены на две отдельные страницы в сайдбаре
+- Sidebar очищен: убраны Chat, EmptyStates, Toasts
+- Interview режим — AIR4 задаёт вопросы раз в 3 дня в ChatPanel
+- Express proxy лимит увеличен до 10mb (fix PayloadTooLargeError)
+- body_extractor больше не пишет workouts из чата
+
+### Database
+- Таблица `health_checkups` — маркеры анализов крови
+- Таблица `project_todos` — todo для проектов
+- Колонка `duration_minutes` в `project_logs`
+
+---
+
 ## Следующие шаги (приоритет)
 
 1. **Real Usage Validation** — ежедневное использование, фиксация багов из живого опыта
-2. **Кликабельные тренировки** — детали exercises JSON на Health
-3. **Observations cron** — автогенерация раз в N дней
-4. **Subscriptions / Loans tables** — Phase 8
-5. **API auth** — Phase 8
+2. **Observations по расписанию** — сейчас только по кнопке Refresh
+3. **Subscriptions / Loans** — отдельные таблицы (Phase 8)
+4. **Auth на API** — Phase 8
+5. **Memory lifecycle** — архивация событий (Phase 7–8)
+6. **Локальный режим через Ollama**

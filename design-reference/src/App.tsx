@@ -29,6 +29,7 @@ import {
   fetchWorkouts,
   fetchGoals,
   fetchHypotheses,
+  fetchProfile,
   generateObservations,
   pickDisplayObservation,
   type Summary,
@@ -39,6 +40,7 @@ import {
   type Workout,
   type GoalItem,
   type Hypothesis,
+  type UserFact,
 } from "./lib/api";
 
 export default function App() {
@@ -51,18 +53,33 @@ export default function App() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [goals, setGoals] = useState<GoalItem[]>([]);
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
+  const [facts, setFacts] = useState<UserFact[]>([]);
   const [observationsRefreshing, setObservationsRefreshing] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
+  const [previousPage, setPreviousPage] = useState<Page>("Overview");
 
   const openChatWithMessage = useCallback((text: string) => {
     setPendingChatMessage(text);
   }, []);
 
-  const loadObservations = useCallback(async (tryGenerateIfEmpty = false) => {
+  const loadObservations = useCallback(async (tryGenerateIfStale = false) => {
     try {
       let data = await fetchObservations();
-      if (tryGenerateIfEmpty && data.length === 0) {
+      const isEmpty = data.length === 0;
+      const isStale =
+        !isEmpty &&
+        (() => {
+          const created = data[0]?.created_at;
+          if (!created) return false;
+          const normalized = created.includes("T")
+            ? created
+            : created.replace(" ", "T") + "Z";
+          const t = Date.parse(normalized);
+          if (Number.isNaN(t)) return false;
+          return Date.now() - t > 24 * 60 * 60 * 1000;
+        })();
+      if (tryGenerateIfStale && (isEmpty || isStale)) {
         try {
           const generated = await generateObservations();
           data =
@@ -134,6 +151,15 @@ export default function App() {
     }
   }, []);
 
+  const loadFacts = useCallback(async () => {
+    try {
+      const bundle = await fetchProfile();
+      setFacts(bundle.facts ?? []);
+    } catch {
+      setFacts([]);
+    }
+  }, []);
+
   const refreshOverviewData = useCallback(async () => {
     const [summaryRes, obsRes, metricsRes, workoutsRes, goalsRes, dilemmasRes, hypothesesRes] =
       await Promise.allSettled([
@@ -165,10 +191,25 @@ export default function App() {
     void loadGoals();
     void loadDilemmas();
     void loadHypotheses();
+    void loadFacts();
     void fetchWorkouts()
       .then(setWorkouts)
       .catch(() => setWorkouts([]));
-  }, [loadSummary, loadObservations, loadBodyMetrics, loadGoals, loadDilemmas, loadHypotheses]);
+  }, [
+    loadSummary,
+    loadObservations,
+    loadBodyMetrics,
+    loadGoals,
+    loadDilemmas,
+    loadHypotheses,
+    loadFacts,
+  ]);
+
+  useEffect(() => {
+    if (currentPage !== "Chat") {
+      setPreviousPage(currentPage);
+    }
+  }, [currentPage]);
 
   useEffect(() => {
     if (currentPage !== "Overview") return;
@@ -213,7 +254,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">
-      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} isCollapsed={currentPage === "Chat"} />
+      <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
 
       <main
         className={cn(
@@ -234,7 +275,16 @@ export default function App() {
               className="h-full"
             >
               {currentPage === "Chat" ? (
-                <FullscreenChat onBack={() => setCurrentPage("Overview")} />
+                <FullscreenChat
+                  onBack={() => setCurrentPage(previousPage)}
+                  previousPage={previousPage}
+                  summary={summary}
+                  projects={projects}
+                  bodyMetrics={bodyMetrics}
+                  workouts={workouts}
+                  dilemmas={dilemmas}
+                  facts={facts}
+                />
               ) : currentPage === "Overview" ? (
                 <OverviewDashboard
                   summary={summary}
@@ -299,6 +349,7 @@ export default function App() {
           onMessageSent={handleMessageSent}
           pendingMessage={pendingChatMessage}
           onPendingMessageConsumed={() => setPendingChatMessage(null)}
+          onExpand={() => setCurrentPage("Chat")}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { RefreshCw, Send } from "lucide-react";
+import { Maximize2, RefreshCw, Send } from "lucide-react";
 import { Message, Page } from "../types";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -18,6 +18,7 @@ interface ChatPanelProps {
   onMessageSent?: () => void;
   pendingMessage?: string | null;
   onPendingMessageConsumed?: () => void;
+  onExpand?: () => void;
 }
 
 export function ChatPanel({
@@ -28,6 +29,7 @@ export function ChatPanel({
   onMessageSent,
   pendingMessage,
   onPendingMessageConsumed,
+  onExpand,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
   const [input, setInput] = useState("");
@@ -171,21 +173,34 @@ export function ChatPanel({
             AIR4 Advisor
           </span>
         </div>
-        {onRefreshObservations && (
-          <button
-            type="button"
-            onClick={onRefreshObservations}
-            disabled={observationsRefreshing}
-            className="shrink-0 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] hover:text-indigo-600 disabled:opacity-40 transition-colors"
-            title="Сгенерировать наблюдения"
-          >
-            <RefreshCw
-              size={12}
-              className={cn(observationsRefreshing && "animate-spin")}
-            />
-            Refresh
-          </button>
-        )}
+        <div className="shrink-0 flex items-center gap-3">
+          {onRefreshObservations && (
+            <button
+              type="button"
+              onClick={onRefreshObservations}
+              disabled={observationsRefreshing}
+              className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] hover:text-indigo-600 disabled:opacity-40 transition-colors"
+              title="Сгенерировать наблюдения"
+            >
+              <RefreshCw
+                size={12}
+                className={cn(observationsRefreshing && "animate-spin")}
+              />
+              Refresh
+            </button>
+          )}
+          {onExpand && (
+            <button
+              type="button"
+              onClick={onExpand}
+              className="flex items-center justify-center text-[#9ca3af] hover:text-indigo-600 transition-colors"
+              title="Раскрыть чат"
+              aria-label="Раскрыть чат"
+            >
+              <Maximize2 size={12} />
+            </button>
+          )}
+        </div>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6">

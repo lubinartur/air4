@@ -9,44 +9,6 @@ from database import execute, fetch_one
 
 logger = logging.getLogger("body_extractor")
 
-_CARDIO_HINTS = (
-    "cardio",
-    "бег",
-    "пробеж",
-    "run ",
-    "running",
-    "велосипед",
-    "swim",
-    "плава",
-    "ходьб",
-)
-_STRENGTH_HINTS = (
-    "жим",
-    "squat",
-    "bench",
-    "присед",
-    "deadlift",
-    "станов",
-    "тяга",
-    "подтяг",
-    "отжим",
-)
-_WORKOUT_TRIGGERS = (
-    "потренировался",
-    "потренировалась",
-    "тренировка",
-    "тренировку",
-    "workout",
-    "жим",
-    "squat",
-    "bench",
-    "присед",
-    "deadlift",
-    "cardio",
-    "зал",
-    "gym",
-)
-
 _WEIGHT_PATTERNS: list[re.Pattern[str]] = [
     re.compile(
         r"(?:вес|weight|weighs)\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*(?:kg|кг)\b",
@@ -113,19 +75,6 @@ def _find_height(text: str) -> float | None:
     return None
 
 
-def _workout_type(text: str) -> str | None:
-    lower = text.casefold()
-    if not any(trigger in lower for trigger in _WORKOUT_TRIGGERS):
-        return None
-    if any(hint in lower for hint in _CARDIO_HINTS):
-        return "cardio"
-    if any(hint in lower for hint in _STRENGTH_HINTS):
-        return "strength"
-    if "cardio" in lower:
-        return "cardio"
-    return "strength"
-
-
 def _upsert_body_metric(
     db: Any,
     *,
@@ -169,32 +118,12 @@ def _upsert_body_metric(
     return dict(saved) if saved else None
 
 
-def _save_workout(db: Any, today: str, workout_type: str, notes: str) -> dict[str, Any] | None:
-    existing = fetch_one(
-        db,
-        """
-        SELECT id FROM workouts
-        WHERE date = ? AND type = ? AND source = 'chat'
-        LIMIT 1
-        """,
-        (today, workout_type),
-    )
-    if existing is not None:
-        return None
-
-    workout_id = execute(
-        db,
-        """
-        INSERT INTO workouts (date, type, notes, source, created_at)
-        VALUES (?, ?, ?, 'chat', datetime('now'))
-        """,
-        (today, workout_type, notes[:500] if notes else None),
-    )
-    row = fetch_one(db, "SELECT * FROM workouts WHERE id = ?", (workout_id,))
-    return dict(row) if row else None
-
-
 async def extract_body_data(user_messages: list[str], db: Any) -> list[dict]:
+    """Extract weight/height from chat messages and upsert into body_metrics.
+
+    Workouts are intentionally NOT logged from chat — they are imported only
+    from Coaich (see backend/import_workouts.py).
+    """
     messages = [m.strip() for m in user_messages if (m or "").strip()]
     if not messages:
         return []
@@ -204,12 +133,6 @@ async def extract_body_data(user_messages: list[str], db: Any) -> list[dict]:
     saved: list[dict] = []
 
     try:
-        workout_type = _workout_type(text)
-        if workout_type:
-            row = _save_workout(db, today, workout_type, text)
-            if row is not None:
-                saved.append({"kind": "workout", **row})
-
         weight = _find_weight(text)
         if weight is not None:
             row = _upsert_body_metric(db, today=today, weight=weight)
@@ -220,7 +143,11 @@ async def extract_body_data(user_messages: list[str], db: Any) -> list[dict]:
         if height is not None:
             row = _upsert_body_metric(db, today=today, height=height)
             if row is not None:
-                if saved and saved[-1].get("kind") == "body_metric" and saved[-1].get("id") == row.get("id"):
+                if (
+                    saved
+                    and saved[-1].get("kind") == "body_metric"
+                    and saved[-1].get("id") == row.get("id")
+                ):
                     saved[-1] = {"kind": "body_metric", **row}
                 else:
                     saved.append({"kind": "body_metric", **row})

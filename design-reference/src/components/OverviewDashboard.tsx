@@ -238,10 +238,10 @@ export function OverviewDashboard({
         )}
       </div>
 
-      {/* Patterns — unchanged */}
+      {/* Observations (rule + LLM signals — distinct from Patterns / hypotheses) */}
       <div className="col-span-2 bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative min-h-[160px] flex flex-col">
         <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-4">
-          Observed Patterns
+          Observations
         </h2>
         {loading ? (
           <p className="text-[14px] text-[#9ca3af]">Loading…</p>

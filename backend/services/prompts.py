@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -111,6 +112,95 @@ def _format_facts(facts: list[dict[str, Any]]) -> str:
     return "Факты о пользователе:\n" + "\n".join(lines)
 
 
+def _parse_exercises_json(raw: Any) -> list[dict[str, Any]]:
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        items = raw
+    else:
+        try:
+            items = json.loads(str(raw))
+        except (json.JSONDecodeError, TypeError):
+            return []
+        if not isinstance(items, list):
+            return []
+    out: list[dict[str, Any]] = []
+    for item in items:
+        if isinstance(item, dict):
+            out.append(item)
+    return out
+
+
+def _exercise_max_weight(exercise: dict[str, Any]) -> float | None:
+    sets = exercise.get("sets")
+    if not isinstance(sets, list):
+        return None
+    best: float | None = None
+    for s in sets:
+        if not isinstance(s, dict):
+            continue
+        w = s.get("weight")
+        try:
+            w_val = float(w) if w is not None else None
+        except (TypeError, ValueError):
+            continue
+        if w_val is None:
+            continue
+        if best is None or w_val > best:
+            best = w_val
+    return best
+
+
+def _format_workouts(workouts: list[dict[str, Any]]) -> str:
+    if not workouts:
+        return "ТРЕНИРОВКИ (Coaich): нет записей."
+
+    lines: list[str] = ["ТРЕНИРОВКИ (последние 10 из Coaich):"]
+    for w in workouts:
+        date_s = str(w.get("date") or "").strip() or "?"
+        type_s = str(w.get("type") or "").strip() or "—"
+        duration = w.get("duration")
+        duration_part = f" {duration} min" if duration not in (None, "") else ""
+        lines.append(f"- {date_s} [{type_s}]{duration_part}")
+
+        exercises = _parse_exercises_json(w.get("exercises"))
+        if not exercises:
+            continue
+
+        ranked: list[tuple[float, str]] = []
+        for ex in exercises:
+            name = str(ex.get("exerciseName") or ex.get("name") or "").strip()
+            if not name:
+                continue
+            max_w = _exercise_max_weight(ex)
+            ranked.append((max_w if max_w is not None else -1.0, name))
+
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
+        for weight_val, name in ranked[:3]:
+            if weight_val >= 0:
+                lines.append(f"  · {name} — {weight_val:g} kg")
+            else:
+                lines.append(f"  · {name}")
+    return "\n".join(lines)
+
+
+def get_workouts_context(db: Any) -> str:
+    """Last 10 Coaich workouts formatted for the chat system prompt."""
+    from database import fetch_all  # local import to avoid circular at module load
+
+    rows = fetch_all(
+        db,
+        """
+        SELECT date, type, duration, exercises
+        FROM workouts
+        WHERE source = 'coaich'
+        ORDER BY date DESC, id DESC
+        LIMIT 10
+        """,
+    )
+    return _format_workouts(rows)
+
+
 def _format_events(events: list[dict[str, Any]]) -> str:
     if not events:
         return "Недавние события: нет."
@@ -174,6 +264,7 @@ def build_system_context(
     profile: dict[str, Any] | None,
     facts: list[dict[str, Any]],
     events: list[dict[str, Any]],
+    workouts_context: str = "",
     current_page: str | None = None,
 ) -> str:
     parts = [
@@ -187,6 +278,9 @@ def build_system_context(
         "",
         _format_events(events).replace("Недавние события:", "СОБЫТИЯ:", 1),
     ]
+    workouts_text = (workouts_context or "").strip()
+    if workouts_text:
+        parts.extend(["", workouts_text])
     page = (current_page or "").strip()
     if page:
         parts.extend(["", f"Текущая страница UI: {page}"])
@@ -198,6 +292,7 @@ def build_chat_system(
     profile: dict[str, Any] | None,
     facts: list[dict[str, Any]],
     events: list[dict[str, Any]],
+    workouts_context: str = "",
     current_page: str | None = None,
 ) -> str:
     """Legacy helper without finance block."""
@@ -212,6 +307,7 @@ def build_chat_system(
         profile=profile,
         facts=facts,
         events=events,
+        workouts_context=workouts_context,
         current_page=current_page,
     )
 

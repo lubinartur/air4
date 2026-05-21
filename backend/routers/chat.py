@@ -17,6 +17,7 @@ from services.fact_extractor import extract_facts
 from services.llm_client import chat, chat_stream
 from services.prompts import (
     build_system_context,
+    get_workouts_context,
     history_to_messages,
     strip_internal_xml_tags,
 )
@@ -26,7 +27,15 @@ router = APIRouter()
 logger = logging.getLogger("chat")
 
 
-def _load_context(conn) -> tuple[Any, dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]]:
+def _load_context(
+    conn,
+) -> tuple[
+    Any,
+    dict[str, Any] | None,
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    str,
+]:
     summary = load_summary(conn)
     profile = fetch_one(conn, "SELECT * FROM user_profile WHERE id = 1")
     facts = fetch_all(
@@ -48,7 +57,8 @@ def _load_context(conn) -> tuple[Any, dict[str, Any] | None, list[dict[str, Any]
         LIMIT 5
         """,
     )
-    return summary, profile, facts, events
+    workouts_context = get_workouts_context(conn)
+    return summary, profile, facts, events, workouts_context
 
 
 def _collect_user_messages(body: ChatIn) -> list[str]:
@@ -115,13 +125,14 @@ async def chat_endpoint(
     api_key = _api_key()
 
     with get_db() as conn:
-        summary, profile, facts, events = _load_context(conn)
+        summary, profile, facts, events, workouts_context = _load_context(conn)
 
     system = build_system_context(
         summary=summary,
         profile=profile,
         facts=facts,
         events=events,
+        workouts_context=workouts_context,
         current_page=body.current_page,
     )
     messages = history_to_messages(body.history)

@@ -245,6 +245,34 @@ CREATE TABLE IF NOT EXISTS health_checkups (
     created_at      TEXT DEFAULT (datetime('now')),
     UNIQUE(date, marker_name)
 );
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id           INTEGER PRIMARY KEY,
+    name         TEXT NOT NULL,
+    amount       REAL,
+    currency     TEXT DEFAULT 'EUR',
+    billing_day  INTEGER,
+    category     TEXT DEFAULT 'other',
+    is_active    INTEGER DEFAULT 1,
+    source       TEXT DEFAULT 'manual',
+    created_at   TEXT DEFAULT (datetime('now')),
+    updated_at   TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS obligations (
+    id                INTEGER PRIMARY KEY,
+    name              TEXT NOT NULL,
+    total_amount      REAL,
+    remaining_amount  REAL,
+    monthly_payment   REAL,
+    interest_rate     REAL,
+    due_date          TEXT,
+    category          TEXT DEFAULT 'loan',
+    is_active         INTEGER DEFAULT 1,
+    source            TEXT DEFAULT 'manual',
+    created_at        TEXT DEFAULT (datetime('now')),
+    updated_at        TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """
@@ -266,6 +294,8 @@ CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date);
 CREATE INDEX IF NOT EXISTS idx_body_metrics_date ON body_metrics(date);
 CREATE INDEX IF NOT EXISTS idx_health_checkups_date ON health_checkups(date);
 CREATE INDEX IF NOT EXISTS idx_health_checkups_marker ON health_checkups(marker_name);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(is_active);
+CREATE INDEX IF NOT EXISTS idx_obligations_active ON obligations(is_active);
 """
 
 
@@ -385,6 +415,38 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
 
     if "interview_answers" in tables:
         _ensure_columns(conn, "interview_answers", [("domain", "TEXT")])
+
+    if "subscriptions" in tables:
+        _ensure_columns(
+            conn,
+            "subscriptions",
+            [
+                ("amount", "REAL"),
+                ("currency", "TEXT DEFAULT 'EUR'"),
+                ("billing_day", "INTEGER"),
+                ("category", "TEXT DEFAULT 'other'"),
+                ("is_active", "INTEGER DEFAULT 1"),
+                ("source", "TEXT DEFAULT 'manual'"),
+                ("updated_at", "TEXT DEFAULT (datetime('now'))"),
+            ],
+        )
+
+    if "obligations" in tables:
+        _ensure_columns(
+            conn,
+            "obligations",
+            [
+                ("total_amount", "REAL"),
+                ("remaining_amount", "REAL"),
+                ("monthly_payment", "REAL"),
+                ("interest_rate", "REAL"),
+                ("due_date", "TEXT"),
+                ("category", "TEXT DEFAULT 'loan'"),
+                ("is_active", "INTEGER DEFAULT 1"),
+                ("source", "TEXT DEFAULT 'manual'"),
+                ("updated_at", "TEXT DEFAULT (datetime('now'))"),
+            ],
+        )
 
 
 def init_db() -> None:

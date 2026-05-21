@@ -23,6 +23,9 @@ import { t } from "../lib/typography";
 import { Page } from "../types";
 import {
   deleteUpload,
+  fetchMonthlyFixed,
+  fetchObligations,
+  fetchSubscriptions,
   formatCategoryLabel,
   formatEuro,
   getInsights,
@@ -30,7 +33,10 @@ import {
   getTransactions,
   getUploads,
   hasFinanceData,
+  type FinanceObligation,
+  type FinanceSubscription,
   type Insight,
+  type MonthlyFixed,
   type StatementUpload,
   type Summary,
   type Transaction,
@@ -108,6 +114,9 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [uploads, setUploads] = useState<StatementUpload[]>([]);
+  const [subscriptions, setSubscriptions] = useState<FinanceSubscription[]>([]);
+  const [obligations, setObligations] = useState<FinanceObligation[]>([]);
+  const [monthlyFixed, setMonthlyFixed] = useState<MonthlyFixed | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -116,11 +125,22 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
     setLoading(true);
     setError(null);
 
-    const [summaryRes, txRes, insightsRes, uploadsRes] = await Promise.allSettled([
+    const [
+      summaryRes,
+      txRes,
+      insightsRes,
+      uploadsRes,
+      subsRes,
+      obsRes,
+      fixedRes,
+    ] = await Promise.allSettled([
       getSummary(),
       getTransactions(10),
       getInsights(),
       getUploads(),
+      fetchSubscriptions(),
+      fetchObligations(),
+      fetchMonthlyFixed(),
     ]);
 
     const failed: string[] = [];
@@ -151,6 +171,24 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
     } else {
       setUploads([]);
       failed.push("uploads");
+    }
+
+    if (subsRes.status === "fulfilled") {
+      setSubscriptions(subsRes.value.subscriptions);
+    } else {
+      setSubscriptions([]);
+    }
+
+    if (obsRes.status === "fulfilled") {
+      setObligations(obsRes.value.obligations);
+    } else {
+      setObligations([]);
+    }
+
+    if (fixedRes.status === "fulfilled") {
+      setMonthlyFixed(fixedRes.value);
+    } else {
+      setMonthlyFixed(null);
     }
 
     if (failed.length > 0) {
@@ -317,6 +355,11 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
                     Income − spent
                   </p>
                   <p className="text-[10px] text-[#9ca3af] mt-2">Spent: {formatEuro(spent)}</p>
+                  {monthlyFixed && monthlyFixed.fixed_total > 0 && (
+                    <p className="text-[10px] text-[#9ca3af] mt-1">
+                      Fixed costs: {formatEuro(monthlyFixed.fixed_total)}/mo
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -463,24 +506,83 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className={cn(t.cardLabel, "mb-2")}>
-                Upcoming Obligations
-              </h2>
-              <ChatEmpty label="No obligations tracked" />
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className={t.cardLabel}>Subscriptions</h2>
+                {subscriptions.length > 0 && monthlyFixed && (
+                  <span className="text-[11px] font-mono font-bold text-indigo-600">
+                    {formatEuro(monthlyFixed.subscriptions_total)}/mo
+                  </span>
+                )}
+              </div>
+              {subscriptions.length === 0 ? (
+                <ChatEmpty label="No subscriptions tracked" />
+              ) : (
+                <ul className="divide-y divide-gray-50">
+                  {subscriptions.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-gray-900 truncate">
+                          {s.name}
+                        </p>
+                        {s.billing_day != null && (
+                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                            day {s.billing_day}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
+                        {s.amount != null ? `${formatEuro(s.amount)}/mo` : "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className={cn(t.cardLabel, "mb-2")}>
-                Loans & Obligations
-              </h2>
-              <ChatEmpty label="No loans tracked" />
-            </div>
-
-            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className={cn(t.cardLabel, "mb-2")}>
-                Subscriptions
-              </h2>
-              <ChatEmpty label="No subscriptions tracked" />
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className={t.cardLabel}>Loans & Obligations</h2>
+                {obligations.length > 0 && monthlyFixed && (
+                  <span className="text-[11px] font-mono font-bold text-indigo-600">
+                    {formatEuro(monthlyFixed.obligations_total)}/mo
+                  </span>
+                )}
+              </div>
+              {obligations.length === 0 ? (
+                <ChatEmpty label="No loans tracked" />
+              ) : (
+                <ul className="divide-y divide-gray-50">
+                  {obligations.map((o) => (
+                    <li
+                      key={o.id}
+                      className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-gray-900 truncate">
+                          {o.name}
+                        </p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400 font-mono mt-0.5">
+                          {o.remaining_amount != null && (
+                            <span>left {formatEuro(o.remaining_amount)}</span>
+                          )}
+                          {o.interest_rate != null && (
+                            <span>{o.interest_rate.toFixed(1)}%</span>
+                          )}
+                          {o.due_date && <span>due {o.due_date}</span>}
+                        </div>
+                      </div>
+                      <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
+                        {o.monthly_payment != null
+                          ? `${formatEuro(o.monthly_payment)}/mo`
+                          : "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>

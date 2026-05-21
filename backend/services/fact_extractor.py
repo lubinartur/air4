@@ -5,10 +5,49 @@ import re
 from typing import Any
 
 from database import execute, fetch_all, fetch_one
+from services.finance_facts import key_to_display_name, parse_amount_from_text
 from services.llm_client import parse_json_array
 from services.llm_client_shared import DEFAULT_MODEL, call_claude
 
 logger = logging.getLogger("fact_extractor")
+
+_SUBSCRIPTION_TERMS = (
+    "subscription",
+    "подписк",
+    "abonn",
+    "netflix",
+    "spotify",
+    "apple music",
+    "youtube premium",
+    "icloud",
+    "dropbox",
+    "amazon prime",
+    "хостинг",
+    "vpn",
+    "github",
+    "chatgpt",
+    "claude",
+    "midjourney",
+    "figma",
+    "notion",
+    "linear",
+)
+
+_OBLIGATION_TERMS = (
+    "loan",
+    "credit",
+    "credit_card",
+    "кредит",
+    "ипотек",
+    "mortgage",
+    "rent",
+    "аренд",
+    "лизинг",
+    "leasing",
+    "займ",
+    "obligation",
+    "долг",
+)
 
 
 def _normalize_key(raw: str) -> str | None:
@@ -137,6 +176,123 @@ def _normalize_fact(raw: dict[str, Any]) -> dict[str, Any] | None:
     return {"key": key, "value": value, "confidence": confidence}
 
 
+def _matches_any(haystack: str, terms: tuple[str, ...]) -> bool:
+    lower = haystack.lower()
+    return any(term in lower for term in terms)
+
+
+def _fact_looks_like_subscription(fact: dict[str, Any]) -> bool:
+    key = str(fact.get("key") or "")
+    value = str(fact.get("value") or "")
+    return _matches_any(key, _SUBSCRIPTION_TERMS) or _matches_any(
+        value, _SUBSCRIPTION_TERMS
+    )
+
+
+def _fact_looks_like_obligation(fact: dict[str, Any]) -> bool:
+    key = str(fact.get("key") or "")
+    value = str(fact.get("value") or "")
+    return _matches_any(key, _OBLIGATION_TERMS) or _matches_any(
+        value, _OBLIGATION_TERMS
+    )
+
+
+def _derive_recurring_name(fact: dict[str, Any]) -> str:
+    """Pick a readable display name from a fact (Netflix, Mortgage, etc.)."""
+    raw_value = str(fact.get("value") or "").strip()
+    if raw_value:
+        first_clause = re.split(r"[.\-—:,;\n]", raw_value, maxsplit=1)[0].strip()
+        if first_clause:
+            return first_clause[:80]
+    key = str(fact.get("key") or "")
+    return key_to_display_name(key) or "Unnamed"
+
+
+def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
+    name = _derive_recurring_name(fact)
+    amount = parse_amount_from_text(fact.get("value"))
+    existing = fetch_one(
+        db,
+        "SELECT id FROM subscriptions WHERE LOWER(name) = LOWER(?)",
+        (name,),
+    )
+    if existing is not None:
+        execute(
+            db,
+            """
+            UPDATE subscriptions
+               SET amount = COALESCE(?, amount),
+                   is_active = 1,
+                   source = 'chat',
+                   updated_at = datetime('now')
+             WHERE id = ?
+            """,
+            (amount, int(existing["id"])),
+        )
+        return
+    execute(
+        db,
+        """
+        INSERT INTO subscriptions
+            (name, amount, currency, category, is_active, source,
+             created_at, updated_at)
+        VALUES (?, ?, 'EUR', 'other', 1, 'chat',
+                datetime('now'), datetime('now'))
+        """,
+        (name, amount),
+    )
+
+
+def _upsert_obligation_from_fact(db: Any, fact: dict[str, Any]) -> None:
+    name = _derive_recurring_name(fact)
+    amount = parse_amount_from_text(fact.get("value"))
+    existing = fetch_one(
+        db,
+        "SELECT id FROM obligations WHERE LOWER(name) = LOWER(?)",
+        (name,),
+    )
+    if existing is not None:
+        execute(
+            db,
+            """
+            UPDATE obligations
+               SET monthly_payment = COALESCE(?, monthly_payment),
+                   is_active = 1,
+                   source = 'chat',
+                   updated_at = datetime('now')
+             WHERE id = ?
+            """,
+            (amount, int(existing["id"])),
+        )
+        return
+    execute(
+        db,
+        """
+        INSERT INTO obligations
+            (name, monthly_payment, category, is_active, source,
+             created_at, updated_at)
+        VALUES (?, ?, 'loan', 1, 'chat',
+                datetime('now'), datetime('now'))
+        """,
+        (name, amount),
+    )
+
+
+def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> None:
+    """If a fact describes a subscription or loan, mirror it into the
+    dedicated table so finance UI can show structured rows."""
+    try:
+        if _fact_looks_like_subscription(fact):
+            _upsert_subscription_from_fact(db, fact)
+            return
+        if _fact_looks_like_obligation(fact):
+            _upsert_obligation_from_fact(db, fact)
+    except Exception:
+        logger.exception(
+            "Failed to mirror fact to recurring table: %s", fact.get("key")
+        )
+
+
 async def extract_facts(
     user_messages: list[str], db: Any, api_key: str
 ) -> list[dict]:
@@ -164,6 +320,7 @@ async def extract_facts(
             row = _upsert_fact(db, fact)
             if row is not None:
                 saved.append(row)
+                _maybe_persist_recurring(db, fact)
         except Exception:
             logger.exception("Failed to save fact: %s", fact.get("key"))
 

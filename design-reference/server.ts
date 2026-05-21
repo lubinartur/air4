@@ -378,9 +378,104 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.post("/api/finance/subscriptions", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/finance/subscriptions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.put("/api/finance/subscriptions/:id", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/finance/subscriptions/${encodeURIComponent(req.params.id)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.delete("/api/finance/subscriptions/:id", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/finance/subscriptions/${encodeURIComponent(req.params.id)}`,
+        { method: "DELETE" }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/finance/obligations", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/finance/obligations", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/finance/obligations", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/finance/obligations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.put("/api/finance/obligations/:id", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/finance/obligations/${encodeURIComponent(req.params.id)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.delete("/api/finance/obligations/:id", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/finance/obligations/${encodeURIComponent(req.params.id)}`,
+        { method: "DELETE" }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/finance/monthly-fixed", async (req, res) => {
+    try {
+      await proxyJson(res, backendUrl("/api/finance/monthly-fixed", req.query));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Proxy failed";
       res.status(500).json({ error: message });

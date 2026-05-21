@@ -337,6 +337,8 @@ class HypothesesListOut(BaseModel):
 
 
 class FinanceSubscriptionOut(BaseModel):
+    """Legacy shape — derived from user_facts rows (kept for back-compat)."""
+
     key: str
     name: str
     amount: float | None = None
@@ -344,11 +346,9 @@ class FinanceSubscriptionOut(BaseModel):
     raw: str
 
 
-class SubscriptionsListOut(BaseModel):
-    subscriptions: list[FinanceSubscriptionOut] = Field(default_factory=list)
-
-
 class FinanceObligationOut(BaseModel):
+    """Legacy shape — derived from user_facts rows (kept for back-compat)."""
+
     key: str
     name: str
     amount: float | None = None
@@ -356,8 +356,91 @@ class FinanceObligationOut(BaseModel):
     raw: str
 
 
+class SubscriptionOut(BaseModel):
+    id: int
+    name: str
+    amount: float | None = None
+    currency: str = "EUR"
+    billing_day: int | None = None
+    category: str = "other"
+    is_active: bool = True
+    source: str = "manual"
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class SubscriptionIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    amount: float | None = None
+    currency: str = "EUR"
+    billing_day: int | None = None
+    category: str = "other"
+
+
+class SubscriptionUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    amount: float | None = None
+    currency: str | None = None
+    billing_day: int | None = None
+    category: str | None = None
+    is_active: bool | None = None
+
+
+class SubscriptionsListOut(BaseModel):
+    subscriptions: list[SubscriptionOut] = Field(default_factory=list)
+
+
+class ObligationOut(BaseModel):
+    id: int
+    name: str
+    total_amount: float | None = None
+    remaining_amount: float | None = None
+    monthly_payment: float | None = None
+    interest_rate: float | None = None
+    due_date: str | None = None
+    category: str = "loan"
+    is_active: bool = True
+    source: str = "manual"
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class ObligationIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    total_amount: float | None = None
+    remaining_amount: float | None = None
+    monthly_payment: float | None = None
+    interest_rate: float | None = None
+    due_date: str | None = None
+    category: str = "loan"
+
+
+class ObligationUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    total_amount: float | None = None
+    remaining_amount: float | None = None
+    monthly_payment: float | None = None
+    interest_rate: float | None = None
+    due_date: str | None = None
+    category: str | None = None
+    is_active: bool | None = None
+
+
 class ObligationsListOut(BaseModel):
-    obligations: list[FinanceObligationOut] = Field(default_factory=list)
+    obligations: list[ObligationOut] = Field(default_factory=list)
+
+
+class MonthlyFixedOut(BaseModel):
+    subscriptions_total: float = 0.0
+    obligations_total: float = 0.0
+    fixed_total: float = 0.0
+    subscriptions_count: int = 0
+    obligations_count: int = 0
+
+
+class DeleteResultOut(BaseModel):
+    deleted: bool = False
+    id: int
 
 
 class InterviewQuestionOut(BaseModel):

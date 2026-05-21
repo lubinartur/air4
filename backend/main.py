@@ -13,7 +13,7 @@ from routers import (
     chat,
     dilemmas,
     events,
-    finance_facts,
+    finance_recurring,
     goals,
     health,
     hypotheses,
@@ -57,7 +57,7 @@ app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(profile.router, prefix="/api", tags=["profile"])
 app.include_router(events.router, prefix="/api", tags=["events"])
 app.include_router(goals.router, prefix="/api", tags=["goals"])
-app.include_router(finance_facts.router, prefix="/api", tags=["finance"])
+app.include_router(finance_recurring.router, prefix="/api", tags=["finance"])
 app.include_router(hypotheses.router, prefix="/api", tags=["hypotheses"])
 app.include_router(interview.router, prefix="/api", tags=["interview"])
 

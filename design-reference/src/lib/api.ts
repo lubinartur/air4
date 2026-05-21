@@ -110,11 +110,28 @@ export async function getSummary(): Promise<Summary> {
 export const fetchSummary = getSummary;
 
 export type FinanceSubscription = {
-  key: string;
+  id: number;
   name: string;
   amount: number | null;
   currency: string;
-  raw: string;
+  billing_day: number | null;
+  category: string;
+  is_active: boolean;
+  source: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type SubscriptionInput = {
+  name: string;
+  amount?: number | null;
+  currency?: string;
+  billing_day?: number | null;
+  category?: string;
+};
+
+export type SubscriptionUpdate = Partial<SubscriptionInput> & {
+  is_active?: boolean;
 };
 
 export type SubscriptionsResponse = {
@@ -122,25 +139,118 @@ export type SubscriptionsResponse = {
 };
 
 export type FinanceObligation = {
-  key: string;
+  id: number;
   name: string;
-  amount: number | null;
+  total_amount: number | null;
+  remaining_amount: number | null;
   monthly_payment: number | null;
-  raw: string;
+  interest_rate: number | null;
+  due_date: string | null;
+  category: string;
+  is_active: boolean;
+  source: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type ObligationInput = {
+  name: string;
+  total_amount?: number | null;
+  remaining_amount?: number | null;
+  monthly_payment?: number | null;
+  interest_rate?: number | null;
+  due_date?: string | null;
+  category?: string;
+};
+
+export type ObligationUpdate = Partial<ObligationInput> & {
+  is_active?: boolean;
 };
 
 export type ObligationsResponse = {
   obligations: FinanceObligation[];
 };
 
+export type MonthlyFixed = {
+  subscriptions_total: number;
+  obligations_total: number;
+  fixed_total: number;
+  subscriptions_count: number;
+  obligations_count: number;
+};
+
+async function jsonRequest<T>(
+  method: "POST" | "PUT" | "DELETE",
+  path: string,
+  body?: unknown
+): Promise<T> {
+  return apiFetch<T>(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+
 export async function fetchSubscriptions(): Promise<SubscriptionsResponse> {
   const data = await apiFetch<SubscriptionsResponse>("/api/finance/subscriptions");
   return { subscriptions: data.subscriptions ?? [] };
 }
 
+export async function createSubscription(
+  payload: SubscriptionInput
+): Promise<FinanceSubscription> {
+  return jsonRequest<FinanceSubscription>("POST", "/api/finance/subscriptions", payload);
+}
+
+export async function updateSubscription(
+  id: number,
+  payload: SubscriptionUpdate
+): Promise<FinanceSubscription> {
+  return jsonRequest<FinanceSubscription>(
+    "PUT",
+    `/api/finance/subscriptions/${id}`,
+    payload
+  );
+}
+
+export async function deleteSubscription(id: number): Promise<{ deleted: boolean; id: number }> {
+  return jsonRequest<{ deleted: boolean; id: number }>(
+    "DELETE",
+    `/api/finance/subscriptions/${id}`
+  );
+}
+
 export async function fetchObligations(): Promise<ObligationsResponse> {
   const data = await apiFetch<ObligationsResponse>("/api/finance/obligations");
   return { obligations: data.obligations ?? [] };
+}
+
+export async function createObligation(
+  payload: ObligationInput
+): Promise<FinanceObligation> {
+  return jsonRequest<FinanceObligation>("POST", "/api/finance/obligations", payload);
+}
+
+export async function updateObligation(
+  id: number,
+  payload: ObligationUpdate
+): Promise<FinanceObligation> {
+  return jsonRequest<FinanceObligation>(
+    "PUT",
+    `/api/finance/obligations/${id}`,
+    payload
+  );
+}
+
+export async function deleteObligation(id: number): Promise<{ deleted: boolean; id: number }> {
+  return jsonRequest<{ deleted: boolean; id: number }>(
+    "DELETE",
+    `/api/finance/obligations/${id}`
+  );
+}
+
+export async function fetchMonthlyFixed(): Promise<MonthlyFixed> {
+  return apiFetch<MonthlyFixed>("/api/finance/monthly-fixed");
 }
 
 export type BodyMetric = {

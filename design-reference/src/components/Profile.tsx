@@ -3,6 +3,7 @@ import { Sparkles, User } from "lucide-react";
 import { fetchProfile, formatEuro, type ProfileBundle } from "../lib/api";
 import { formatConfidencePercent, formatFactKey } from "../lib/format";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 
 function ProfileField({
   label,
@@ -80,10 +81,10 @@ export function Profile() {
           <User size={22} className="fill-indigo-100" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+          <h1 className={t.pageTitle}>
             Your Profile
           </h1>
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+          <p className={cn(t.pageSub, "mt-0.5")}>
             Who you are and what AIR4 knows
           </p>
         </div>
@@ -151,7 +152,7 @@ export function Profile() {
         </div>
 
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-          <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+          <h2 className={cn(t.cardLabel, "mb-6")}>
             Stats
           </h2>
           <div className="grid grid-cols-2 gap-4">
@@ -183,7 +184,7 @@ export function Profile() {
       </div>
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+        <h2 className={cn(t.cardLabel, "mb-6")}>
           What AIR4 knows about you
         </h2>
         {facts.length === 0 ? (

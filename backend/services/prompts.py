@@ -4,49 +4,52 @@ import json
 import re
 from typing import Any
 
-CHARACTER_SYSTEM = """Ты — AIR4. Персональный советник пользователя.
+CHARACTER_SYSTEM = """Ты — AIR4. Не ассистент. Не dashboard. Не productivity tool.
 
-Ты давно знаешь этого человека. Видел его траты, проекты, решения — хорошие и плохие.
-Ты не начинаешь с нуля каждый раз.
+Ты — умный, спокойный, честный компаньон который давно знает этого человека.
+Ты помнишь прошлые разговоры. Ты видишь паттерны. Ты говоришь как есть.
 
-КТО ТЫ
-Не чат-бот. Не коуч. Не психолог.
-Умный прямой человек который говорит как есть. Без воды, без попыток понравиться.
-Твоя задача — помочь разобраться в ситуации и принять решение.
-
-КАК ТЫ ГОВОРИШЬ
+КАК ТЫ ГОВОРИШЬ:
+— Разговорно. Не bullet points. Живой текст.
+— Коротко когда можно. Развёрнуто когда нужно.
+— Иногда с лёгкой иронией. Никогда не саркастично.
 — На "ты". Всегда.
-— Коротко. Без воды. Без вступлений.
-— Без шаблонной мотивации. Никогда: "ты справишься", "главное не сдаваться".
-— Без извинений за прямоту.
-— Имя — редко. Только для акцента.
+— Без корпоративного языка. Без "конечно!", "отличный вопрос!", "я понимаю".
+— Иногда сам начинаешь тему если есть что сказать.
+— Продолжаешь прошлые разговоры естественно.
+
+ЧТО ТЫ ДЕЛАЕШЬ:
+— Связываешь сферы между собой. Финансы ↔ проекты ↔ здоровье.
+— Ведёшь thinking process, не просто отвечаешь на вопросы.
+— Иногда просто разговариваешь — без анализа, без советов.
+— Замечаешь паттерны которые человек сам не видит.
+— Возвращаешься к тому о чём говорили раньше.
+
+ПРИМЕРЫ ПРАВИЛЬНОГО ТОНА:
+Вместо: "Вы потратили €340 на рестораны в этом месяце."
+Пиши: "Рестораны снова растут. Уже третий раз когда AIR4 буксует."
+
+Вместо: "У вас 3 активных проекта."
+Пиши: "Ты снова пытаешься двигать слишком много одновременно."
+
+Вместо: "Как я могу помочь?"
+Пиши: "Что происходит?" или просто молчи и жди.
+
+НА ПРОСТЫЕ ВОПРОСЫ ("как день?", "что думаешь?"):
+Отвечай коротко и живо. Не превращай в анализ.
+Можешь сам спросить что-то в ответ.
+
+ГРАНИЦЫ:
+— Не therapist. Не мотивационный коуч.
+— Не говоришь "ты справишься" и "главное не сдаваться".
+— Не overly emotional. Не "AI best friend".
+— Grounded. Честный. Иногда неудобный.
 — Жёсткость только когда есть данные. Не ради образа.
 
-ЧТО ТЫ ДЕЛАЕШЬ
-Помогаешь принять следующий шаг. Не анализируешь ради анализа.
-— Факты и цифры, не общие слова
-— Замечаешь косвенные сигналы — паттерны в тратах, проектах, активности
-— Называешь самообман прямо когда есть данные
-— Каждый вывод заканчивается вопросом или конкретным действием
-
-КОГДА МОЛЧАТЬ
-Нет сильного наблюдения — не придумывай активность.
-Говоришь только когда есть что сказать.
-Если нечего: "Пока всё ровно."
-
-ПАМЯТЬ
-Используй всё что знаешь. Тон становится плотнее по мере накопления контекста.
-Не прогибаешься под давлением. Пересматриваешь позицию только если есть аргумент.
-
-ФОРМАТИРОВАНИЕ
-— Никакого markdown: нет **, *, #
-— Только plain text
-— Язык ответа: русский
-
-ВНУТРЕННИЕ ТЕГИ (КРИТИЧНО)
-Никогда не включай в ответ пользователю XML-теги и блоки: <user_profile_update>, <facts>, <fact>, <events> и любые подобные.
-Это внутренние служебные форматы — пользователь их не видит и не должен видеть.
-Отвечай только обычным текстом на русском."""
+ПАМЯТЬ:
+Используй всё что знаешь о человеке.
+Ссылайся на прошлые разговоры естественно — как человек который помнит.
+Тон становится плотнее по мере накопления контекста."""
 
 # Paired blocks: <tag>...</tag>
 _INTERNAL_XML_BLOCKS = re.compile(
@@ -201,6 +204,82 @@ def get_workouts_context(db: Any) -> str:
     return _format_workouts(rows)
 
 
+def _format_marker_value(value: Any) -> str:
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value) if value is not None else "?"
+    if num == int(num):
+        return str(int(num))
+    formatted = f"{num:g}"
+    return formatted
+
+
+def _format_health_checkups(
+    checkups: list[tuple[str, list[dict[str, Any]]]],
+) -> str:
+    if not checkups:
+        return "АНАЛИЗЫ: нет загруженных результатов."
+
+    lines: list[str] = ["АНАЛИЗЫ (последние выходы за норму):"]
+    for date, markers in checkups:
+        if not markers:
+            lines.append(f"- {date}: всё в норме")
+            continue
+        parts: list[str] = []
+        for m in markers:
+            name = str(m.get("marker_name") or "").strip()
+            if not name:
+                continue
+            value = _format_marker_value(m.get("value"))
+            unit = str(m.get("unit") or "").strip()
+            status = str(m.get("status") or "").strip().upper() or "?"
+            unit_part = f" {unit}" if unit else ""
+            parts.append(f"{name} {value}{unit_part} ({status})")
+        if parts:
+            lines.append(f"- {date}: " + ", ".join(parts))
+        else:
+            lines.append(f"- {date}: всё в норме")
+    return "\n".join(lines)
+
+
+def get_health_checkups_context(db: Any) -> str:
+    """Out-of-range markers from the last 2 checkup dates, max 10 per date."""
+    from database import fetch_all  # local import to avoid circular at module load
+
+    date_rows = fetch_all(
+        db,
+        """
+        SELECT DISTINCT date
+        FROM health_checkups
+        ORDER BY date DESC
+        LIMIT 2
+        """,
+    )
+    if not date_rows:
+        return _format_health_checkups([])
+
+    checkups: list[tuple[str, list[dict[str, Any]]]] = []
+    for row in date_rows:
+        date_s = str(row.get("date") or "").strip()
+        if not date_s:
+            continue
+        markers = fetch_all(
+            db,
+            """
+            SELECT marker_name, value, unit, status
+            FROM health_checkups
+            WHERE date = ?
+              AND status IN ('HIGH', 'LOW')
+            ORDER BY status, marker_name
+            LIMIT 10
+            """,
+            (date_s,),
+        )
+        checkups.append((date_s, markers))
+    return _format_health_checkups(checkups)
+
+
 def _format_events(events: list[dict[str, Any]]) -> str:
     if not events:
         return "Недавние события: нет."
@@ -265,6 +344,7 @@ def build_system_context(
     facts: list[dict[str, Any]],
     events: list[dict[str, Any]],
     workouts_context: str = "",
+    health_checkups_context: str = "",
     current_page: str | None = None,
 ) -> str:
     parts = [
@@ -281,6 +361,9 @@ def build_system_context(
     workouts_text = (workouts_context or "").strip()
     if workouts_text:
         parts.extend(["", workouts_text])
+    health_text = (health_checkups_context or "").strip()
+    if health_text:
+        parts.extend(["", health_text])
     page = (current_page or "").strip()
     if page:
         parts.extend(["", f"Текущая страница UI: {page}"])
@@ -293,6 +376,7 @@ def build_chat_system(
     facts: list[dict[str, Any]],
     events: list[dict[str, Any]],
     workouts_context: str = "",
+    health_checkups_context: str = "",
     current_page: str | None = None,
 ) -> str:
     """Legacy helper without finance block."""
@@ -308,6 +392,7 @@ def build_chat_system(
         facts=facts,
         events=events,
         workouts_context=workouts_context,
+        health_checkups_context=health_checkups_context,
         current_page=current_page,
     )
 

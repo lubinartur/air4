@@ -14,9 +14,9 @@ from typing import Iterable
 
 from database import execute, fetch_all, get_db, init_db
 
-CHECKUP_DATE = "2026-03-12"
+CheckupRow = tuple[str, float, str, float | None, float | None, str | None]
 
-CHECKUP_DATA: list[tuple[str, float, str, float | None, float | None, str | None]] = [
+CHECKUP_DATA: list[CheckupRow] = [
     # (marker_name, value, unit, ref_min, ref_max, explicit_status)
 
     # CBC
@@ -44,6 +44,88 @@ CHECKUP_DATA: list[tuple[str, float, str, float | None, float | None, str | None
     ("Testosterone Total", 73, "nmol/L", 10, 35, "HIGH"),
     ("Estradiol E2", 559, "pmol/L", 40, 160, "HIGH"),
     ("SHBG", 13, "nmol/L", 18, 54, "LOW"),
+]
+
+CHECKUP_DATA_DEC: list[CheckupRow] = [
+    # Hormones — pre-cycle baseline
+    ("Testosterone Total", 27.6, "nmol/L", 10, 35, None),
+    ("Estradiol E2", 191, "pmol/L", 40, 160, "HIGH"),
+    ("SHBG", 19, "nmol/L", 18, 54, None),
+    ("Prolactin", 407, "mU/L", 86, 324, "HIGH"),
+]
+
+CHECKUP_DATA_2019: list[CheckupRow] = [
+    # Hormones
+    ("Testosterone Total", 16.84, "nmol/L", 10, 35, None),
+    ("LH", 2.96, "IU/L", 1.7, 8.6, None),
+    ("Estradiol E2", 114, "pmol/L", 40, 160, None),
+
+    # CBC
+    ("Hemoglobin", 168, "g/L", 130, 170, None),
+    ("Hematocrit", 48.6, "%", 40, 50, None),
+
+    # Biochemistry
+    ("ALT", 23, "U/L", 0, 40, None),
+    ("AST", 31, "U/L", 0, 40, None),
+    ("GGT", 21, "U/L", 0, 55, None),
+    ("Creatinine", 91.7, "µmol/L", 62, 115, None),
+    ("eGFR", 94, "ml/min", 90, None, None),
+    ("Glucose", 5.06, "mmol/L", 3.9, 6.1, None),
+    ("Insulin", 8.7, "mU/L", 2.6, 24.9, None),
+
+    # Lipids
+    ("Total Cholesterol", 4.3, "mmol/L", None, 5.0, None),
+    ("LDL Cholesterol", 2.97, "mmol/L", None, 3.0, None),
+    ("HDL Cholesterol", 0.95, "mmol/L", 1.0, None, "LOW"),
+
+    # Cardio risk markers
+    ("Homocysteine", 17.1, "µmol/L", None, 15.0, "HIGH"),
+    ("Uric Acid", 473, "µmol/L", 208, 428, "HIGH"),
+]
+
+CHECKUP_DATA_2025_NOV: list[CheckupRow] = [
+    # Hormones — pre-cycle
+    ("Testosterone Total", 14.5, "nmol/L", 10, 35, None),
+    ("Free Testosterone", 0.43, "nmol/L", 0.2, 0.6, None),
+    ("SHBG", 15, "nmol/L", 18, 54, "LOW"),
+    ("Estradiol E2", 99, "pmol/L", 40, 160, None),
+    ("FSH", 3.8, "IU/L", 1.5, 12.4, None),
+
+    # CBC
+    ("Hemoglobin", 162, "g/L", 130, 170, None),
+    ("Hematocrit", 47.2, "%", 40, 50, None),
+    ("RBC", 5.05, "E12/L", 4.5, 5.5, None),
+    ("WBC", 7.6, "E9/L", 4.0, 9.0, None),
+    ("Platelets", 194, "E9/L", 150, 400, None),
+
+    # Biochemistry
+    ("HbA1c", 5.2, "%", None, 5.7, None),
+    ("ALT", 27, "U/L", 0, 40, None),
+
+    # Lipids
+    ("Total Cholesterol", 5.0, "mmol/L", None, 5.0, None),
+    ("LDL Cholesterol", 3.2, "mmol/L", None, 3.0, "HIGH"),
+    ("HDL Cholesterol", 1.0, "mmol/L", 1.0, None, None),
+]
+
+CHECKUP_DATA_2022_SPERM: list[CheckupRow] = [
+    # Spermogram
+    ("Sperm Volume", 2.79, "ml", 1.5, None, None),
+    ("Sperm Concentration", 66, "mln/ml", 16, None, None),
+    ("Total Sperm Count", 178, "mln", 39, None, None),
+    ("Progressive Motility", 70, "%", 32, None, None),
+    ("Normal Morphology", 8, "%", 4, None, None),
+    ("MAR IgG", 3, "%", None, 50, None),
+    ("IL-6", 9.3, "ng/L", None, 7.0, "HIGH"),
+]
+
+# All checkups to import. Add new (date, rows) tuples here over time.
+CHECKUPS: list[tuple[str, list[CheckupRow]]] = [
+    ("2019-11-11", CHECKUP_DATA_2019),
+    ("2022-04-22", CHECKUP_DATA_2022_SPERM),
+    ("2025-11-17", CHECKUP_DATA_2025_NOV),
+    ("2025-12-30", CHECKUP_DATA_DEC),
+    ("2026-03-12", CHECKUP_DATA),
 ]
 
 
@@ -110,20 +192,33 @@ def import_rows(
 
 
 def main() -> int:
-    print(f"Importing {len(CHECKUP_DATA)} markers for {CHECKUP_DATE}...")
-    inserted, updated, total = import_rows(CHECKUP_DATE, CHECKUP_DATA)
-    print(f"Done — inserted: {inserted}, updated: {updated}, total: {total}")
+    grand_inserted = 0
+    grand_updated = 0
+    grand_total = 0
+
+    for date, rows in CHECKUPS:
+        print(f"Importing {len(rows)} markers for {date}...")
+        inserted, updated, total = import_rows(date, rows)
+        print(f"  inserted: {inserted}, updated: {updated}, total: {total}")
+        grand_inserted += inserted
+        grand_updated += updated
+        grand_total += total
+
+    print()
+    print(
+        f"Total — inserted: {grand_inserted}, updated: {grand_updated}, "
+        f"total: {grand_total}"
+    )
 
     with get_db() as conn:
         flagged = fetch_all(
             conn,
             """
-            SELECT marker_name, value, unit, status
+            SELECT date, marker_name, value, unit, status
             FROM health_checkups
-            WHERE date = ? AND status != 'NORMAL'
-            ORDER BY status, marker_name
+            WHERE status != 'NORMAL'
+            ORDER BY date DESC, status, marker_name
             """,
-            (CHECKUP_DATE,),
         )
 
     if flagged:
@@ -131,7 +226,8 @@ def main() -> int:
         print("Out-of-range markers:")
         for row in flagged:
             print(
-                f"  {row['status']:4s}  {row['marker_name']:<22s} {row['value']} {row['unit'] or ''}"
+                f"  {row['date']}  {row['status']:4s}  "
+                f"{row['marker_name']:<22s} {row['value']} {row['unit'] or ''}"
             )
     return 0
 

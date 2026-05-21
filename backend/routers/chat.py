@@ -17,6 +17,7 @@ from services.fact_extractor import extract_facts
 from services.llm_client import chat, chat_stream
 from services.prompts import (
     build_system_context,
+    get_health_checkups_context,
     get_workouts_context,
     history_to_messages,
     strip_internal_xml_tags,
@@ -34,6 +35,7 @@ def _load_context(
     dict[str, Any] | None,
     list[dict[str, Any]],
     list[dict[str, Any]],
+    str,
     str,
 ]:
     summary = load_summary(conn)
@@ -58,7 +60,8 @@ def _load_context(
         """,
     )
     workouts_context = get_workouts_context(conn)
-    return summary, profile, facts, events, workouts_context
+    health_checkups_context = get_health_checkups_context(conn)
+    return summary, profile, facts, events, workouts_context, health_checkups_context
 
 
 def _collect_user_messages(body: ChatIn) -> list[str]:
@@ -125,7 +128,14 @@ async def chat_endpoint(
     api_key = _api_key()
 
     with get_db() as conn:
-        summary, profile, facts, events, workouts_context = _load_context(conn)
+        (
+            summary,
+            profile,
+            facts,
+            events,
+            workouts_context,
+            health_checkups_context,
+        ) = _load_context(conn)
 
     system = build_system_context(
         summary=summary,
@@ -133,6 +143,7 @@ async def chat_endpoint(
         facts=facts,
         events=events,
         workouts_context=workouts_context,
+        health_checkups_context=health_checkups_context,
         current_page=body.current_page,
     )
     messages = history_to_messages(body.history)

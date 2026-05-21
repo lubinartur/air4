@@ -1,6 +1,7 @@
 import { Brain, Repeat, Sparkles } from "lucide-react";
 import type { Hypothesis } from "../lib/api";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 import { PageEmptyState } from "./PageEmptyState";
 
 type Props = {
@@ -52,10 +53,10 @@ export function Patterns({ hypotheses }: Props) {
           <Repeat size={22} className="fill-indigo-100" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+          <h1 className={t.pageTitle}>
             Behavioral Patterns
           </h1>
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+          <p className={cn(t.pageSub, "mt-0.5")}>
             Detected habits and confirmed hypotheses
           </p>
         </div>
@@ -89,7 +90,7 @@ export function Patterns({ hypotheses }: Props) {
       {header}
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+        <h2 className={cn(t.cardLabel, "mb-6")}>
           Detected patterns
         </h2>
         <ul className="space-y-4">

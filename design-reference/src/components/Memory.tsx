@@ -3,6 +3,7 @@ import { Brain, Database, Sparkles } from "lucide-react";
 import { fetchEvents, type LifeEvent } from "../lib/api";
 import { domainIcon, formatDomainLabel } from "../lib/format";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 import { PageEmptyState } from "./PageEmptyState";
 
 type DomainFilter = "all" | "finance" | "health" | "projects" | "life" | "personal";
@@ -83,10 +84,10 @@ export function Memory() {
           <Brain size={22} className="fill-blue-100" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+          <h1 className={t.pageTitle}>
             Memory Archive
           </h1>
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+          <p className={cn(t.pageSub, "mt-0.5")}>
             Events, milestones and life context
           </p>
         </div>

@@ -8,6 +8,7 @@ from database import execute, fetch_all, fetch_one, get_db
 from schemas import (
     ActiveSessionOut,
     ProjectDetailOut,
+    ProjectIn,
     ProjectLogIn,
     ProjectLogOut,
     ProjectOut,
@@ -17,6 +18,9 @@ from schemas import (
     SessionStartOut,
     SessionStopIn,
 )
+
+
+ALLOWED_PROJECT_STATUSES = {"active", "paused", "stalled", "completed", "archived"}
 
 router = APIRouter()
 
@@ -107,16 +111,65 @@ def _touch_project(conn, project_id: int) -> None:
     )
 
 
+@router.post("/projects", response_model=ProjectOut, status_code=201)
+def create_project(body: ProjectIn) -> ProjectOut:
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+
+    status = (body.status or "active").strip().lower() or "active"
+    if status not in ALLOWED_PROJECT_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"status must be one of: {', '.join(sorted(ALLOWED_PROJECT_STATUSES))}",
+        )
+
+    description = (body.description or "").strip() or None
+    priority = body.priority if isinstance(body.priority, int) else 2
+
+    now_iso = _utc_now_iso()
+    with get_db() as conn:
+        project_id = execute(
+            conn,
+            """
+            INSERT INTO projects
+                (name, description, status, priority, started_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (name, description, status, priority, now_iso, now_iso, now_iso),
+        )
+        row = fetch_one(
+            conn,
+            """
+            SELECT id, name, description, status, priority, started_at, created_at, updated_at
+            FROM projects
+            WHERE id = ?
+            """,
+            (project_id,),
+        )
+
+    if row is None:
+        raise HTTPException(status_code=500, detail="failed to persist project")
+    return ProjectOut(**row)
+
+
 @router.get("/projects", response_model=list[ProjectOut])
 def list_projects() -> list[ProjectOut]:
     with get_db() as conn:
         rows = fetch_all(
             conn,
             """
-            SELECT id, name, description, status, priority, started_at, created_at, updated_at
-            FROM projects
+            SELECT
+              p.id, p.name, p.description, p.status, p.priority,
+              p.started_at, p.created_at, p.updated_at,
+              COALESCE((
+                SELECT SUM(duration_minutes)
+                FROM project_logs
+                WHERE project_id = p.id AND log_type = 'session'
+              ), 0) AS total_sessions_minutes
+            FROM projects p
             ORDER BY
-              CASE status
+              CASE p.status
                 WHEN 'active' THEN 0
                 WHEN 'paused' THEN 1
                 WHEN 'stalled' THEN 2
@@ -124,8 +177,8 @@ def list_projects() -> list[ProjectOut]:
                 WHEN 'archived' THEN 4
                 ELSE 99
               END,
-              datetime(updated_at) DESC,
-              id DESC
+              datetime(p.updated_at) DESC,
+              p.id DESC
             """,
         )
     return [ProjectOut(**r) for r in rows]

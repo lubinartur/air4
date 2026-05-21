@@ -74,6 +74,14 @@ class ProjectOut(BaseModel):
     started_at: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+    total_sessions_minutes: int = 0
+
+
+class ProjectIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    status: str = "active"
+    priority: int = 2
 
 
 class ProjectLogOut(BaseModel):

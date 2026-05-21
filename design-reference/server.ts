@@ -140,6 +140,19 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.post("/api/projects", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/projects/:projectId", async (req, res) => {
     try {
       await proxyJson(

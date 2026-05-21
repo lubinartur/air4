@@ -26,6 +26,7 @@ export type Project = {
   started_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  total_sessions_minutes?: number;
 };
 
 export type ProjectLog = {
@@ -528,6 +529,26 @@ export async function uploadStatement(file: File): Promise<UploadResult> {
 
 export async function getProjects(): Promise<Project[]> {
   return apiFetch<Project[]>("/api/projects");
+}
+
+export const fetchProjects = getProjects;
+
+export type ProjectCreateInput = {
+  name: string;
+  description?: string | null;
+  status?: string;
+  priority?: number;
+};
+
+export async function createProject(
+  input: ProjectCreateInput
+): Promise<Project> {
+  return jsonPost<Project>("/api/projects", {
+    name: input.name,
+    description: input.description ?? null,
+    status: (input.status ?? "active").toLowerCase(),
+    priority: input.priority ?? 2,
+  });
 }
 
 export async function fetchProject(id: number): Promise<ProjectDetail> {

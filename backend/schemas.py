@@ -195,6 +195,14 @@ class BodyMetricOut(BaseModel):
     created_at: str | None = None
 
 
+class BodyMetricIn(BaseModel):
+    date: str | None = None
+    weight: float | None = None
+    height: float | None = None
+    body_fat: float | None = None
+    notes: str | None = None
+
+
 class WorkoutSetOut(BaseModel):
     setNumber: int
     weight: float | None = None
@@ -218,6 +226,36 @@ class WorkoutOut(BaseModel):
     source: str = "chat"
     created_at: str | None = None
     total_volume: float | None = None
+
+
+class WorkoutIn(BaseModel):
+    date: str | None = None
+    type: str | None = None
+    duration: int | None = None
+    notes: str | None = None
+    energy_level: int | None = None
+    exercises: list[WorkoutExerciseOut] = Field(default_factory=list)
+
+
+class HealthMarkerOut(BaseModel):
+    id: int
+    marker_name: str
+    value: float
+    unit: str | None = None
+    reference_min: float | None = None
+    reference_max: float | None = None
+    status: str = "NORMAL"
+    source: str = "manual"
+    created_at: str | None = None
+
+
+class HealthCheckupGroupOut(BaseModel):
+    date: str
+    markers: list[HealthMarkerOut] = Field(default_factory=list)
+
+
+class HealthCheckupsListOut(BaseModel):
+    checkups: list[HealthCheckupGroupOut] = Field(default_factory=list)
 
 
 class UserProfileSectionOut(BaseModel):

@@ -283,6 +283,47 @@ function normalizeWorkoutExercises(raw: unknown): WorkoutExercise[] {
   return out;
 }
 
+export type HealthMarkerStatus = "HIGH" | "LOW" | "NORMAL" | string;
+
+export type HealthMarker = {
+  id: number;
+  marker_name: string;
+  value: number;
+  unit: string | null;
+  reference_min: number | null;
+  reference_max: number | null;
+  status: HealthMarkerStatus;
+  source: string;
+  created_at: string | null;
+};
+
+export type HealthCheckupGroup = {
+  date: string;
+  markers: HealthMarker[];
+};
+
+export async function fetchHealthCheckups(): Promise<HealthCheckupGroup[]> {
+  const data = await apiFetch<{ checkups?: HealthCheckupGroup[] }>(
+    "/api/health/checkups"
+  );
+  return (data.checkups ?? []).map((group) => ({
+    date: String(group.date ?? ""),
+    markers: (group.markers ?? []).map((m) => ({
+      id: Number(m.id),
+      marker_name: String(m.marker_name ?? ""),
+      value: Number(m.value),
+      unit: m.unit != null ? String(m.unit) : null,
+      reference_min:
+        m.reference_min != null ? Number(m.reference_min) : null,
+      reference_max:
+        m.reference_max != null ? Number(m.reference_max) : null,
+      status: String(m.status ?? "NORMAL").toUpperCase(),
+      source: String(m.source ?? "manual"),
+      created_at: m.created_at != null ? String(m.created_at) : null,
+    })),
+  }));
+}
+
 export async function fetchWorkouts(): Promise<Workout[]> {
   const rows = await apiFetch<unknown>("/api/health/workouts");
   if (!Array.isArray(rows)) return [];
@@ -304,6 +345,61 @@ export async function fetchWorkouts(): Promise<Workout[]> {
         totalVolume != null && Number.isFinite(totalVolume) ? totalVolume : null,
     };
   });
+}
+
+export type BodyMetricInput = {
+  weight?: number | null;
+  height?: number | null;
+  body_fat?: number | null;
+  notes?: string | null;
+  date?: string | null;
+};
+
+export async function logBodyMetric(input: BodyMetricInput): Promise<BodyMetric> {
+  const raw = await jsonPost<Record<string, unknown>>(
+    "/api/health/metrics",
+    input
+  );
+  return normalizeBodyMetric(raw);
+}
+
+export type WorkoutInput = {
+  date?: string | null;
+  type?: string | null;
+  duration?: number | null;
+  notes?: string | null;
+  energy_level?: number | null;
+  exercises?: WorkoutExercise[];
+};
+
+export async function logWorkout(input: WorkoutInput): Promise<Workout> {
+  const payload: Record<string, unknown> = {
+    date: input.date ?? null,
+    type: input.type ?? null,
+    duration: input.duration ?? null,
+    notes: input.notes ?? null,
+    energy_level: input.energy_level ?? null,
+    exercises: input.exercises ?? [],
+  };
+  const raw = await jsonPost<Record<string, unknown>>(
+    "/api/health/workouts",
+    payload
+  );
+  const totalVolume =
+    raw.total_volume != null ? Number(raw.total_volume) : null;
+  return {
+    id: Number(raw.id),
+    date: String(raw.date ?? ""),
+    type: raw.type != null ? String(raw.type) : null,
+    duration: raw.duration != null ? Number(raw.duration) : null,
+    exercises: normalizeWorkoutExercises(raw.exercises),
+    energy_level: raw.energy_level != null ? Number(raw.energy_level) : null,
+    notes: raw.notes != null ? String(raw.notes) : null,
+    source: raw.source != null ? String(raw.source) : undefined,
+    created_at: raw.created_at != null ? String(raw.created_at) : null,
+    total_volume:
+      totalVolume != null && Number.isFinite(totalVolume) ? totalVolume : null,
+  };
 }
 
 /** Latest non-null weight from metrics (newest date first). */

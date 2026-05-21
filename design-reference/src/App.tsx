@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { Finance } from "./components/Finance";
 import { Projects } from "./components/Projects";
 import { Health } from "./components/Health";
+import { Sport } from "./components/Sport";
 import { Goals } from "./components/Goals";
 import { Dilemmas } from "./components/Dilemmas";
 import { Patterns } from "./components/Patterns";
@@ -253,6 +254,8 @@ export default function App() {
                 <Projects />
               ) : currentPage === "Health" ? (
                 <Health />
+              ) : currentPage === "Sport" ? (
+                <Sport />
               ) : currentPage === "Goals" ? (
                 <Goals goals={goals} />
               ) : currentPage === "Dilemmas" ? (

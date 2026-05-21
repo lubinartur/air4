@@ -1,7 +1,8 @@
 import {
   LayoutDashboard,
   Wallet,
-  Activity,
+  Heart,
+  Dumbbell,
   Briefcase,
   Target,
   Repeat,
@@ -15,7 +16,8 @@ import { Page } from "./types";
 export const NAVIGATION: { id: Page; Icon: any }[] = [
   { id: "Overview", Icon: LayoutDashboard },
   { id: "Finance", Icon: Wallet },
-  { id: "Health", Icon: Activity },
+  { id: "Health", Icon: Heart },
+  { id: "Sport", Icon: Dumbbell },
   { id: "Projects", Icon: Briefcase },
   { id: "Goals", Icon: Target },
   { id: "Dilemmas", Icon: Scale },

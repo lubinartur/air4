@@ -5,7 +5,21 @@ import { domainIcon, formatDomainLabel } from "../lib/format";
 import { cn } from "../lib/utils";
 import { PageEmptyState } from "./PageEmptyState";
 
-function groupEventsByDate(events: LifeEvent[]): { date: string; items: LifeEvent[] }[] {
+type DomainFilter = "all" | "finance" | "health" | "projects" | "life" | "personal";
+
+const FILTERS: DomainFilter[] = ["all", "finance", "health", "projects", "life", "personal"];
+
+const DOMAIN_BADGE: Record<string, string> = {
+  health: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  finance: "bg-amber-50 text-amber-700 border-amber-100",
+  projects: "bg-indigo-50 text-indigo-700 border-indigo-100",
+  life: "bg-violet-50 text-violet-700 border-violet-100",
+  personal: "bg-sky-50 text-sky-700 border-sky-100",
+};
+
+function groupEventsByDate(
+  events: LifeEvent[]
+): { date: string; items: LifeEvent[] }[] {
   const byDate = new Map<string, LifeEvent[]>();
   for (const event of events) {
     const d = event.date || "Unknown";
@@ -17,18 +31,11 @@ function groupEventsByDate(events: LifeEvent[]): { date: string; items: LifeEven
     .map((date) => ({ date, items: byDate.get(date)! }));
 }
 
-const DOMAIN_BADGE: Record<string, string> = {
-  health: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  finance: "bg-amber-50 text-amber-700 border-amber-100",
-  projects: "bg-indigo-50 text-indigo-700 border-indigo-100",
-  life: "bg-violet-50 text-violet-700 border-violet-100",
-  personal: "bg-sky-50 text-sky-700 border-sky-100",
-};
-
 export function Memory() {
   const [events, setEvents] = useState<LifeEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<DomainFilter>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +61,20 @@ export function Memory() {
     };
   }, []);
 
-  const grouped = useMemo(() => groupEventsByDate(events), [events]);
+  const counts = useMemo(() => {
+    const map: Record<string, number> = { all: events.length };
+    for (const e of events) {
+      map[e.domain] = (map[e.domain] ?? 0) + 1;
+    }
+    return map;
+  }, [events]);
+
+  const filtered = useMemo(
+    () => (filter === "all" ? events : events.filter((e) => e.domain === filter)),
+    [events, filter]
+  );
+
+  const grouped = useMemo(() => groupEventsByDate(filtered), [filtered]);
 
   const header = (
     <div className="flex justify-between items-end gap-4">
@@ -69,6 +89,41 @@ export function Memory() {
           {total} event{total === 1 ? "" : "s"}
         </span>
       )}
+    </div>
+  );
+
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2">
+      {FILTERS.map((f) => {
+        const active = filter === f;
+        const count = counts[f] ?? 0;
+        const disabled = f !== "all" && count === 0;
+        return (
+          <button
+            key={f}
+            type="button"
+            onClick={() => !disabled && setFilter(f)}
+            disabled={disabled}
+            className={cn(
+              "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-colors inline-flex items-center gap-2",
+              active
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                : "bg-white text-gray-500 border border-gray-100 hover:text-gray-900 hover:border-gray-200",
+              disabled && "opacity-40 cursor-not-allowed hover:text-gray-500"
+            )}
+          >
+            <span>{f}</span>
+            <span
+              className={cn(
+                "font-mono text-[9px]",
+                active ? "text-white/80" : "text-gray-400"
+              )}
+            >
+              {count}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 
@@ -95,64 +150,71 @@ export function Memory() {
   }
 
   return (
-    <div className="flex flex-col gap-8 pb-10">
+    <div className="flex flex-col gap-6 pb-10">
       {header}
+      {filterBar}
 
-      <div className="space-y-8">
-        {grouped.map(({ date, items }) => (
-          <section key={date}>
-            <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.15em] mb-4 sticky top-0 bg-[#f4f5f7]/90 py-1 backdrop-blur-sm">
-              {date}
-            </h2>
-            <div className="space-y-3">
-              {items.map((event) => (
-                <article
-                  key={event.id}
-                  className="bg-white rounded-[20px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.08)] flex gap-4"
-                >
-                  <div
-                    className="w-11 h-11 rounded-2xl bg-gray-50 flex items-center justify-center text-xl shrink-0"
-                    aria-hidden
+      {grouped.length === 0 ? (
+        <p className="text-[13px] text-[#9ca3af] py-8 text-center">
+          No events in this domain yet.
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {grouped.map(({ date, items }) => (
+            <section key={date}>
+              <h2 className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-[0.18em] mb-3">
+                {date}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {items.map((event) => (
+                  <article
+                    key={event.id}
+                    className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] flex gap-3"
                   >
-                    {domainIcon(event.domain)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
-                      <h3 className="text-[15px] font-bold text-gray-900 leading-snug">
-                        {event.title}
-                      </h3>
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter border shrink-0",
-                          DOMAIN_BADGE[event.domain] ??
-                            "bg-gray-50 text-gray-600 border-gray-100"
-                        )}
-                      >
-                        {formatDomainLabel(event.domain)}
-                      </span>
+                    <div
+                      className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-base shrink-0"
+                      aria-hidden
+                    >
+                      {domainIcon(event.domain)}
                     </div>
-                    {event.description && (
-                      <p className="text-[13px] text-gray-600 leading-relaxed mb-2">
-                        {event.description}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#9ca3af] font-medium">
-                      <span>{event.date}</span>
-                      {event.category && (
-                        <span className="font-mono uppercase tracking-wide">
-                          {event.category.replace(/_/g, " ")}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+                        <h3 className="text-[14px] font-bold text-gray-900 leading-snug">
+                          {event.title}
+                        </h3>
+                        <span
+                          className={cn(
+                            "text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-tight border shrink-0",
+                            DOMAIN_BADGE[event.domain] ??
+                              "bg-gray-50 text-gray-600 border-gray-100"
+                          )}
+                        >
+                          {formatDomainLabel(event.domain)}
                         </span>
+                      </div>
+                      {event.description && (
+                        <p className="text-[12.5px] text-gray-600 leading-snug mb-1.5 line-clamp-3">
+                          {event.description}
+                        </p>
                       )}
+                      <div className="flex flex-wrap items-center gap-2 text-[10.5px] text-[#9ca3af] font-medium">
+                        <span>{event.date}</span>
+                        {event.category && (
+                          <span className="font-mono uppercase tracking-wide">
+                            {event.category.replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
-      {total > events.length && (
+      {filter === "all" && total > events.length && (
         <p className="text-[12px] text-center text-[#9ca3af]">
           Showing latest {events.length} of {total} events
         </p>

@@ -231,6 +231,20 @@ CREATE TABLE IF NOT EXISTS body_metrics (
     source      TEXT DEFAULT 'manual',
     created_at  TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS health_checkups (
+    id              INTEGER PRIMARY KEY,
+    date            TEXT NOT NULL,
+    marker_name     TEXT NOT NULL,
+    value           REAL NOT NULL,
+    unit            TEXT,
+    reference_min   REAL,
+    reference_max   REAL,
+    status          TEXT,
+    source          TEXT DEFAULT 'manual',
+    created_at      TEXT DEFAULT (datetime('now')),
+    UNIQUE(date, marker_name)
+);
 """
 
 INDEX_SQL = """
@@ -250,6 +264,8 @@ CREATE INDEX IF NOT EXISTS idx_observations_read ON observations(is_read);
 CREATE INDEX IF NOT EXISTS idx_observations_expires ON observations(expires_at);
 CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date);
 CREATE INDEX IF NOT EXISTS idx_body_metrics_date ON body_metrics(date);
+CREATE INDEX IF NOT EXISTS idx_health_checkups_date ON health_checkups(date);
+CREATE INDEX IF NOT EXISTS idx_health_checkups_marker ON health_checkups(marker_name);
 """
 
 

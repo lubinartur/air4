@@ -276,9 +276,44 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.post("/api/health/workouts", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/health/workouts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/health/metrics", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/health/metrics", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/health/metrics", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/health/metrics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/health/checkups", async (req, res) => {
+    try {
+      await proxyJson(res, backendUrl("/api/health/checkups", req.query));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Proxy failed";
       res.status(500).json({ error: message });

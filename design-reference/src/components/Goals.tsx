@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Bell, Plus, Sparkles, Target } from "lucide-react";
 import { cn } from "../lib/utils";
+import { t as ty } from "../lib/typography";
 import type { GoalItem } from "../lib/api";
 
 type Props = {
@@ -63,10 +64,10 @@ export function Goals({ goals }: Props) {
             <Target size={22} className="fill-green-100" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+            <h1 className={ty.pageTitle}>
               Life Goals & Targets
             </h1>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+            <p className={cn(ty.pageSub, "mt-0.5")}>
               Personal objectives and progress tracking
             </p>
           </div>
@@ -177,7 +178,7 @@ export function Goals({ goals }: Props) {
 
           {/* Wishlist */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-            <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+            <h2 className={cn(ty.cardLabel, "mb-6")}>
               Wishlist
             </h2>
             <div className="bg-gray-50/50 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
@@ -210,7 +211,7 @@ export function Goals({ goals }: Props) {
 
           {/* Deadlines (hardcoded) */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-            <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+            <h2 className={cn(ty.cardLabel, "mb-6")}>
               Deadlines
             </h2>
             <div className="relative pl-6 space-y-8 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:bg-gray-100">
@@ -238,7 +239,7 @@ export function Goals({ goals }: Props) {
 
           {/* Weekly Focus (hardcoded) */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
-            <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+            <h2 className={cn(ty.cardLabel, "mb-6")}>
               Weekly Focus
             </h2>
             <p className="text-[14px] leading-relaxed text-gray-600 mb-6 font-medium">

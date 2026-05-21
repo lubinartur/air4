@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 import { Page } from "../types";
 import {
   deleteUpload,
@@ -235,10 +236,10 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
             <Wallet size={22} className="fill-green-100" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+            <h1 className={t.pageTitle}>
               Financial Overview
             </h1>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+            <p className={cn(t.pageSub, "mt-0.5")}>
               Spending, income and financial tracking
             </p>
           </div>
@@ -292,7 +293,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
         <div className="grid grid-cols-5 gap-6">
           <div className="col-span-3 space-y-6">
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+              <h2 className={cn(t.cardLabel, "mb-6")}>
                 Monthly Snapshot
               </h2>
               <div className="grid grid-cols-2 gap-8">
@@ -322,7 +323,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
               {categories.length > 0 && <StatusDot color="#ef4444" />}
-              <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+              <h2 className={cn(t.cardLabel, "mb-6")}>
                 Spending by Category
               </h2>
               {categories.length === 0 ? (
@@ -376,7 +377,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+              <h2 className={cn(t.cardLabel, "mb-6")}>
                 Recent Transactions
               </h2>
               {transactions.length === 0 ? (
@@ -462,21 +463,21 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-2">
+              <h2 className={cn(t.cardLabel, "mb-2")}>
                 Upcoming Obligations
               </h2>
               <ChatEmpty label="No obligations tracked" />
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-2">
+              <h2 className={cn(t.cardLabel, "mb-2")}>
                 Loans & Obligations
               </h2>
               <ChatEmpty label="No loans tracked" />
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-2">
+              <h2 className={cn(t.cardLabel, "mb-2")}>
                 Subscriptions
               </h2>
               <ChatEmpty label="No subscriptions tracked" />
@@ -486,7 +487,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
       )}
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-6">
+        <h2 className={cn(t.cardLabel, "mb-6")}>
           Uploaded Statements
         </h2>
         {loading && uploads.length === 0 ? (

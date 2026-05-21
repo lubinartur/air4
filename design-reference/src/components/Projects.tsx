@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 import {
   addProjectLog,
   addTodo,
@@ -472,7 +473,7 @@ export function Projects() {
             </button>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                <h1 className={t.pageTitle}>
                   {projectName}
                 </h1>
                 {detail && (
@@ -490,7 +491,7 @@ export function Projects() {
                   </span>
                 )}
               </div>
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              <p className={cn(t.pageSub, "mt-0.5")}>
                 Project Details & Structured Micro-Sprints
               </p>
             </div>
@@ -846,10 +847,10 @@ export function Projects() {
               <Briefcase size={22} className="fill-indigo-100" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+              <h1 className={t.pageTitle}>
                 Project Command Center
               </h1>
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              <p className={cn(t.pageSub, "mt-0.5")}>
                 Active Projects, Sessions & Focus Tracking
               </p>
             </div>

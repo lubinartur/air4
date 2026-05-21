@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 import {
   fetchHealthCheckups,
   type HealthCheckupGroup,
@@ -347,7 +348,7 @@ export function Health() {
   }, [categoryGroups, searchQuery, statusFilter]);
 
   // Hero/banner numbers for the right-hand summary
-  const t = activeGroup?.markers.find((m) =>
+  const testo = activeGroup?.markers.find((m) =>
     m.marker_name.toLowerCase().startsWith("testosterone")
   );
   const e2 = activeGroup?.markers.find((m) =>
@@ -367,10 +368,10 @@ export function Health() {
               <Heart size={22} className="fill-rose-100" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+              <h1 className={t.pageTitle}>
                 Health Analytics & Labs
               </h1>
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              <p className={cn(t.pageSub, "mt-0.5")}>
                 Biomarkers, Clinical Reports & Laboratory Overviews
               </p>
             </div>
@@ -762,7 +763,7 @@ export function Health() {
               )}
             </AnimatePresence>
 
-            {(t || e2 || shbg) && (
+            {(testo || e2 || shbg) && (
               <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles size={16} className="text-violet-500" />
@@ -772,20 +773,20 @@ export function Health() {
                 </div>
 
                 <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                  {t && (
+                  {testo && (
                     <>
                       Your active Testosterone is{" "}
                       <span
                         className={cn(
                           "font-bold",
-                          normalizeStatus(t.status) === "HIGH"
+                          normalizeStatus(testo.status) === "HIGH"
                             ? "text-red-500"
-                            : normalizeStatus(t.status) === "LOW"
+                            : normalizeStatus(testo.status) === "LOW"
                               ? "text-amber-500"
                               : "text-green-600"
                         )}
                       >
-                        {formatNumber(t.value)} {t.unit ?? ""}
+                        {formatNumber(testo.value)} {testo.unit ?? ""}
                       </span>
                       .{" "}
                     </>

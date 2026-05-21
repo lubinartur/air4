@@ -21,6 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 import {
   bmiFromMetrics,
   fetchBodyMetrics,
@@ -120,7 +121,7 @@ function WorkoutDetailsModal({
           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">
             {workout.date}
           </p>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight mt-1">
+          <h2 className={cn(t.pageTitle, "mt-1")}>
             {formatWorkoutType(workout.type)}
           </h2>
 
@@ -392,10 +393,10 @@ export function Sport() {
               <Dumbbell size={22} className="fill-amber-100" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+              <h1 className={t.pageTitle}>
                 Athletic Command & Sport
               </h1>
-              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              <p className={cn(t.pageSub, "mt-0.5")}>
                 Physical Performance, Structural Weights & Session History
               </p>
             </div>
@@ -424,14 +425,14 @@ export function Sport() {
               <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between group transition-all relative">
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Weight</p>
+                    <p className={t.cardLabel}>Weight</p>
                     <Scale size={16} className="text-rose-500" />
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-4xl font-extrabold text-gray-900 tracking-tight">
+                    <span className={t.hero}>
                       {currentWeight != null ? currentWeight : "—"}
                     </span>
-                    <span className="text-sm font-semibold text-gray-400">kg</span>
+                    <span className={t.heroSub}>kg</span>
                   </div>
                   <span className="text-[10px] text-gray-400 mt-1 block">{trendLabel}</span>
                 </div>
@@ -468,14 +469,14 @@ export function Sport() {
               <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between transition-all">
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Height</p>
+                    <p className={t.cardLabel}>Height</p>
                     <Activity size={16} className="text-indigo-500" />
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-4xl font-extrabold text-gray-900 tracking-tight">
+                    <span className={t.hero}>
                       {currentHeightCm != null ? currentHeightCm : "—"}
                     </span>
-                    <span className="text-sm font-semibold text-gray-400">cm</span>
+                    <span className={t.heroSub}>cm</span>
                   </div>
                   <span className="text-[10px] text-gray-400 mt-1 block">Active biometric ceiling</span>
                 </div>
@@ -493,16 +494,16 @@ export function Sport() {
               <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between transition-all">
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    <p className={t.cardLabel}>
                       Calculated BMI
                     </p>
                     <Zap size={16} className="text-amber-500" />
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-4xl font-extrabold text-gray-900 tracking-tight">
+                    <span className={t.hero}>
                       {bmiText}
                     </span>
-                    <span className="text-sm font-semibold text-gray-400">Index</span>
+                    <span className={t.heroSub}>Index</span>
                   </div>
                   <span
                     className={cn(

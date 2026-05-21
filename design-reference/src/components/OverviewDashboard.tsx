@@ -15,6 +15,7 @@ import {
 } from "../lib/api";
 import { daysSince, formatRelativeActivity } from "../lib/format";
 import { cn } from "../lib/utils";
+import { t } from "../lib/typography";
 import { Page } from "../types";
 import { AIRCheckIn } from "./AIRCheckIn";
 import { OverviewCardEmpty } from "./OverviewCardEmpty";
@@ -176,10 +177,10 @@ export function OverviewDashboard({
         {/* Card 1.1 — Total Spent */}
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md h-[180px]">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-2">
+            <span className={cn(t.cardLabel, "block mb-2")}>
               Total Spent
             </span>
-            <span className="text-4xl font-extrabold text-gray-900 font-mono tracking-tight">
+            <span className={t.hero}>
               {hasFinance ? formatEuro(totalSpent) : "—"}
             </span>
           </div>
@@ -212,15 +213,15 @@ export function OverviewDashboard({
         {/* Card 1.2 — Health Weight + streak */}
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md h-[180px]">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-2">
+            <span className={cn(t.cardLabel, "block mb-2")}>
               Health Weight
             </span>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-extrabold text-gray-900 font-mono tracking-tight">
+              <span className={t.hero}>
                 {weightLabel}
               </span>
               {bmiLabel && (
-                <span className="text-sm font-semibold text-gray-400">{bmiLabel}</span>
+                <span className={t.heroSub}>{bmiLabel}</span>
               )}
             </div>
           </div>
@@ -248,11 +249,11 @@ export function OverviewDashboard({
         {/* Card 1.3 — Active Projects */}
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md h-[180px]">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-2">
+            <span className={cn(t.cardLabel, "block mb-2")}>
               Active Projects
             </span>
             <div className="flex items-baseline justify-between">
-              <span className="text-4xl font-extrabold text-gray-900 font-mono tracking-tight">
+              <span className={t.hero}>
                 {totalProjects}
               </span>
               {stalledProjects > 0 && (
@@ -309,7 +310,7 @@ export function OverviewDashboard({
           <div className="space-y-4">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                <span className={cn(t.cardLabel, "block mb-1")}>
                   Finance Spend Chart
                 </span>
                 <span className="text-lg font-extrabold text-gray-900">
@@ -380,7 +381,7 @@ export function OverviewDashboard({
             <button
               type="button"
               onClick={() => onPageChange("Finance")}
-              className="text-[10px] font-black text-[#6366F1] hover:text-[#4f46e5] uppercase tracking-wider flex items-center gap-0.5"
+              className={cn(t.link, "hover:text-indigo-800 flex items-center gap-0.5")}
             >
               Analyze Ledgers
               <ChevronRight size={12} />
@@ -392,13 +393,13 @@ export function OverviewDashboard({
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between min-h-[340px] transition-all duration-300 hover:shadow-md">
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+              <span className={t.cardLabel}>
                 Projects Directory
               </span>
               <button
                 type="button"
                 onClick={() => onPageChange("Projects")}
-                className="text-[10px] font-black text-[#6366F1] hover:text-[#4f46e5] uppercase tracking-wider flex items-center gap-0.5"
+                className={cn(t.link, "hover:text-indigo-800 flex items-center gap-0.5")}
               >
                 All
                 <ChevronRight size={12} />
@@ -468,13 +469,13 @@ export function OverviewDashboard({
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+            <span className={t.cardLabel}>
               Observed Patterns
             </span>
             <button
               type="button"
               onClick={() => onPageChange("Patterns")}
-              className="text-[10px] font-black text-[#6366F1] hover:text-[#4f46e5] uppercase tracking-wider flex items-center gap-0.5"
+              className={cn(t.link, "hover:text-indigo-800 flex items-center gap-0.5")}
             >
               Chronicle
               <ChevronRight size={12} />

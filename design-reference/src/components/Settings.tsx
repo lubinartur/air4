@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { User, Shield, Globe, Bell, Database, Info, Lock, ChevronRight, AlertTriangle } from "lucide-react";
+import { User, Shield, Globe, Bell, Database, Info, Lock, ChevronRight, AlertTriangle, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { cn } from "../lib/utils";
 
 export function Settings() {
@@ -18,10 +18,24 @@ export function Settings() {
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-4xl font-black text-gray-900 tracking-tight">Settings</h1>
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">System Configuration</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-gray-100 text-gray-600 rounded-xl">
+            <SettingsIcon size={22} className="fill-gray-200" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+              System Settings
+            </h1>
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              Preferences and configuration
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 px-3.5 py-1.5 rounded-xl">
+          <Sparkles size={14} className="text-gray-600" />
+          <span className="text-xs font-bold text-gray-700">AIR4 System</span>
         </div>
       </div>
 

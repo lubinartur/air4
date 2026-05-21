@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Database } from "lucide-react";
+import { Brain, Database, Sparkles } from "lucide-react";
 import { fetchEvents, type LifeEvent } from "../lib/api";
 import { domainIcon, formatDomainLabel } from "../lib/format";
 import { cn } from "../lib/utils";
@@ -77,18 +77,25 @@ export function Memory() {
   const grouped = useMemo(() => groupEventsByDate(filtered), [filtered]);
 
   const header = (
-    <div className="flex justify-between items-end gap-4">
-      <div>
-        <h1 className="text-4xl font-black text-gray-900 tracking-tight">Memory</h1>
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">
-          What AIR4 Knows
-        </p>
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+          <Brain size={22} className="fill-blue-100" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+            Memory Archive
+          </h1>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+            Events, milestones and life context
+          </p>
+        </div>
       </div>
-      {!loading && total > 0 && (
-        <span className="text-[10px] font-mono text-[#9ca3af] uppercase shrink-0">
-          {total} event{total === 1 ? "" : "s"}
-        </span>
-      )}
+
+      <div className="flex items-center gap-2 bg-blue-50/50 border border-blue-100 px-3.5 py-1.5 rounded-xl">
+        <Sparkles size={14} className="text-blue-600" />
+        <span className="text-xs font-bold text-blue-700">Memory Engine</span>
+      </div>
     </div>
   );
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Sparkles, User } from "lucide-react";
 import { fetchProfile, formatEuro, type ProfileBundle } from "../lib/api";
 import { formatConfidencePercent, formatFactKey } from "../lib/format";
 import { cn } from "../lib/utils";
@@ -73,11 +74,25 @@ export function Profile() {
   }, []);
 
   const header = (
-    <div>
-      <h1 className="text-4xl font-black text-gray-900 tracking-tight">Profile</h1>
-      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">
-        Who you are
-      </p>
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+          <User size={22} className="fill-indigo-100" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+            Your Profile
+          </h1>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+            Who you are and what AIR4 knows
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
+        <Sparkles size={14} className="text-indigo-600" />
+        <span className="text-xs font-bold text-indigo-700">Identity</span>
+      </div>
     </div>
   );
 

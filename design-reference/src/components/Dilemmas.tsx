@@ -1,4 +1,4 @@
-import { Scale } from "lucide-react";
+import { Scale, Sparkles } from "lucide-react";
 import type { Dilemma } from "../lib/api";
 import { cn } from "../lib/utils";
 import { PageEmptyState } from "./PageEmptyState";
@@ -46,11 +46,25 @@ function statusBadge(status: string): { label: string; className: string } {
 
 export function Dilemmas({ dilemmas }: Props) {
   const header = (
-    <div>
-      <h1 className="text-4xl font-black text-gray-900 tracking-tight">Dilemmas</h1>
-      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">
-        Decision Advisor
-      </p>
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
+          <Scale size={22} className="fill-violet-100" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+            Decision Center
+          </h1>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+            Active dilemmas and decision history
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 bg-violet-50/50 border border-violet-100 px-3.5 py-1.5 rounded-xl">
+        <Sparkles size={14} className="text-violet-600" />
+        <span className="text-xs font-bold text-violet-700">Decision Advisor</span>
+      </div>
     </div>
   );
 

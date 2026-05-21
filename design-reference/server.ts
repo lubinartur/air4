@@ -13,7 +13,8 @@ const BACKEND_URL = (process.env.BACKEND_URL || "http://localhost:8000").replace
   ""
 );
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 const PORT = Number(process.env.PORT) || 3000;
 
 const upload = multer({ storage: multer.memoryStorage() });

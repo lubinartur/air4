@@ -6,7 +6,7 @@
 
 ---
 
-## Текущий статус: Sprint 4 завершён
+## Текущий статус: Sprint 5 завершён
 
 **Дата:** Май 2026  
 **Фаза:** Phase 6.5 — Real Usage Validation
@@ -194,11 +194,41 @@ cd design-reference && npm run dev
 
 ---
 
+## Sprint 5 — Conversational AI & Finance Module (май 2026)
+
+### Backend — новые endpoints
+- `GET/POST /api/finance/subscriptions` + PUT/DELETE — подписки
+- `GET/POST /api/finance/obligations` + PUT/DELETE — кредиты и обязательства
+- `GET /api/finance/monthly-fixed` — итого фиксированных расходов
+- Observation scheduler — автогенерация каждые 24ч при старте backend
+- Health checkups context в чат промпте
+- Financial obligations context в чат промпте
+
+### Frontend
+- FullscreenChat — левая панель с реальным контекстом (loaded context, memory, facts count)
+- Кнопка Maximize в ChatPanel → открывает fullscreen
+- AIRCheckIn блок на Overview — реальные вопросы из interview API
+- Overview bento grid редизайн — разные размеры карточек, horizontal bars
+- Типографика унифицирована через `src/lib/typography.ts` по всем страницам
+
+### Database
+- Таблица `subscriptions` — подписки пользователя
+- Таблица `obligations` — кредиты и обязательства
+- 5 дат анализов крови (2019→2026 динамика тестостерона)
+- Реальные данные: 9 подписок €205/мес, 2 кредита €647/мес
+
+### Character System
+- Новый CHARACTER_SYSTEM промпт — живой разговорный тон
+- AIR4 видит анализы крови и строит медицинский план
+- AIR4 видит подписки и кредиты в контексте
+
+---
+
 ## Следующие шаги (приоритет)
 
-1. **Real Usage Validation** — ежедневное использование, фиксация багов из живого опыта
-2. **Observations по расписанию** — сейчас только по кнопке Refresh
-3. **Subscriptions / Loans** — отдельные таблицы (Phase 8)
-4. **Auth на API** — Phase 8
-5. **Memory lifecycle** — архивация событий (Phase 7–8)
-6. **Локальный режим через Ollama**
+1. **Conversational Continuity** — AIR4 помнит прошлые разговоры
+2. **Decision Memory Layer** — таблица решений с исходами
+3. **Live Feed на Overview** — хронологический нарратив
+4. **Chat as primary input** — всё вводится через разговор
+5. **Finance зарплатный цикл 10-го → 10-го**
+6. **Автоматический пересчёт остатка по кредитам**

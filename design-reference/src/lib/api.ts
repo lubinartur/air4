@@ -8,6 +8,11 @@ export type InternalTransferSummary = {
   count: number;
 };
 
+export type OtherIncomingSummary = {
+  amount: number;
+  count: number;
+};
+
 export type Summary = {
   period_start: string | null;
   period_end: string | null;
@@ -15,6 +20,7 @@ export type Summary = {
   total_income: number;
   by_category: Record<string, CategorySummary>;
   internal_transfers?: InternalTransferSummary;
+  other_incoming?: OtherIncomingSummary;
 };
 
 export type Project = {
@@ -103,11 +109,40 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function getSummary(): Promise<Summary> {
+export async function getSummary(
+  start?: string | null,
+  end?: string | null
+): Promise<Summary> {
+  if (start && end) {
+    const qs = new URLSearchParams({ start, end });
+    return apiFetch<Summary>(`/api/summary?${qs.toString()}`);
+  }
   return apiFetch<Summary>("/api/summary");
 }
 
 export const fetchSummary = getSummary;
+
+/** Summary for Overview KPIs/chart: latest cycle that has transactions. */
+export async function fetchOverviewSummary(): Promise<Summary> {
+  const cycles = await fetchFinanceCycles();
+  const range = cycles.latest_with_data ?? cycles.active;
+  return getSummary(range.start, range.end);
+}
+
+export type CycleRange = {
+  start: string;
+  end: string;
+};
+
+export type FinanceCycles = {
+  active: CycleRange;
+  latest_with_data: CycleRange | null;
+  earliest_with_data: CycleRange | null;
+};
+
+export async function fetchFinanceCycles(): Promise<FinanceCycles> {
+  return apiFetch<FinanceCycles>("/api/finance/cycles");
+}
 
 export type FinanceSubscription = {
   id: number;
@@ -178,6 +213,187 @@ export type MonthlyFixed = {
   subscriptions_count: number;
   obligations_count: number;
 };
+
+export type RecurringUpdate = {
+  type: "subscription" | "obligation";
+  id: number;
+  name: string;
+  action: "updated" | "deleted";
+  field?: "amount" | "monthly_payment";
+  old_value?: number | null;
+  new_value?: number;
+  currency?: string;
+};
+
+export type ChatResponseMeta = {
+  recurring_updated?: RecurringUpdate[];
+};
+
+export type ChatStreamCallbacks = {
+  /** Fired for each incremental token/chunk. */
+  onDelta?: (text: string) => void;
+  /** Fired once when the backend emits its post-LLM metadata. */
+  onMeta?: (meta: ChatResponseMeta) => void;
+  /** Fired if the backend or transport reports an error mid-stream. */
+  onError?: (message: string) => void;
+};
+
+/**
+ * POST /api/chat with SSE streaming.
+ *
+ * Resolves with the accumulated assistant text once the stream finishes.
+ * Falls back to a single full-text `onDelta` if the response isn't an
+ * event stream (e.g. the dev proxy decided to buffer).
+ */
+export async function streamChat(
+  body: {
+    message: string;
+    history: Array<{ role: string; content: string }>;
+    current_page?: string | null;
+  },
+  callbacks: ChatStreamCallbacks = {},
+  signal?: AbortSignal
+): Promise<string> {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok) {
+    let detail: unknown = null;
+    try {
+      detail = await response.json();
+    } catch {
+      detail = await response.text().catch(() => "");
+    }
+    const message =
+      (detail as { error?: string; detail?: string })?.error ??
+      (detail as { detail?: string })?.detail ??
+      `Chat failed (${response.status})`;
+    callbacks.onError?.(message);
+    throw new Error(message);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+
+  // Non-stream fallback — render the full payload as one delta so the
+  // caller's append-to-last-message logic still works.
+  if (!contentType.includes("text/event-stream") || !response.body) {
+    const data = (await response.json()) as Record<string, unknown> & {
+      content?: string;
+      response?: string;
+      error?: string;
+    };
+    if (data?.error) {
+      callbacks.onError?.(data.error);
+      throw new Error(data.error);
+    }
+    const text = String(data.content ?? data.response ?? "");
+    if (text) callbacks.onDelta?.(text);
+    callbacks.onMeta?.(data as ChatResponseMeta);
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let assembled = "";
+
+  // SSE frames are separated by a blank line. Each frame is one or more
+  // `data: <payload>` lines; payloads are JSON in our protocol.
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let frameEnd = buffer.indexOf("\n\n");
+    while (frameEnd !== -1) {
+      const frame = buffer.slice(0, frameEnd);
+      buffer = buffer.slice(frameEnd + 2);
+      frameEnd = buffer.indexOf("\n\n");
+
+      const dataLines = frame
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart());
+      if (dataLines.length === 0) continue;
+
+      let event: { type?: string; text?: string } & ChatResponseMeta;
+      try {
+        event = JSON.parse(dataLines.join("\n"));
+      } catch {
+        continue;
+      }
+
+      if (event.type === "delta") {
+        const text = String(event.text ?? "");
+        if (text) {
+          assembled += text;
+          callbacks.onDelta?.(text);
+        }
+      } else if (event.type === "meta") {
+        callbacks.onMeta?.(event);
+      } else if (event.type === "error") {
+        const msg = String(event.text ?? "stream error");
+        callbacks.onError?.(msg);
+      }
+      // 'done' is just a terminator; reader will return done shortly after.
+    }
+  }
+
+  return assembled;
+}
+
+export type ChatHistoryMessage = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  page: string | null;
+  created_at: string | null;
+};
+
+export type ChatHistoryResponse = {
+  messages: ChatHistoryMessage[];
+};
+
+export async function fetchChatHistory(
+  limit = 50
+): Promise<ChatHistoryResponse> {
+  const safe = Math.max(1, Math.min(500, Math.trunc(limit)));
+  return apiFetch<ChatHistoryResponse>(`/api/chat/history?limit=${safe}`);
+}
+
+export type FeedItemType =
+  | "transaction"
+  | "subscription"
+  | "upload"
+  | "project_log"
+  | "event"
+  | "observation";
+
+export type FeedItem = {
+  type: FeedItemType;
+  title: string;
+  subtitle: string | null;
+  amount: number | null;
+  currency: string | null;
+  icon: string | null;
+  created_at: string;
+};
+
+export type FeedResponse = {
+  items: FeedItem[];
+};
+
+export async function fetchFeed(limit = 30): Promise<FeedResponse> {
+  const safe = Math.max(1, Math.min(200, Math.trunc(limit)));
+  return apiFetch<FeedResponse>(`/api/feed?limit=${safe}`);
+}
 
 async function jsonRequest<T>(
   method: "POST" | "PUT" | "DELETE",
@@ -898,9 +1114,6 @@ export async function fetchObservations(): Promise<Observation[]> {
   if (!Array.isArray(rows)) return [];
   return rows.map((row) => normalizeObservation(row as Record<string, unknown>));
 }
-
-/** @deprecated use fetchObservations */
-export const getObservations = fetchObservations;
 
 export type ObservationGenerateResult = {
   generated: number;

@@ -16,3 +16,30 @@
   }
 }
 
+/* ---------- Streaming chat animations ---------- *
+ * Each SSE delta from /api/chat is rendered as its own <span> with the
+ * `air4-fade-chunk` class so it eases in instead of snapping. Animation
+ * honours `prefers-reduced-motion` to stay polite for accessibility. */
+
+@keyframes air4FadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.air4-fade-chunk {
+  display: inline;
+  white-space: pre-wrap;
+  animation: air4FadeIn 220ms ease-out both;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .air4-fade-chunk { animation: none; }
+}
+

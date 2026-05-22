@@ -105,13 +105,19 @@ def _format_profile(profile: dict[str, Any] | None) -> str:
 
 
 def _format_facts(facts: list[dict[str, Any]]) -> str:
-    if not facts:
-        return "Факты: пока нет."
-    lines = [
-        f"- {f.get('key', '')}: {f.get('value', '')}"
-        for f in facts
+    # Subscriptions live in the dedicated `subscriptions` table now; filter
+    # any fact whose subject overlaps with subscriptions so AIR4 never quotes
+    # stale or duplicated pricing alongside the authoritative table data.
+    from services.fact_extractor import is_subscription_related_key
+
+    visible = [
+        f for f in facts
         if str(f.get("key", "")).strip()
+        and not is_subscription_related_key(str(f.get("key", "")))
     ]
+    if not visible:
+        return "Факты: пока нет."
+    lines = [f"- {f.get('key', '')}: {f.get('value', '')}" for f in visible]
     return "Факты о пользователе:\n" + "\n".join(lines)
 
 
@@ -243,6 +249,59 @@ def _format_health_checkups(
     return "\n".join(lines)
 
 
+def get_subscriptions_context(db: Any) -> str:
+    """Active subscriptions and their monthly amounts.
+
+    Authoritative — read from the `subscriptions` table, never from
+    `user_facts`. Returns an empty string when there are no active rows
+    so the caller can skip the section entirely.
+    """
+    from database import fetch_all  # local import to avoid circular at module load
+
+    try:
+        rows = fetch_all(
+            db,
+            """
+            SELECT name, amount, currency, billing_day, category
+            FROM subscriptions
+            WHERE COALESCE(is_active, 1) = 1
+            ORDER BY
+                CASE WHEN amount IS NULL THEN 1 ELSE 0 END,
+                amount DESC,
+                name ASC
+            """,
+        )
+    except Exception:
+        return ""
+    if not rows:
+        return ""
+
+    lines: list[str] = []
+    total = 0.0
+    for row in rows:
+        name = str(row.get("name") or "?").strip() or "?"
+        amount = row.get("amount")
+        currency = str(row.get("currency") or "EUR").upper()
+        symbol = "€" if currency == "EUR" else f"{currency} "
+        if isinstance(amount, (int, float)) and amount > 0:
+            try:
+                total += float(amount)
+                amount_str = f"{symbol}{float(amount):.2f}/мес"
+            except (TypeError, ValueError):
+                amount_str = "цена неизвестна"
+        else:
+            amount_str = "цена неизвестна"
+        billing_day = row.get("billing_day")
+        suffix = f" (день {int(billing_day)})" if isinstance(billing_day, (int, float)) and billing_day else ""
+        lines.append(f"- {name}: {amount_str}{suffix}")
+
+    header = "ПОДПИСКИ (источник истины — таблица subscriptions):"
+    body = "\n".join(lines)
+    if total > 0:
+        body += f"\nИтого: €{total:.2f}/мес"
+    return f"{header}\n{body}"
+
+
 def get_health_checkups_context(db: Any) -> str:
     """Out-of-range markers from the last 2 checkup dates, max 10 per date."""
     from database import fetch_all  # local import to avoid circular at module load
@@ -300,7 +359,11 @@ def _format_by_category(by_category: dict[str, Any]) -> str:
     lines: list[str] = []
     sorted_items = sorted(
         by_category.items(),
-        key=lambda item: float(item[1].get("amount", 0) if isinstance(item[1], dict) else 0),
+        key=lambda item: float(
+            item[1].get("amount", 0)
+            if isinstance(item[1], dict)
+            else getattr(item[1], "amount", 0) or 0
+        ),
         reverse=True,
     )
     for category, data in sorted_items:
@@ -315,15 +378,11 @@ def _format_by_category(by_category: dict[str, Any]) -> str:
 
 
 def _format_finance_block(summary: Any) -> str:
-    period_start = getattr(summary, "period_start", None) or summary.get("period_start")
-    period_end = getattr(summary, "period_end", None) or summary.get("period_end")
-    total_spent = float(
-        getattr(summary, "total_spent", None) or summary.get("total_spent") or 0
-    )
-    total_income = float(
-        getattr(summary, "total_income", None) or summary.get("total_income") or 0
-    )
-    by_category = getattr(summary, "by_category", None) or summary.get("by_category") or {}
+    period_start = getattr(summary, "period_start", None)
+    period_end = getattr(summary, "period_end", None)
+    total_spent = float(getattr(summary, "total_spent", 0) or 0)
+    total_income = float(getattr(summary, "total_income", 0) or 0)
+    by_category = getattr(summary, "by_category", None) or {}
 
     if not period_start and not period_end and not by_category:
         return "ФИНАНСОВЫЕ ДАННЫЕ: нет загруженных выписок."
@@ -345,6 +404,7 @@ def build_system_context(
     events: list[dict[str, Any]],
     workouts_context: str = "",
     health_checkups_context: str = "",
+    subscriptions_context: str = "",
     current_page: str | None = None,
 ) -> str:
     parts = [
@@ -358,6 +418,9 @@ def build_system_context(
         "",
         _format_events(events).replace("Недавние события:", "СОБЫТИЯ:", 1),
     ]
+    subs_text = (subscriptions_context or "").strip()
+    if subs_text:
+        parts.extend(["", subs_text])
     workouts_text = (workouts_context or "").strip()
     if workouts_text:
         parts.extend(["", workouts_text])
@@ -368,33 +431,6 @@ def build_system_context(
     if page:
         parts.extend(["", f"Текущая страница UI: {page}"])
     return "\n".join(parts)
-
-
-def build_chat_system(
-    *,
-    profile: dict[str, Any] | None,
-    facts: list[dict[str, Any]],
-    events: list[dict[str, Any]],
-    workouts_context: str = "",
-    health_checkups_context: str = "",
-    current_page: str | None = None,
-) -> str:
-    """Legacy helper without finance block."""
-    return build_system_context(
-        summary={
-            "period_start": None,
-            "period_end": None,
-            "total_spent": 0,
-            "total_income": 0,
-            "by_category": {},
-        },
-        profile=profile,
-        facts=facts,
-        events=events,
-        workouts_context=workouts_context,
-        health_checkups_context=health_checkups_context,
-        current_page=current_page,
-    )
 
 
 def history_to_messages(history: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -408,3 +444,27 @@ def history_to_messages(history: list[dict[str, Any]]) -> list[dict[str, str]]:
             role = "user"
         messages.append({"role": role, "content": content})
     return messages
+
+
+def get_recent_chat_history(db: Any, limit: int = 10) -> list[dict[str, str]]:
+    """Load the most recent chat messages from the DB as LLM-ready dicts.
+
+    Returned in chronological order (oldest first) so the resulting list can
+    be appended directly to the LLM `messages` payload.
+    """
+    from services.chat_history import fetch_recent_chat_messages
+
+    out: list[dict[str, str]] = []
+    try:
+        rows = fetch_recent_chat_messages(db, limit=limit)
+    except Exception:
+        return out
+    for row in rows:
+        role = str(row.get("role") or "user").lower()
+        if role not in ("user", "assistant"):
+            role = "user"
+        content = str(row.get("content") or "").strip()
+        if not content:
+            continue
+        out.append({"role": role, "content": content})
+    return out

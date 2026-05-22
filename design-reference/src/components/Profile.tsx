@@ -17,7 +17,7 @@ function ProfileField({
     <div className="flex justify-between items-baseline gap-4 py-2 border-b border-gray-50 last:border-0">
       <span className="text-[11px] font-black text-gray-400 uppercase shrink-0">{label}</span>
       {empty ? (
-        <span className="text-[13px] font-medium text-indigo-500 text-right">Tell AIR4 in chat</span>
+        <span className="text-[13px] font-medium text-indigo-500 text-right">Расскажите AIR4 в чате</span>
       ) : (
         <span className="text-[14px] font-bold text-gray-900 text-right">{value}</span>
       )}
@@ -62,7 +62,7 @@ export function Profile() {
         if (!cancelled) setData(bundle);
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load profile");
+          setError(e instanceof Error ? e.message : "Не удалось загрузить профиль");
           setData(null);
         }
       } finally {
@@ -82,17 +82,17 @@ export function Profile() {
         </div>
         <div>
           <h1 className={t.pageTitle}>
-            Your Profile
+            Ваш профиль
           </h1>
           <p className={cn(t.pageSub, "mt-0.5")}>
-            Who you are and what AIR4 knows
+            Кто вы и что знает о вас AIR4
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
         <Sparkles size={14} className="text-indigo-600" />
-        <span className="text-xs font-bold text-indigo-700">Identity</span>
+        <span className="text-xs font-bold text-indigo-700">Личность</span>
       </div>
     </div>
   );
@@ -101,7 +101,7 @@ export function Profile() {
     return (
       <div className="flex flex-col gap-8 pb-10">
         {header}
-        <p className="text-[14px] text-[#9ca3af]">Loading…</p>
+        <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
       </div>
     );
   }
@@ -110,7 +110,7 @@ export function Profile() {
     return (
       <div className="flex flex-col gap-8 pb-10">
         {header}
-        <p className="text-[14px] text-red-500">{error ?? "Could not load profile"}</p>
+        <p className="text-[14px] text-red-500">{error ?? "Не удалось загрузить профиль"}</p>
       </div>
     );
   }
@@ -125,18 +125,18 @@ export function Profile() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-          <ProfileField label="Name" value={profile.name} />
-          <ProfileField label="City" value={profile.city} />
-          <ProfileField label="Profession" value={profile.profession} />
+          <ProfileField label="Имя" value={profile.name} />
+          <ProfileField label="Город" value={profile.city} />
+          <ProfileField label="Профессия" value={profile.profession} />
           {showIncome && (
             <ProfileField
-              label="Income"
+              label="Доход"
               value={formatEuro(profile.monthly_income!)}
             />
           )}
           {profile.goals.length > 0 && (
             <div className="pt-4 mt-2 border-t border-gray-50">
-              <p className="text-[11px] font-black text-gray-400 uppercase mb-2">Goals</p>
+              <p className="text-[11px] font-black text-gray-400 uppercase mb-2">Цели</p>
               <ul className="space-y-1">
                 {profile.goals.map((g) => (
                   <li key={g} className="text-[14px] font-medium text-gray-800">
@@ -153,28 +153,28 @@ export function Profile() {
 
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
           <h2 className={cn(t.cardLabel, "mb-6")}>
-            Stats
+            Статистика
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Transactions</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Транзакции</p>
               <p className="font-mono text-2xl font-black text-gray-900">
                 {stats.total_transactions}
               </p>
-              <p className="text-[11px] text-gray-400 mt-1">loaded</p>
+              <p className="text-[11px] text-gray-400 mt-1">загружено</p>
             </div>
             <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Events</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">События</p>
               <p className="font-mono text-2xl font-black text-gray-900">{stats.total_events}</p>
-              <p className="text-[11px] text-gray-400 mt-1">recorded</p>
+              <p className="text-[11px] text-gray-400 mt-1">записано</p>
             </div>
             <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Facts</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Факты</p>
               <p className="font-mono text-2xl font-black text-gray-900">{stats.facts_count}</p>
-              <p className="text-[11px] text-gray-400 mt-1">known</p>
+              <p className="text-[11px] text-gray-400 mt-1">известно</p>
             </div>
             <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Member since</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">С нами с</p>
               <p className="font-mono text-lg font-black text-gray-900">
                 {stats.member_since ?? "—"}
               </p>
@@ -185,11 +185,11 @@ export function Profile() {
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
         <h2 className={cn(t.cardLabel, "mb-6")}>
-          What AIR4 knows about you
+          Что AIR4 знает о вас
         </h2>
         {facts.length === 0 ? (
           <p className="text-[14px] text-[#9ca3af] text-center py-8">
-            Keep chatting, AIR4 will learn.
+            Продолжайте общаться — AIR4 запомнит.
           </p>
         ) : (
           <div className="space-y-4">

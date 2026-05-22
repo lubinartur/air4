@@ -11,43 +11,123 @@ from services.llm_client_shared import DEFAULT_MODEL, call_claude
 
 logger = logging.getLogger("fact_extractor")
 
-_SUBSCRIPTION_TERMS = (
-    "subscription",
-    "подписк",
-    "abonn",
+# ---------------------------------------------------------------------------
+# Recurring detection — strict matching by KEY only
+# ---------------------------------------------------------------------------
+# A fact is mirrored to `obligations` or `subscriptions` ONLY when:
+#   1. Its key explicitly identifies a recurring financial item
+#      (loan, mortgage, rent_payment, known subscription service, etc.).
+#   2. A positive € amount can be parsed from the fact value.
+#   3. The key does not match any exclusion pattern (work, project, strategy,
+#      management, balance, limit, income, ownership, etc.).
+#
+# We never match on the value text — values often contain stray words like
+# "по кредитам" inside unrelated work descriptions, which used to leak
+# employment / project facts into the obligations table.
+
+_OBLIGATION_KEY_INCLUDE = re.compile(
+    r"("
+    r"(^|_)(home|auto|car|motorcycle|apartment|student|consumer)?_?loan(s)?($|_)"
+    r"|(^|_)mortgage($|_)"
+    r"|^pays_rent"
+    r"|^rent_payment(s)?$"
+    r"|^rents_(partners|alisa|spouse|wife|husband|family)_"
+    r"|^financial_obligation(s)?$"
+    r"|^monthly_obligation(s)?$"
+    r")",
+    re.IGNORECASE,
+)
+
+_OBLIGATION_KEY_EXCLUDE = re.compile(
+    r"("
+    r"strategy|management|approach|style|preference|schedule"
+    r"|limit|balance|interest_free|usage"
+    r"|work|employment|office|job|project|freelance"
+    r"|rents_out|rental_income|owns_|rents_apartment_for_income"
+    r"|saving|investment"
+    r")",
+    re.IGNORECASE,
+)
+
+# Known recurring services. We require the service name to be an explicit
+# token in the key — substring matches against the value text are not enough.
+_KNOWN_SUBSCRIPTION_SERVICES = (
     "netflix",
     "spotify",
-    "apple music",
-    "youtube premium",
+    "apple_music",
+    "youtube_premium",
+    "youtube_music",
     "icloud",
+    "google_drive",
+    "google_one",
     "dropbox",
-    "amazon prime",
-    "хостинг",
-    "vpn",
-    "github",
+    "amazon_prime",
+    "duolingo",
     "chatgpt",
     "claude",
     "midjourney",
+    "github_pro",
+    "github_copilot",
     "figma",
     "notion",
     "linear",
+    "vpn",
+    "gym_membership",
+    "adobe",
+    "setapp",
 )
 
-_OBLIGATION_TERMS = (
-    "loan",
-    "credit",
-    "credit_card",
-    "кредит",
-    "ипотек",
-    "mortgage",
-    "rent",
-    "аренд",
-    "лизинг",
-    "leasing",
-    "займ",
-    "obligation",
-    "долг",
+_SUBSCRIPTION_KEY_INCLUDE = re.compile(
+    r"("
+    r"(^|_)subscription(s)?($|_)"
+    r"|(^|_)(" + "|".join(_KNOWN_SUBSCRIPTION_SERVICES) + r")($|_)"
+    r")",
+    re.IGNORECASE,
 )
+
+_SUBSCRIPTION_KEY_EXCLUDE = re.compile(
+    r"("
+    r"strategy|management|approach|style|preference"
+    r"|work|employment|project"
+    r"|multiple_subscriptions|other_subscriptions|has_subscriptions"
+    r")",
+    re.IGNORECASE,
+)
+
+_MONTHLY_CADENCE = re.compile(
+    r"("
+    r"в\s*месяц|/\s*мес|ежемесячно|"
+    r"monthly|per\s*month|/\s*mo\b|per\s*mo\b|"
+    r"every\s*month"
+    r")",
+    re.IGNORECASE,
+)
+
+# Words that signal money flowing IN (rental income, salary, receipts).
+# If a value contains any of these we refuse to treat it as an obligation.
+_INBOUND_MONEY = re.compile(
+    r"("
+    r"сдаёт|сдает|сдавать|сдают|"
+    r"получает|получаю|получаем|"
+    r"зарабатывает|зарабатываю|"
+    r"доход|прибыл|выручк|"
+    r"rents?\s*out|earns?|earning|"
+    r"income|salary|receives?"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _has_monthly_cadence(text: str | None) -> bool:
+    if not text:
+        return False
+    return bool(_MONTHLY_CADENCE.search(text))
+
+
+def _looks_like_inbound_money(text: str | None) -> bool:
+    if not text:
+        return False
+    return bool(_INBOUND_MONEY.search(text))
 
 
 def _normalize_key(raw: str) -> str | None:
@@ -176,52 +256,177 @@ def _normalize_fact(raw: dict[str, Any]) -> dict[str, Any] | None:
     return {"key": key, "value": value, "confidence": confidence}
 
 
-def _matches_any(haystack: str, terms: tuple[str, ...]) -> bool:
-    lower = haystack.lower()
-    return any(term in lower for term in terms)
+def is_subscription_key(key: str) -> bool:
+    """Public predicate: does a user_facts key describe a subscription
+    that should live in the `subscriptions` table?
+    """
+    if not key:
+        return False
+    if _SUBSCRIPTION_KEY_EXCLUDE.search(key):
+        return False
+    return bool(_SUBSCRIPTION_KEY_INCLUDE.search(key))
+
+
+# Broader pattern used by the prompt-builder to scrub *any* subscription-
+# related fact (including aggregate keys like `has_subscriptions` and
+# `uses_ai_tools`) so the LLM only ever sees subscription data from the
+# authoritative `subscriptions` table.
+_SUBSCRIPTION_RELATED_KEY_RE = re.compile(
+    r"("
+    r"subscription(s)?|"
+    r"(^|_)ai_tools($|_)|"
+    r"(^|_)streaming($|_)|"
+    r"(^|_)(" + "|".join(_KNOWN_SUBSCRIPTION_SERVICES) + r")($|_)"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_subscription_related_key(key: str) -> bool:
+    """True for any fact key whose subject overlaps with the subscriptions
+    table — direct service keys, aggregate buckets, or "ai_tools"-style
+    multi-service lists. Strategy/management/preference keys are kept
+    because they carry behavioural context, not pricing.
+    """
+    if not key:
+        return False
+    if re.search(
+        r"strategy|management|approach|style|preference",
+        key,
+        re.IGNORECASE,
+    ):
+        return False
+    return bool(_SUBSCRIPTION_RELATED_KEY_RE.search(key))
+
+
+def is_obligation_key(key: str) -> bool:
+    """Public predicate: does a user_facts key describe a recurring
+    obligation that should live in the `obligations` table?
+    """
+    if not key:
+        return False
+    if _OBLIGATION_KEY_EXCLUDE.search(key):
+        return False
+    return bool(_OBLIGATION_KEY_INCLUDE.search(key))
 
 
 def _fact_looks_like_subscription(fact: dict[str, Any]) -> bool:
-    key = str(fact.get("key") or "")
-    value = str(fact.get("value") or "")
-    return _matches_any(key, _SUBSCRIPTION_TERMS) or _matches_any(
-        value, _SUBSCRIPTION_TERMS
-    )
+    return is_subscription_key(str(fact.get("key") or ""))
 
 
 def _fact_looks_like_obligation(fact: dict[str, Any]) -> bool:
-    key = str(fact.get("key") or "")
-    value = str(fact.get("value") or "")
-    return _matches_any(key, _OBLIGATION_TERMS) or _matches_any(
-        value, _OBLIGATION_TERMS
-    )
+    return is_obligation_key(str(fact.get("key") or ""))
 
 
-def _derive_recurring_name(fact: dict[str, Any]) -> str:
-    """Pick a readable display name from a fact (Netflix, Mortgage, etc.)."""
-    raw_value = str(fact.get("value") or "").strip()
-    if raw_value:
-        first_clause = re.split(r"[.\-—:,;\n]", raw_value, maxsplit=1)[0].strip()
-        if first_clause:
-            return first_clause[:80]
+def _matched_known_service(key: str) -> str | None:
+    """Return the known-service token present in `key`, if any."""
+    lower = (key or "").lower()
+    for svc in _KNOWN_SUBSCRIPTION_SERVICES:
+        if re.search(rf"(^|_){re.escape(svc)}($|_)", lower):
+            return svc
+    return None
+
+
+# Canonical brand display names — `key_to_display_name` capitalises naively
+# (e.g. "chatgpt" → "Chatgpt"), so we override common cases.
+_BRAND_DISPLAY: dict[str, str] = {
+    "netflix": "Netflix",
+    "spotify": "Spotify",
+    "apple_music": "Apple Music",
+    "youtube_premium": "YouTube Premium",
+    "youtube_music": "YouTube Music",
+    "icloud": "iCloud",
+    "google_drive": "Google Drive",
+    "google_one": "Google One",
+    "dropbox": "Dropbox",
+    "amazon_prime": "Amazon Prime",
+    "duolingo": "Duolingo",
+    "chatgpt": "ChatGPT",
+    "claude": "Claude",
+    "midjourney": "Midjourney",
+    "github_pro": "GitHub Pro",
+    "github_copilot": "GitHub Copilot",
+    "figma": "Figma",
+    "notion": "Notion",
+    "linear": "Linear",
+    "vpn": "VPN",
+    "gym_membership": "Gym Membership",
+    "adobe": "Adobe",
+    "setapp": "Setapp",
+}
+
+
+def canonical_subscription_name(key: str) -> str:
+    """Collapse fact-key variants down to a single stable subscription name.
+
+    Examples:
+      has_spotify_family            → "Spotify"
+      uses_spotify                  → "Spotify"
+      spotify_family_subscription   → "Spotify"
+      google_one                    → "Google One"
+      chatgpt_plus                  → "ChatGPT"
+      streaming_subscription        → "Streaming"  (generic fallback)
+
+    Keys that don't contain a known service fall through to a cleaned-up
+    display version of the key itself.
+    """
+    known = _matched_known_service(key)
+    if known:
+        return _BRAND_DISPLAY.get(known, key_to_display_name(known) or "Unnamed")
+    cleaned = key or ""
+    lower_prefixes = ("has_", "uses_", "owns_", "pays_")
+    lc = cleaned.lower()
+    for prefix in lower_prefixes:
+        if lc.startswith(prefix):
+            cleaned = cleaned[len(prefix):]
+            break
+    if cleaned.lower().endswith("_subscription"):
+        cleaned = cleaned[: -len("_subscription")]
+    return key_to_display_name(cleaned) or "Unnamed"
+
+
+def _recurring_name_from_key(fact: dict[str, Any]) -> str:
+    """Use the fact key (formatted) as the recurring item name.
+
+    We deliberately ignore the value text — it often contains unrelated
+    narrative that would produce noisy names like 'Работает над проектом X'.
+    """
     key = str(fact.get("key") or "")
-    return key_to_display_name(key) or "Unnamed"
+    cleaned = key
+    for prefix in ("has_", "uses_", "owns_", "pays_"):
+        if cleaned.lower().startswith(prefix):
+            cleaned = cleaned[len(prefix) :]
+            break
+    return key_to_display_name(cleaned) or "Unnamed"
 
 
 def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
-    name = _derive_recurring_name(fact)
-    amount = parse_amount_from_text(fact.get("value"))
+    key = str(fact.get("key") or "")
+    value = str(fact.get("value") or "")
+    has_known_service = _matched_known_service(key) is not None
+    # Generic "subscription"-suffixed keys still require an explicit monthly
+    # cadence to avoid grabbing one-off mentions. Keys that name a specific
+    # service (netflix, chatgpt, spotify, etc.) are inherently recurring.
+    if not has_known_service and not _has_monthly_cadence(value):
+        return
+    amount = parse_amount_from_text(value)
+    if amount is None or amount <= 0:
+        return
+    name = canonical_subscription_name(key)
     existing = fetch_one(
         db,
-        "SELECT id FROM subscriptions WHERE LOWER(name) = LOWER(?)",
+        "SELECT id, source, amount FROM subscriptions WHERE LOWER(name) = LOWER(?)",
         (name,),
     )
     if existing is not None:
+        # Never overwrite a manually-entered row from chat extraction.
+        if str(existing.get("source") or "").lower() == "manual":
+            return
         execute(
             db,
             """
             UPDATE subscriptions
-               SET amount = COALESCE(?, amount),
+               SET amount = ?,
                    is_active = 1,
                    source = 'chat',
                    updated_at = datetime('now')
@@ -244,19 +449,33 @@ def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
 
 
 def _upsert_obligation_from_fact(db: Any, fact: dict[str, Any]) -> None:
-    name = _derive_recurring_name(fact)
-    amount = parse_amount_from_text(fact.get("value"))
+    value = str(fact.get("value") or "")
+    if not _has_monthly_cadence(value):
+        # Loan facts usually describe principal/balance, not the monthly
+        # payment — without an explicit monthly cadence the parsed € amount
+        # would be misleading. Let the user enter loan details manually.
+        return
+    if _looks_like_inbound_money(value):
+        # Value describes income (rental income, salary) rather than an
+        # outbound monthly payment.
+        return
+    amount = parse_amount_from_text(value)
+    if amount is None or amount <= 0:
+        return
+    name = _recurring_name_from_key(fact)
     existing = fetch_one(
         db,
-        "SELECT id FROM obligations WHERE LOWER(name) = LOWER(?)",
+        "SELECT id, source FROM obligations WHERE LOWER(name) = LOWER(?)",
         (name,),
     )
     if existing is not None:
+        if str(existing.get("source") or "").lower() == "manual":
+            return
         execute(
             db,
             """
             UPDATE obligations
-               SET monthly_payment = COALESCE(?, monthly_payment),
+               SET monthly_payment = ?,
                    is_active = 1,
                    source = 'chat',
                    updated_at = datetime('now')
@@ -280,7 +499,13 @@ def _upsert_obligation_from_fact(db: Any, fact: dict[str, Any]) -> None:
 
 def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> None:
     """If a fact describes a subscription or loan, mirror it into the
-    dedicated table so finance UI can show structured rows."""
+    dedicated table so finance UI can show structured rows.
+
+    Only triggers when the fact key matches a strict allow-list pattern
+    and a positive € amount is parseable from the value. Work facts,
+    project facts, credit-card usage strategies, account balances and
+    interest-free periods are never mirrored.
+    """
     try:
         if _fact_looks_like_subscription(fact):
             _upsert_subscription_from_fact(db, fact)

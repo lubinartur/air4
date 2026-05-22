@@ -19,17 +19,17 @@ type GoalTemplate = {
 
 // Hardcoded visual templates until the API exposes per-goal progress.
 const GOAL_TEMPLATES: GoalTemplate[] = [
-  { progress: 60, color: "bg-indigo-600", label: "ON TRACK", status: "indigo" },
-  { progress: 30, color: "bg-amber-500", label: "BEHIND", status: "amber", alert: true },
-  { progress: 40, color: "bg-red-500", label: "NEEDS ATTENTION", status: "red" },
-  { progress: 17, color: "bg-gray-400", label: "NOT STARTED", status: "gray" },
+  { progress: 60, color: "bg-indigo-600", label: "НА ПУТИ", status: "indigo" },
+  { progress: 30, color: "bg-amber-500", label: "ОТСТАЁТ", status: "amber", alert: true },
+  { progress: 40, color: "bg-red-500", label: "ТРЕБУЕТ ВНИМАНИЯ", status: "red" },
+  { progress: 17, color: "bg-gray-400", label: "НЕ НАЧАТО", status: "gray" },
 ];
 
 function goalInfo(goal: GoalItem): string {
   if (goal.source === "facts" && goal.key) {
-    return `from ${goal.key.replace(/_/g, " ")}`;
+    return `из ${goal.key.replace(/_/g, " ")}`;
   }
-  return goal.source === "profile" ? "from profile" : `source: ${goal.source}`;
+  return goal.source === "profile" ? "из профиля" : `источник: ${goal.source}`;
 }
 
 export function Goals({ goals }: Props) {
@@ -65,10 +65,10 @@ export function Goals({ goals }: Props) {
           </div>
           <div>
             <h1 className={ty.pageTitle}>
-              Life Goals & Targets
+              Жизненные цели
             </h1>
             <p className={cn(ty.pageSub, "mt-0.5")}>
-              Personal objectives and progress tracking
+              Личные ориентиры и трекинг прогресса
             </p>
           </div>
         </div>
@@ -76,7 +76,7 @@ export function Goals({ goals }: Props) {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 bg-green-50/50 border border-green-100 px-3.5 py-1.5 rounded-xl">
             <Sparkles size={14} className="text-green-600" />
-            <span className="text-xs font-bold text-green-700">Life Advisor</span>
+            <span className="text-xs font-bold text-green-700">Жизненный советник</span>
           </div>
 
           <button
@@ -85,7 +85,7 @@ export function Goals({ goals }: Props) {
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold text-[12px] shadow-md shadow-indigo-500/20 transition-all uppercase tracking-wider"
           >
             <Plus size={14} />
-            Add goal
+            Добавить цель
           </button>
         </div>
       </div>
@@ -96,7 +96,7 @@ export function Goals({ goals }: Props) {
           animate={{ opacity: 1, y: 0 }}
           className="text-[12px] text-indigo-600 font-medium bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-xl -mt-4"
         >
-          Tell AIR4 about your goal in chat — it will show up here.
+          Расскажите AIR4 о цели в чате — она появится здесь.
         </motion.p>
       )}
 
@@ -110,10 +110,10 @@ export function Goals({ goals }: Props) {
                 <Target size={22} />
               </div>
               <p className="text-[14px] font-bold text-gray-700">
-                No goals tracked yet
+                Целей пока нет
               </p>
               <p className="text-[12px] text-gray-400 mt-1">
-                Tell AIR4 about your goals in chat — they will appear here.
+                Расскажите AIR4 о своих целях в чате — они появятся здесь.
               </p>
             </div>
           ) : (
@@ -142,7 +142,7 @@ export function Goals({ goals }: Props) {
                       </h3>
                       {g.alert && (
                         <span className="bg-red-50 text-red-500 text-[10px] font-bold px-1.5 py-0.5 rounded tracking-tighter shrink-0">
-                          BEHIND
+                          ОТСТАЁТ
                         </span>
                       )}
                     </div>
@@ -179,14 +179,14 @@ export function Goals({ goals }: Props) {
           {/* Wishlist */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
             <h2 className={cn(ty.cardLabel, "mb-6")}>
-              Wishlist
+              Список желаний
             </h2>
             <div className="bg-gray-50/50 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
               <p className="text-[13px] font-medium text-gray-500">
-                Your wishlist is empty.
+                Список желаний пуст.
               </p>
               <p className="text-[12px] text-gray-400 mt-1">
-                Tell AIR4 about your wishes in chat.
+                Расскажите AIR4 о своих желаниях в чате.
               </p>
             </div>
           </div>
@@ -201,10 +201,10 @@ export function Goals({ goals }: Props) {
                 <Bell size={16} />
               </div>
               <p className="text-[15px] leading-relaxed font-medium">
-                “Behind on 50% of goals.{" "}
-                <span className="text-amber-400 font-bold">Books goal</span> is a
-                failure at this pace. 1 book/3 weeks or admit it was a vanity
-                goal.”
+                «Отстаёте по 50% целей.{" "}
+                <span className="text-amber-400 font-bold">Цель по книгам</span>{" "}
+                в текущем темпе — провал. 1 книга в 3 недели или признайте,
+                что это была цель для галочки.»
               </p>
             </div>
           </div>
@@ -212,14 +212,14 @@ export function Goals({ goals }: Props) {
           {/* Deadlines (hardcoded) */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
             <h2 className={cn(ty.cardLabel, "mb-6")}>
-              Deadlines
+              Дедлайны
             </h2>
             <div className="relative pl-6 space-y-8 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:bg-gray-100">
               {[
-                { date: "Dec 2024", name: "10 books", color: "bg-amber-500" },
-                { date: "Mar 2025", name: "Launch AIR4", color: "bg-indigo-600" },
-                { date: "Jun 2025", name: "Japan trip", color: "bg-gray-400" },
-                { date: "No date", name: "Body fat goal", color: "bg-red-500" },
+                { date: "Дек 2024", name: "10 книг", color: "bg-amber-500" },
+                { date: "Мар 2025", name: "Запуск AIR4", color: "bg-indigo-600" },
+                { date: "Июн 2025", name: "Поездка в Японию", color: "bg-gray-400" },
+                { date: "Без даты", name: "Цель по % жира", color: "bg-red-500" },
               ].map((t, i) => (
                 <div key={i} className="relative">
                   <div
@@ -240,17 +240,17 @@ export function Goals({ goals }: Props) {
           {/* Weekly Focus (hardcoded) */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
             <h2 className={cn(ty.cardLabel, "mb-6")}>
-              Weekly Focus
+              Фокус недели
             </h2>
             <p className="text-[14px] leading-relaxed text-gray-600 mb-6 font-medium">
-              “No excuses:{" "}
+              «Без отговорок:{" "}
               <span className="text-indigo-600 font-bold">AIR4 milestone #4</span>{" "}
-              and 2 chapters. Nothing else matters.”
+              и 2 главы. Больше ничего не важно.»
             </p>
             <ul className="space-y-4">
               {[
-                { text: "AIR4 Milestone #4" },
-                { text: "Read 2 chapters" },
+                { text: "AIR4 milestone #4" },
+                { text: "Прочитать 2 главы" },
               ].map((item, i) => (
                 <li
                   key={i}

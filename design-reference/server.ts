@@ -64,9 +64,7 @@ function registerApiRoutes(): void {
 
   app.get("/api/summary", async (req, res) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/summary`);
-      const data = await response.json();
-      res.status(response.status).json(data);
+      await proxyJson(res, backendUrl("/api/summary", req.query));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Proxy failed";
       res.status(500).json({ error: message });
@@ -98,36 +96,90 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.get("/api/chat/history", async (req, res) => {
+    try {
+      await proxyJson(res, backendUrl("/api/chat/history", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/feed", async (req, res) => {
+    try {
+      await proxyJson(res, backendUrl("/api/feed", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.post("/api/chat", async (req, res) => {
-    const { message, chatHistory, history, currentPage, current_page } =
-      req.body ?? {};
+    // The frontend already sends the backend's wire shape (`message`,
+    // `history`, `current_page`), so the proxy just forwards verbatim
+    // and only branches on the SSE/JSON content negotiation.
+    const wantsStream = String(req.headers.accept ?? "").includes(
+      "text/event-stream"
+    );
 
     try {
-      const response = await fetch(`${BACKEND_URL}/api/chat`, {
+      const upstream = await fetch(`${BACKEND_URL}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
+          Accept: wantsStream ? "text/event-stream" : "application/json",
         },
-        body: JSON.stringify({
-          message,
-          history: history ?? chatHistory ?? [],
-          current_page: current_page ?? currentPage ?? null,
-        }),
+        body: JSON.stringify(req.body ?? {}),
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        return res.status(response.status).json(data);
+      if (!upstream.ok) {
+        const errText = await upstream.text();
+        try {
+          return res.status(upstream.status).json(JSON.parse(errText));
+        } catch {
+          return res.status(upstream.status).send(errText);
+        }
       }
 
+      // SSE pass-through. Express buffers responses by default; explicit
+      // headers + `flushHeaders` ensure each backend chunk reaches the
+      // browser as it lands. `X-Accel-Buffering: no` is defensive against
+      // any upstream proxy that might coalesce chunks.
+      if (wantsStream && upstream.body) {
+        res.status(200);
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache, no-transform");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+        res.flushHeaders?.();
+
+        const reader = (upstream.body as ReadableStream<Uint8Array>).getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value && value.byteLength > 0) {
+              res.write(Buffer.from(value));
+            }
+          }
+        } finally {
+          res.end();
+        }
+        return;
+      }
+
+      const data = (await upstream.json()) as Record<string, unknown>;
       res.json({
         ...data,
         content: data.response ?? data.content ?? "",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Proxy failed";
-      res.status(500).json({ error: message });
+      if (!res.headersSent) {
+        res.status(500).json({ error: message });
+      } else {
+        res.end();
+      }
     }
   });
 
@@ -476,6 +528,15 @@ function registerApiRoutes(): void {
   app.get("/api/finance/monthly-fixed", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/finance/monthly-fixed", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/finance/cycles", async (req, res) => {
+    try {
+      await proxyJson(res, backendUrl("/api/finance/cycles", req.query));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Proxy failed";
       res.status(500).json({ error: message });

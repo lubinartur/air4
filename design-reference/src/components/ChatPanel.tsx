@@ -4,8 +4,11 @@ import { Message, Page } from "../types";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
 import {
+  fetchChatHistory,
   fetchInterviewQuestion,
+  streamChat,
   submitInterviewAnswer,
+  type ChatResponseMeta,
   type Observation,
 } from "../lib/api";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
@@ -15,7 +18,7 @@ interface ChatPanelProps {
   observation?: Observation | null;
   observationsRefreshing?: boolean;
   onRefreshObservations?: () => void;
-  onMessageSent?: () => void;
+  onMessageSent?: (meta?: ChatResponseMeta) => void;
   pendingMessage?: string | null;
   onPendingMessageConsumed?: () => void;
   onExpand?: () => void;
@@ -40,6 +43,31 @@ export function ChatPanel({
   useEffect(() => {
     saveChatHistory(messages);
   }, [messages]);
+
+  /** Hydrate the chat thread from the backend chat_messages table. Falls back
+   *  to whatever loadChatHistory() already returned from sessionStorage if
+   *  the request fails or the server has no rows yet. */
+  useEffect(() => {
+    let cancelled = false;
+    void fetchChatHistory(50)
+      .then((res) => {
+        if (cancelled) return;
+        const remote: Message[] = res.messages
+          .filter(
+            (m) =>
+              (m.role === "user" || m.role === "assistant") &&
+              m.content.trim() !== ""
+          )
+          .map((m) => ({ role: m.role, content: m.content }));
+        if (remote.length > 0) setMessages(remote);
+      })
+      .catch(() => {
+        /* keep localStorage fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -106,31 +134,101 @@ export function ChatPanel({
       }
     }
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          chatHistory: messages,
-          currentPage,
-        }),
+    // Pre-allocate an empty assistant bubble (in streaming mode) so deltas
+    // can append into it in place. `historyBeforeAssistant` is the
+    // LLM-visible context (no placeholder), captured before the empty
+    // bubble is pushed.
+    const historyBeforeAssistant = messages;
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: "", chunks: [], isStreaming: true },
+    ]);
+
+    let receivedAny = false;
+    let meta: ChatResponseMeta | undefined;
+
+    const finalizeLast = (transform: (last: Message) => Message) =>
+      setMessages((prev) => {
+        if (prev.length === 0) return prev;
+        const last = prev[prev.length - 1];
+        if (last.role !== "assistant") return prev;
+        const next = prev.slice(0, -1);
+        next.push(transform(last));
+        return next;
       });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+    try {
+      await streamChat(
+        {
+          message: text,
+          history: historyBeforeAssistant,
+          current_page: currentPage,
+        },
+        {
+          onDelta: (delta) => {
+            receivedAny = true;
+            // Append the delta as its own chunk so the renderer can
+            // wrap it in an animated span. `content` is kept in sync
+            // for persistence + the post-stream markdown render.
+            setMessages((prev) => {
+              if (prev.length === 0) return prev;
+              const last = prev[prev.length - 1];
+              if (last.role !== "assistant") return prev;
+              const next = prev.slice(0, -1);
+              next.push({
+                ...last,
+                content: last.content + delta,
+                chunks: [...(last.chunks ?? []), delta],
+                isStreaming: true,
+              });
+              return next;
+            });
+          },
+          onMeta: (incoming) => {
+            meta = incoming;
+          },
+          onError: (msg) => {
+            console.error("Chat stream error:", msg);
+          },
+        }
+      );
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.content ?? data.response ?? "" },
-      ]);
-      onMessageSent?.();
+      if (!receivedAny) {
+        finalizeLast((last) =>
+          last.content
+            ? { ...last, isStreaming: false, chunks: undefined }
+            : {
+                ...last,
+                content: "(пустой ответ)",
+                isStreaming: false,
+                chunks: undefined,
+              }
+        );
+      } else {
+        // Clear streaming state so the bubble switches from per-chunk
+        // animated spans to its final ReactMarkdown render.
+        finalizeLast((last) => ({
+          ...last,
+          isStreaming: false,
+          chunks: undefined,
+        }));
+      }
+
+      onMessageSent?.({ recurring_updated: meta?.recurring_updated });
     } catch (error) {
       console.error("Chat Error:", error);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "AIR4 offline. Connection failed." },
-      ]);
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        const failureBubble: Message = {
+          role: "assistant",
+          content: "AIR4 не в сети. Соединение не установлено.",
+          isStreaming: false,
+        };
+        if (!last || last.role !== "assistant" || last.content) {
+          return [...prev, failureBubble];
+        }
+        return [...prev.slice(0, -1), failureBubble];
+      });
     } finally {
       setIsLoading(false);
     }
@@ -154,9 +252,21 @@ export function ChatPanel({
             : "bg-white border-l-[4px] border-l-indigo-600 text-[#111827]"
         )}
       >
-        <div className="prose prose-sm prose-slate break-words">
-          <ReactMarkdown>{msg.content}</ReactMarkdown>
-        </div>
+        {msg.role === "assistant" && msg.isStreaming && msg.chunks ? (
+          // Streaming render: each SSE delta is its own <span> so the
+          // CSS fade-in keyframe runs once per chunk as it lands.
+          <div className="break-words whitespace-pre-wrap">
+            {msg.chunks.map((chunk, i) => (
+              <span key={i} className="air4-fade-chunk">
+                {chunk}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="prose prose-sm prose-slate break-words">
+            <ReactMarkdown>{msg.content}</ReactMarkdown>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -170,7 +280,7 @@ export function ChatPanel({
             <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-20" />
           </div>
           <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#9ca3af] truncate">
-            AIR4 Advisor
+            AIR4 Советник
           </span>
         </div>
         <div className="shrink-0 flex items-center gap-3">
@@ -186,7 +296,7 @@ export function ChatPanel({
                 size={12}
                 className={cn(observationsRefreshing && "animate-spin")}
               />
-              Refresh
+              Обновить
             </button>
           )}
           {onExpand && (
@@ -234,7 +344,7 @@ export function ChatPanel({
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSend();
             }}
-            placeholder="Talk to AIR4..."
+            placeholder="Поговорите с AIR4..."
             className="w-full bg-white border border-gray-100 rounded-[24px] py-3 px-5 pr-12 text-sm focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 transition-all shadow-sm"
           />
           <button
@@ -247,7 +357,7 @@ export function ChatPanel({
           </button>
         </div>
         <p className="text-[10px] text-center text-[#9ca3af] mt-4 uppercase tracking-[0.1em] font-bold">
-          Speak truth. Help decide.
+          Говори правду. Помогай решать.
         </p>
       </div>
     </aside>

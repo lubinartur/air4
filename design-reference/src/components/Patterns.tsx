@@ -11,12 +11,12 @@ type Props = {
 function statusBadge(status: string): { label: string; className: string } {
   const s = status.toLowerCase();
   if (s === "confirmed") {
-    return { label: "CONFIRMED", className: "bg-green-50 text-green-600" };
+    return { label: "ПОДТВЕРЖДЕНО", className: "bg-green-50 text-green-600" };
   }
   if (s === "rejected") {
-    return { label: "REJECTED", className: "bg-red-50 text-red-600" };
+    return { label: "ОТКЛОНЕНО", className: "bg-red-50 text-red-600" };
   }
-  return { label: "PENDING", className: "bg-gray-100 text-gray-500" };
+  return { label: "ОЖИДАЕТ", className: "bg-gray-100 text-gray-500" };
 }
 
 function ConfidenceIndicator({ confidence }: { confidence: number }) {
@@ -24,7 +24,7 @@ function ConfidenceIndicator({ confidence }: { confidence: number }) {
   const filled = Math.max(0, Math.min(5, Math.round(confidence * 5)));
 
   return (
-    <div className="flex items-center gap-2" title={`${pct}% confidence`}>
+    <div className="flex items-center gap-2" title={`${pct}% уверенности`}>
       <div className="flex gap-0.5">
         {Array.from({ length: 5 }, (_, i) => (
           <span
@@ -54,17 +54,17 @@ export function Patterns({ hypotheses }: Props) {
         </div>
         <div>
           <h1 className={t.pageTitle}>
-            Behavioral Patterns
+            Поведенческие паттерны
           </h1>
           <p className={cn(t.pageSub, "mt-0.5")}>
-            Detected habits and confirmed hypotheses
+            Обнаруженные привычки и подтверждённые гипотезы
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
         <Sparkles size={14} className="text-indigo-600" />
-        <span className="text-xs font-bold text-indigo-700">Pattern Recognition</span>
+        <span className="text-xs font-bold text-indigo-700">Распознавание паттернов</span>
       </div>
     </div>
   );
@@ -75,11 +75,11 @@ export function Patterns({ hypotheses }: Props) {
         {header}
         <PageEmptyState
           icon={Brain}
-          title="No patterns yet"
-          subtext="AIR4 learns from your activity over time."
+          title="Паттернов пока нет"
+          subtext="AIR4 учится на вашей активности со временем."
         />
         <p className="text-[13px] text-center text-[#9ca3af] font-medium">
-          AIR4 will detect behavioral patterns as you use it. Keep logging.
+          AIR4 заметит поведенческие паттерны по мере использования. Продолжайте логировать.
         </p>
       </div>
     );
@@ -91,14 +91,14 @@ export function Patterns({ hypotheses }: Props) {
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
         <h2 className={cn(t.cardLabel, "mb-6")}>
-          Detected patterns
+          Обнаруженные паттерны
         </h2>
         <ul className="space-y-4">
           {hypotheses.map((h) => {
             const badge = statusBadge(h.status);
             const count = h.evidence_count;
             const confirmations =
-              count === 1 ? "1 confirmation" : `${count} confirmations`;
+              count === 1 ? "1 подтверждение" : `${count} подтверждений`;
 
             return (
               <li

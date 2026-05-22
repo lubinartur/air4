@@ -1,4 +1,4 @@
-import { NAVIGATION } from "../constants";
+import { NAVIGATION, PAGE_LABELS } from "../constants";
 import { Page } from "../types";
 import { cn } from "../lib/utils";
 
@@ -35,7 +35,7 @@ export function Sidebar({ currentPage, onPageChange, isCollapsed }: SidebarProps
           >
             <Icon size={isCollapsed ? 20 : 24} />
             <span className="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-              {id}
+              {PAGE_LABELS[id] ?? id}
             </span>
           </button>
         ))}
@@ -53,7 +53,7 @@ export function Sidebar({ currentPage, onPageChange, isCollapsed }: SidebarProps
           >
             <Icon size={isCollapsed ? 20 : 24} />
             <span className="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-              {id}
+              {PAGE_LABELS[id] ?? id}
             </span>
           </button>
         ))}

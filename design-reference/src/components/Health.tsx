@@ -56,8 +56,8 @@ type CategoryDef = {
 
 const CATEGORY_DEFINITIONS: CategoryDef[] = [
   {
-    category: "CBC (Complete Blood Count)",
-    desc: "Measures oxygen delivery, hematological status, and immunological baseline levels.",
+    category: "ОАК (Общий анализ крови)",
+    desc: "Оценивает доставку кислорода, гематологический статус и базовый уровень иммунитета.",
     color: "rose",
     keywords: [
       "hemoglobin",
@@ -73,28 +73,28 @@ const CATEGORY_DEFINITIONS: CategoryDef[] = [
     ],
   },
   {
-    category: "Biochemistry",
-    desc: "Evaluates standard kidney efficiency, liver status, and core cellular health.",
+    category: "Биохимия",
+    desc: "Показатели работы почек, печени и общего клеточного здоровья.",
     color: "amber",
     keywords: ["creatinine", "egfr", "crp", "alt", "ast", "ggt"],
   },
   {
-    category: "Lipids",
-    desc: "Lipoprotein lipid concentration ratios indicating baseline cardiovascular profile health.",
+    category: "Липиды",
+    desc: "Соотношение липопротеинов — базовый профиль сердечно-сосудистого риска.",
     color: "orange",
     keywords: ["hdl", "ldl", "cholesterol", "triglycerides"],
   },
   {
-    category: "Hormones",
-    desc: "Endocrine messengers steering master metabolism, tissue synthesis, and recovery.",
+    category: "Гормоны",
+    desc: "Эндокринные сигналы, управляющие метаболизмом, синтезом тканей и восстановлением.",
     color: "violet",
     keywords: ["testosterone", "estradiol", "shbg", "fsh", "lh", "cortisol"],
   },
 ];
 
 const OTHER_CATEGORY: Pick<MarkerCategory, "category" | "desc" | "color"> = {
-  category: "Other",
-  desc: "Markers not yet mapped to a category — review individually.",
+  category: "Прочее",
+  desc: "Маркеры, пока не отнесённые к категории — смотрите по отдельности.",
   color: "gray",
 };
 
@@ -108,62 +108,62 @@ const CATEGORY_DOT: Record<string, string> = {
 
 const MARKER_INFO: Record<string, string> = {
   hemoglobin:
-    "Elevated hemoglobin can reflect training stress, dehydration, or hormonal pressure on erythropoiesis.",
+    "Повышенный гемоглобин может отражать тренировочный стресс, обезвоживание или гормональное давление на эритропоэз.",
   hematocrit:
-    "High hematocrit raises blood viscosity. Strict hydration matters; consider donating blood if persistent.",
-  rbc: "Total erythrocyte count. Supports oxygen delivery and recovery capacity.",
-  wbc: "Leukocyte baseline — stable counts indicate no active infection.",
+    "Высокий гематокрит повышает вязкость крови. Важна строгая гидратация; при стойком повышении — рассмотрите донорство.",
+  rbc: "Общий счёт эритроцитов. Обеспечивает доставку кислорода и восстановление.",
+  wbc: "Базовый уровень лейкоцитов — стабильные значения говорят об отсутствии активной инфекции.",
   platelets:
-    "Thrombocyte count within nominal range ensures healthy clotting and vascular repair.",
+    "Тромбоциты в норме обеспечивают здоровое свёртывание и восстановление сосудов.",
   neutrophils:
-    "Acute-response immune cells. Stable counts indicate no bacterial infection.",
+    "Клетки острого иммунного ответа. Стабильные значения — нет бактериальной инфекции.",
   lymphocytes:
-    "Adaptive immune cells — counts reflect chronic immune state and viral load.",
+    "Адаптивный иммунитет — отражает хроническое иммунное состояние и вирусную нагрузку.",
   eosinophils:
-    "Allergy / parasite responders. Mild elevation can indicate allergic activity.",
+    "Реакция на аллергены и паразитов. Умеренное повышение может говорить об аллергии.",
   creatinine:
-    "Muscle-derived metabolite; reflects muscle mass and kidney filtration capacity.",
+    "Мышечный метаболит; отражает мышечную массу и фильтрационную способность почек.",
   egfr:
-    "Estimated glomerular filtration rate — below 90 suggests reduced kidney filtration.",
-  crp: "C-Reactive Protein, a marker of systemic inflammation. Low = good.",
-  alt: "Alanine aminotransferase — primary liver enzyme. Normal = no acute hepatic stress.",
-  ast: "Aspartate aminotransferase — liver/muscle enzyme. Combined with ALT gives liver picture.",
-  ggt: "Gamma-glutamyl transferase — sensitive to cholestatic liver stress, alcohol, medications.",
+    "Расчётная скорость клубочковой фильтрации — значения ниже 90 говорят о сниженной работе почек.",
+  crp: "С-реактивный белок — маркер системного воспаления. Низкий = хорошо.",
+  alt: "АЛТ — основной печёночный фермент. Норма = нет острого стресса печени.",
+  ast: "АСТ — фермент печени и мышц. В паре с АЛТ даёт картину состояния печени.",
+  ggt: "ГГТ — чувствителен к холестатическому стрессу печени, алкоголю и лекарствам.",
   hdl:
-    "Cardio-protective high-density lipoprotein. Often suppressed by elevated androgens or low aerobic load.",
-  ldl: "Low-density lipoprotein — primary atherogenic carrier; target depends on cardiovascular risk.",
+    "Кардиопротективный «хороший» холестерин. Часто снижен при высоких андрогенах или малой аэробной нагрузке.",
+  ldl: "Липопротеины низкой плотности — главный атерогенный переносчик; цель зависит от сердечно-сосудистого риска.",
   cholesterol:
-    "Total cholesterol — interpret alongside HDL/LDL split and triglycerides.",
+    "Общий холестерин — интерпретируйте вместе с HDL/LDL и триглицеридами.",
   triglycerides:
-    "Plasma lipid energy reserve. High triglycerides reflect refined-carb load and insulin pressure.",
+    "Энергетический резерв в виде липидов. Высокие триглицериды отражают нагрузку быстрыми углеводами и давление инсулина.",
   testosterone:
-    "Primary androgen — supraphysiological values drive muscle synthesis but elevate downstream estrogen via aromatase.",
+    "Главный андроген — супрафизиологические значения ускоряют синтез мышц, но повышают уровень эстрогенов через ароматазу.",
   estradiol:
-    "Estrogenic conversion of testosterone. Elevated E2 can drive water retention and mood instability.",
+    "Эстроген, образованный из тестостерона. Повышенный E2 может вызывать задержку воды и эмоциональные колебания.",
   shbg:
-    "Sex Hormone-Binding Globulin — low SHBG increases the free, bioavailable androgen and estrogen fraction.",
+    "Глобулин, связывающий половые гормоны — низкий SHBG увеличивает свободную, биодоступную фракцию андрогенов и эстрогенов.",
   fsh:
-    "Follicle-stimulating hormone — pituitary signal to gonads. Suppressed FSH often reflects exogenous androgen use.",
+    "Фолликулостимулирующий гормон — сигнал гипофиза к гонадам. Подавление FSH часто говорит об использовании внешних андрогенов.",
   lh:
-    "Luteinizing hormone — pituitary signal driving endogenous testosterone production.",
+    "Лютеинизирующий гормон — сигнал гипофиза, запускающий выработку собственного тестостерона.",
   cortisol:
-    "Primary stress hormone. Chronically elevated cortisol erodes muscle, sleep, and immune resilience.",
+    "Главный гормон стресса. Хронически повышенный кортизол разрушает мышцы, сон и иммунитет.",
 };
 
 const MARKER_INTERVENTION: Record<string, string> = {
-  hdl: "Focus on cardiovascular zone-2 stamina training to push HDL up. Include clean omega marine fat sources.",
+  hdl: "Сделайте упор на zone-2 кардио, чтобы поднять HDL. Включите чистые источники омега-3 из морской рыбы.",
   hemoglobin:
-    "High red cell activity correlates with cardiac load. Elevate your water ingestion to 4L daily.",
+    "Высокая активность эритроцитов коррелирует с нагрузкой на сердце. Поднимите потребление воды до 4 л/день.",
   hematocrit:
-    "High red cell activity correlates with cardiac load. Elevate your water ingestion to 4L daily.",
+    "Высокая активность эритроцитов коррелирует с нагрузкой на сердце. Поднимите потребление воды до 4 л/день.",
   egfr:
-    "Increase direct fluid intake immediately. Review creatine dosing protocol (reduce to maintenance of 3g or cycle off).",
+    "Сразу увеличьте приём жидкости. Пересмотрите протокол креатина (снизьте до поддерживающих 3 г или сделайте паузу).",
   testosterone:
-    "Highly estrogenic conversions. Monitor water bloating. Consider cycle mitigation or aromatisation reduction strategies.",
+    "Высокая ароматизация в эстрогены. Следите за задержкой воды. Рассмотрите стратегии смягчения цикла или снижения ароматизации.",
   estradiol:
-    "Highly estrogenic conversions. Monitor water bloating. Consider cycle mitigation or aromatisation reduction strategies.",
+    "Высокая ароматизация в эстрогены. Следите за задержкой воды. Рассмотрите стратегии смягчения цикла или снижения ароматизации.",
   shbg:
-    "Low SHBG amplifies free hormone fractions. Re-test cycle endpoints to rule out endogenous suppression.",
+    "Низкий SHBG усиливает фракцию свободных гормонов. Пересдайте анализы в конце цикла, чтобы исключить эндогенное подавление.",
 };
 
 function formatNumber(value: number): string {
@@ -219,7 +219,7 @@ function toBloodMarker(api: HealthMarker): BloodMarker {
     maxNormal: api.reference_max,
     info:
       lookupBy(api.marker_name, MARKER_INFO) ??
-      "Reference data captured from your blood test. Discuss interpretation with your provider.",
+      "Данные с вашего анализа крови. Интерпретацию обсудите с врачом.",
   };
 }
 
@@ -253,11 +253,11 @@ function groupMarkersByCategory(markers: HealthMarker[]): MarkerCategory[] {
 
 function interventionFor(marker: BloodMarker): string {
   if (marker.status === "NORMAL") {
-    return "Marker is safely within healthy limits. Maintain your current lifestyle vector.";
+    return "Маркер в безопасных пределах. Сохраняйте текущий режим.";
   }
   return (
     lookupBy(marker.name, MARKER_INTERVENTION) ??
-    "Outside reference range — discuss this marker with your physician and re-test in 4–8 weeks."
+    "Вне референсного диапазона — обсудите с врачом и пересдайте через 4–8 недель."
   );
 }
 
@@ -283,7 +283,7 @@ export function Health() {
         if (data.length > 0) setSelectedDate(data[0].date);
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load checkups");
+          setError(e instanceof Error ? e.message : "Не удалось загрузить чек-апы");
           setCheckups([]);
         }
       } finally {
@@ -369,10 +369,10 @@ export function Health() {
             </div>
             <div>
               <h1 className={t.pageTitle}>
-                Health Analytics & Labs
+                Аналитика здоровья и анализы
               </h1>
               <p className={cn(t.pageSub, "mt-0.5")}>
-                Biomarkers, Clinical Reports & Laboratory Overviews
+                Биомаркеры, клинические отчёты и обзоры лабораторных исследований
               </p>
             </div>
           </div>
@@ -381,7 +381,7 @@ export function Health() {
         <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
           <Activity size={14} className="text-indigo-600" />
           <span className="text-xs font-bold text-indigo-700">
-            Medical Record Standard
+            Медицинская карта
           </span>
         </div>
       </div>
@@ -391,7 +391,7 @@ export function Health() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest pr-1">
             <CalendarDays size={12} />
-            Test date
+            Дата анализа
           </div>
           {checkups.map((c) => {
             const active = c.date === selectedDate;
@@ -425,7 +425,7 @@ export function Health() {
       {/* Loading / empty / error */}
       {loading && (
         <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-          <p className="text-[14px] text-[#9ca3af]">Loading lab data…</p>
+          <p className="text-[14px] text-[#9ca3af]">Загрузка данных…</p>
         </div>
       )}
 
@@ -438,9 +438,9 @@ export function Health() {
       {!loading && !error && checkups.length === 0 && (
         <div className="bg-white p-12 rounded-[20px] shadow-sm border border-gray-100 text-center flex flex-col items-center justify-center gap-2">
           <Info size={36} className="text-gray-300" />
-          <p className="text-sm font-bold text-gray-900">No lab data yet</p>
+          <p className="text-sm font-bold text-gray-900">Данных анализов пока нет</p>
           <p className="text-xs text-gray-400 max-w-sm">
-            Import a blood test (e.g. via <span className="font-mono">python3 import_health_checkup.py</span>) and reload — markers will appear here.
+            Импортируйте анализ крови (например, через <span className="font-mono">python3 import_health_checkup.py</span>) и обновите страницу — маркеры появятся здесь.
           </p>
         </div>
       )}
@@ -454,21 +454,21 @@ export function Health() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900">
-                    Lab Diagnostic Directory
+                    Каталог анализов
                   </h3>
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    Blood chemistry reports uploaded from clinical tests.
+                    Результаты клинических анализов крови.
                   </p>
                 </div>
                 <button
                   type="button"
                   disabled
                   aria-disabled="true"
-                  title="Coming soon"
+                  title="Скоро"
                   className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <FileUp size={14} />
-                  Import Labs
+                  Импорт анализов
                 </button>
               </div>
 
@@ -480,7 +480,7 @@ export function Health() {
                   />
                   <input
                     type="text"
-                    placeholder="Search markers or profiles..."
+                    placeholder="Поиск маркеров или профилей..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all text-gray-800"
@@ -505,7 +505,7 @@ export function Health() {
                         : "text-gray-400 hover:text-gray-600"
                     )}
                   >
-                    All ({totalOutCount + totalNormalCount})
+                    Все ({totalOutCount + totalNormalCount})
                   </button>
                   <button
                     onClick={() => setStatusFilter("OUT_OF_RANGE")}
@@ -516,7 +516,7 @@ export function Health() {
                         : "text-gray-400 hover:text-red-500"
                     )}
                   >
-                    Out of range ({totalOutCount})
+                    Вне нормы ({totalOutCount})
                   </button>
                   <button
                     onClick={() => setStatusFilter("NORMAL")}
@@ -527,7 +527,7 @@ export function Health() {
                         : "text-gray-400 hover:text-green-500"
                     )}
                   >
-                    Normal ({totalNormalCount})
+                    В норме ({totalNormalCount})
                   </button>
                 </div>
               </div>
@@ -587,11 +587,15 @@ export function Health() {
                                         : "bg-green-50 text-green-600"
                                   )}
                                 >
-                                  {marker.status}
+                                  {marker.status === "HIGH"
+                                    ? "ВЫШЕ"
+                                    : marker.status === "LOW"
+                                    ? "НИЖЕ"
+                                    : "НОРМА"}
                                 </span>
                               </div>
                               <p className="text-[11px] text-gray-400 mt-0.5">
-                                Reference limits: {marker.range}
+                                Референс: {marker.range}
                               </p>
                             </div>
 
@@ -641,10 +645,10 @@ export function Health() {
                 <div className="bg-white p-12 text-center rounded-[20px] border border-gray-100 shadow-sm text-gray-400 flex flex-col items-center justify-center">
                   <Info size={36} className="text-gray-300 mb-3" />
                   <p className="text-sm font-semibold">
-                    No lab profiles match selection.
+                    Под выбранные фильтры ничего не нашлось.
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    Try adjusting directory filters or enter a different search keyword.
+                    Попробуйте другие фильтры или другой поисковый запрос.
                   </p>
                 </div>
               )}
@@ -661,14 +665,14 @@ export function Health() {
                 </div>
                 <div>
                   <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                    AIR4 Clinical Scanner
+                    Клинический сканер AIR4
                   </h4>
                   <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
                     {totalOutCount === 0
-                      ? `"All ${totalNormalCount} markers in range — no immediate flags for ${activeGroup.date}."`
-                      : `"${totalOutCount} of ${
+                      ? `«Все ${totalNormalCount} маркеров в норме — ни одного флага на ${activeGroup.date}.»`
+                      : `«${totalOutCount} из ${
                           totalOutCount + totalNormalCount
-                        } markers are out of range for ${activeGroup.date}. Click each to inspect."`}
+                        } маркеров вне нормы на ${activeGroup.date}. Кликните по каждому, чтобы посмотреть.»`}
                   </p>
                 </div>
               </div>
@@ -702,25 +706,25 @@ export function Health() {
                       )}
                     />
                     <h3 className="text-base font-black text-gray-900">
-                      {selectedMarker.name} Analysis
+                      {selectedMarker.name} · Разбор
                     </h3>
                   </div>
 
                   <div className="bg-gray-50/50 p-4 rounded-xl mb-4 space-y-2">
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Recorded Level</span>
+                      <span className="text-gray-400">Ваше значение</span>
                       <span className="font-mono font-bold text-gray-800">
                         {formatNumber(selectedMarker.value)} {selectedMarker.unit}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Reference Band</span>
+                      <span className="text-gray-400">Референс</span>
                       <span className="font-mono text-gray-600">
                         {selectedMarker.range}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Diagnostic Status</span>
+                      <span className="text-gray-400">Статус</span>
                       <span
                         className={cn(
                           "font-bold uppercase tracking-wider text-[10px]",
@@ -731,7 +735,11 @@ export function Health() {
                               : "text-green-500"
                         )}
                       >
-                        {selectedMarker.status}
+                        {selectedMarker.status === "HIGH"
+                          ? "ВЫШЕ"
+                          : selectedMarker.status === "LOW"
+                          ? "НИЖЕ"
+                          : "НОРМА"}
                       </span>
                     </div>
                   </div>
@@ -742,7 +750,7 @@ export function Health() {
 
                   <div className="pt-4 border-t border-gray-100">
                     <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-2">
-                      AIR4 Intervention Advice
+                      Рекомендация AIR4
                     </h4>
                     <p className="text-[11px] text-gray-400 leading-snug">
                       {interventionFor(selectedMarker)}
@@ -753,11 +761,11 @@ export function Health() {
                 <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 text-center py-10 flex flex-col items-center justify-center">
                   <Info size={32} className="text-indigo-200 mb-3" />
                   <h3 className="text-xs font-bold text-gray-800">
-                    Biomarker Insight Panel
+                    Панель биомаркера
                   </h3>
                   <p className="text-[11px] text-gray-400 mt-1 leading-relaxed max-w-[200px]">
-                    Click on any specific lab marker to view in-depth physiological
-                    explanation and recommended protocol.
+                    Кликните по любому маркеру, чтобы увидеть подробное физиологическое
+                    объяснение и рекомендуемый протокол.
                   </p>
                 </div>
               )}
@@ -768,14 +776,14 @@ export function Health() {
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles size={16} className="text-violet-500" />
                   <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800">
-                    Aromatization & Active Free Hormones
+                    Ароматизация и свободные гормоны
                   </h3>
                 </div>
 
                 <p className="text-xs text-gray-500 leading-relaxed mb-4">
                   {testo && (
                     <>
-                      Your active Testosterone is{" "}
+                      Ваш тестостерон —{" "}
                       <span
                         className={cn(
                           "font-bold",
@@ -793,7 +801,7 @@ export function Health() {
                   )}
                   {e2 && (
                     <>
-                      Your Estradiol is{" "}
+                      Ваш эстрадиол —{" "}
                       <span
                         className={cn(
                           "font-bold",
@@ -811,7 +819,7 @@ export function Health() {
                   )}
                   {shbg && (
                     <>
-                      Your SHBG is{" "}
+                      Ваш SHBG —{" "}
                       <span
                         className={cn(
                           "font-bold",
@@ -834,18 +842,18 @@ export function Health() {
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1 shrink-0" />
                     <p>
                       <span className="text-gray-600 font-semibold">
-                        Estrogenic Conversion:
+                        Ароматизация в эстрогены:
                       </span>{" "}
-                      Peripheral aromatization can be tracked across visits — compare E2 across test dates.
+                      Периферическую ароматизацию можно отслеживать между визитами — сравните E2 в разных датах.
                     </p>
                   </div>
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0" />
                     <p>
                       <span className="text-gray-600 font-semibold">
-                        Low Carrier Glycoprotein:
+                        Низкий гликопротеин-переносчик:
                       </span>{" "}
-                      SHBG modulates the free, bioavailable steroid state. Low SHBG amplifies both androgen and estrogen activity.
+                      SHBG регулирует фракцию свободных биодоступных стероидов. Низкий SHBG усиливает действие и андрогенов, и эстрогенов.
                     </p>
                   </div>
                 </div>

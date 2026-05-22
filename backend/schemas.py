@@ -42,6 +42,33 @@ class ChatOut(BaseModel):
     response: str
     event_saved: dict[str, Any] | None = None
     facts_saved: list[dict[str, Any]] = Field(default_factory=list)
+    recurring_updated: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ChatMessageOut(BaseModel):
+    id: int
+    role: str
+    content: str
+    page: str | None = None
+    created_at: str | None = None
+
+
+class ChatHistoryOut(BaseModel):
+    messages: list[ChatMessageOut] = Field(default_factory=list)
+
+
+class FeedItem(BaseModel):
+    type: str  # 'transaction' | 'subscription' | 'upload' | 'project_log' | 'event' | 'observation'
+    title: str
+    subtitle: str | None = None
+    amount: float | None = None
+    currency: str | None = None
+    icon: str | None = None
+    created_at: str  # ISO timestamp used for chronological ordering
+
+
+class FeedOut(BaseModel):
+    items: list[FeedItem] = Field(default_factory=list)
 
 
 class CategorySummary(BaseModel):
@@ -54,6 +81,11 @@ class InternalTransferSummary(BaseModel):
     count: int
 
 
+class OtherIncomingSummary(BaseModel):
+    amount: float = 0.0
+    count: int = 0
+
+
 class SummaryOut(BaseModel):
     period_start: str | None
     period_end: str | None
@@ -63,6 +95,18 @@ class SummaryOut(BaseModel):
     internal_transfers: InternalTransferSummary = InternalTransferSummary(
         amount=0.0, count=0
     )
+    other_incoming: OtherIncomingSummary = OtherIncomingSummary(amount=0.0, count=0)
+
+
+class CycleRange(BaseModel):
+    start: str
+    end: str
+
+
+class FinanceCyclesOut(BaseModel):
+    active: CycleRange
+    latest_with_data: CycleRange | None = None
+    earliest_with_data: CycleRange | None = None
 
 
 class ProjectOut(BaseModel):
@@ -334,26 +378,6 @@ class HypothesisOut(BaseModel):
 
 class HypothesesListOut(BaseModel):
     hypotheses: list[HypothesisOut] = Field(default_factory=list)
-
-
-class FinanceSubscriptionOut(BaseModel):
-    """Legacy shape — derived from user_facts rows (kept for back-compat)."""
-
-    key: str
-    name: str
-    amount: float | None = None
-    currency: str = "EUR"
-    raw: str
-
-
-class FinanceObligationOut(BaseModel):
-    """Legacy shape — derived from user_facts rows (kept for back-compat)."""
-
-    key: str
-    name: str
-    amount: float | None = None
-    monthly_payment: float | None = None
-    raw: str
 
 
 class SubscriptionOut(BaseModel):

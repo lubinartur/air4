@@ -12,7 +12,7 @@ type Props = {
   onAnswered?: (question: string, answer: string) => void;
 };
 
-const OPTIONS = ["Yes", "No", "Tell in chat"] as const;
+const OPTIONS = ["Да", "Нет", "Рассказать в чате"] as const;
 
 export function AIRCheckIn({ onTellInChat, onAnswered }: Props) {
   const [status, setStatus] = useState<Status>("loading");
@@ -46,7 +46,7 @@ export function AIRCheckIn({ onTellInChat, onAnswered }: Props) {
     if (!question || answer) return;
     setAnswer(opt);
 
-    if (opt === "Tell in chat") {
+    if (opt === "Рассказать в чате") {
       onTellInChat?.(question);
     } else {
       void submitInterviewAnswer(question, opt).catch(() => {
@@ -81,7 +81,7 @@ export function AIRCheckIn({ onTellInChat, onAnswered }: Props) {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-[10px] font-black text-white/80 uppercase tracking-widest">
-                    AIR4 Check-in
+                    AIR4 спрашивает
                   </p>
                   {domain && (
                     <span className="text-[9px] font-black text-white/90 bg-white/15 border border-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -90,7 +90,7 @@ export function AIRCheckIn({ onTellInChat, onAnswered }: Props) {
                   )}
                 </div>
                 <p className="text-[16px] font-bold text-white mt-1 leading-snug">
-                  {answer ? `Noted: ${answer}` : question}
+                  {answer ? `Принято: ${answer}` : question}
                 </p>
               </div>
 

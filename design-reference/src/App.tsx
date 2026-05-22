@@ -21,7 +21,7 @@ import { Page } from "./types";
 import { cn } from "./lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  fetchSummary,
+  fetchOverviewSummary,
   getProjects,
   fetchDilemmas,
   fetchObservations,
@@ -32,6 +32,7 @@ import {
   fetchProfile,
   generateObservations,
   pickDisplayObservation,
+  type ChatResponseMeta,
   type Summary,
   type Project,
   type Dilemma,
@@ -58,6 +59,7 @@ export default function App() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
   const [previousPage, setPreviousPage] = useState<Page>("Overview");
+  const [financeRefreshTick, setFinanceRefreshTick] = useState(0);
 
   const openChatWithMessage = useCallback((text: string) => {
     setPendingChatMessage(text);
@@ -110,7 +112,7 @@ export default function App() {
 
   const loadSummary = useCallback(async () => {
     try {
-      setSummary(await fetchSummary());
+      setSummary(await fetchOverviewSummary());
     } catch {
       setSummary(null);
     }
@@ -160,10 +162,15 @@ export default function App() {
     }
   }, []);
 
+  // Refreshed after every chat message. Deliberately excludes the finance
+  // summary: chat cannot mutate `transactions` (the only thing summary
+  // reads), and `/api/summary` is the heaviest read-path query. Subscription
+  // edits do touch the DB but live in their own table — Finance refetches
+  // those via `financeRefreshTick` below. CSV upload triggers a summary
+  // reload via `onViewFinance` on the CSVUpload page.
   const refreshOverviewData = useCallback(async () => {
-    const [summaryRes, obsRes, metricsRes, workoutsRes, goalsRes, dilemmasRes, hypothesesRes] =
+    const [obsRes, metricsRes, workoutsRes, goalsRes, dilemmasRes, hypothesesRes] =
       await Promise.allSettled([
-        fetchSummary(),
         fetchObservations(),
         fetchBodyMetrics(),
         fetchWorkouts(),
@@ -171,7 +178,6 @@ export default function App() {
         fetchDilemmas(),
         fetchHypotheses(),
       ]);
-    if (summaryRes.status === "fulfilled") setSummary(summaryRes.value);
     if (obsRes.status === "fulfilled") setObservations(obsRes.value);
     if (metricsRes.status === "fulfilled") setBodyMetrics(metricsRes.value);
     if (workoutsRes.status === "fulfilled") setWorkouts(workoutsRes.value);
@@ -180,9 +186,15 @@ export default function App() {
     if (hypothesesRes.status === "fulfilled") setHypotheses(hypothesesRes.value.hypotheses);
   }, []);
 
-  const handleMessageSent = useCallback(() => {
-    void refreshOverviewData();
-  }, [refreshOverviewData]);
+  const handleMessageSent = useCallback(
+    (meta?: ChatResponseMeta) => {
+      void refreshOverviewData();
+      if ((meta?.recurring_updated?.length ?? 0) > 0) {
+        setFinanceRefreshTick((tick) => tick + 1);
+      }
+    },
+    [refreshOverviewData]
+  );
 
   useEffect(() => {
     void loadSummary();
@@ -211,15 +223,19 @@ export default function App() {
     }
   }, [currentPage]);
 
+  // Side-loads triggered when the user actually lands on Overview.
+  // Finance summary is intentionally NOT refetched here — the mount
+  // effect already loaded it via `loadSummary()`, and `/api/summary` is
+  // expensive. It only needs to refresh after a new CSV upload, which is
+  // handled by `CSVUpload`'s `onViewFinance` callback below.
   useEffect(() => {
     if (currentPage !== "Overview") return;
 
     let cancelled = false;
     (async () => {
       setOverviewLoading(true);
-      const [summaryRes, projectsRes, dilemmasRes, metricsRes, workoutsRes] =
+      const [projectsRes, dilemmasRes, metricsRes, workoutsRes] =
         await Promise.allSettled([
-          fetchSummary(),
           getProjects(),
           fetchDilemmas(),
           fetchBodyMetrics(),
@@ -227,7 +243,6 @@ export default function App() {
         ]);
 
       if (!cancelled) {
-        if (summaryRes.status === "fulfilled") setSummary(summaryRes.value);
         if (projectsRes.status === "fulfilled") setProjects(projectsRes.value);
         else setProjects([]);
         if (dilemmasRes.status === "fulfilled") setDilemmas(dilemmasRes.value);
@@ -284,12 +299,14 @@ export default function App() {
                   workouts={workouts}
                   dilemmas={dilemmas}
                   facts={facts}
+                  onMessageSent={handleMessageSent}
                 />
               ) : currentPage === "Overview" ? (
                 <OverviewDashboard
                   summary={summary}
                   projects={projects}
                   observations={observations}
+                  insight={displayObservation}
                   bodyMetrics={bodyMetrics}
                   workouts={workouts}
                   loading={overviewLoading}
@@ -299,7 +316,10 @@ export default function App() {
                   onOpenChatWithMessage={openChatWithMessage}
                 />
               ) : currentPage === "Finance" ? (
-                <Finance onPageChange={setCurrentPage} />
+                <Finance
+                  onPageChange={setCurrentPage}
+                  refreshTick={financeRefreshTick}
+                />
               ) : currentPage === "Projects" ? (
                 <Projects />
               ) : currentPage === "Health" ? (

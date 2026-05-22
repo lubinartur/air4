@@ -338,15 +338,55 @@ def _pair_match_ids(conn: sqlite3.Connection, ibans: list[str]) -> set[int]:
     return marked
 
 
+def _mark_text_pattern_transfers(conn: sqlite3.Connection) -> None:
+    """Catch internal transfers identified by literal description phrases.
+
+    Used to live in `summary_loader._refresh_internal_flags` and ran on
+    every summary read; moved here so all transfer-marking happens once at
+    upload time. The patterns match Swedbank's exported descriptions for
+    self-transfers and credit-card repayments that the structural rules
+    might miss (no counterparty IBAN, no paired D/K row).
+    """
+    conn.execute(
+        """
+        UPDATE transactions
+        SET is_internal_transfer = 1
+        WHERE COALESCE(is_internal_transfer, 0) = 0
+          AND (
+            LOWER(COALESCE(raw_description, '')) LIKE '%transfer between own accounts%'
+            OR LOWER(COALESCE(description, '')) LIKE '%transfer between own accounts%'
+            OR LOWER(COALESCE(raw_description, '')) LIKE '%credit repayment%'
+            OR LOWER(COALESCE(description, '')) LIKE '%credit repayment%'
+          )
+        """
+    )
+
+
 def mark_internal_transfers_in_db(conn: sqlite3.Connection) -> int:
     """
     Mark internal transfers between the user's own Swedbank accounts in SQLite.
-    Rules: description patterns, counterparty IBAN in text, paired D/K within ±2 days.
+    Rules: description patterns, counterparty IBAN in text, paired D/K within ±2 days,
+    plus a literal text-phrase fallback for legacy / structurally-ambiguous rows.
+
+    Intended to run once at upload time; readers query the persisted
+    `is_internal_transfer` flag.
     """
     sync_known_ibans_from_db(conn)
     ibans = _owner_ibans()
     if not ibans:
-        return 0
+        # No owner IBANs known yet — text-phrase fallback is still safe.
+        before = fetch_one(
+            conn,
+            "SELECT COUNT(*) AS c FROM transactions WHERE is_internal_transfer = 1",
+        )
+        before_count = int((before or {}).get("c") or 0)
+        _mark_text_pattern_transfers(conn)
+        conn.commit()
+        after = fetch_one(
+            conn,
+            "SELECT COUNT(*) AS c FROM transactions WHERE is_internal_transfer = 1",
+        )
+        return int((after or {}).get("c") or 0) - before_count
 
     before = fetch_one(
         conn,
@@ -362,6 +402,7 @@ def mark_internal_transfers_in_db(conn: sqlite3.Connection) -> int:
             f"UPDATE transactions SET is_internal_transfer = 1 WHERE id IN ({marks})",
             sorted(pair_ids),
         )
+    _mark_text_pattern_transfers(conn)
     conn.commit()
 
     after = fetch_one(
@@ -369,11 +410,6 @@ def mark_internal_transfers_in_db(conn: sqlite3.Connection) -> int:
         "SELECT COUNT(*) AS c FROM transactions WHERE is_internal_transfer = 1",
     )
     return int((after or {}).get("c") or 0) - before_count
-
-
-def mark_cross_upload_pairs(conn: sqlite3.Connection) -> int:
-    """Backward-compatible alias — runs full DB internal-transfer pass."""
-    return mark_internal_transfers_in_db(conn)
 
 
 def sync_known_ibans_from_db(conn: sqlite3.Connection) -> None:

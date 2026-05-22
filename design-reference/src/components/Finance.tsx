@@ -11,6 +11,8 @@ import {
   MoreHorizontal,
   Bell,
   Activity,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   Trash2,
   Loader2,
@@ -23,6 +25,7 @@ import { t } from "../lib/typography";
 import { Page } from "../types";
 import {
   deleteUpload,
+  fetchFinanceCycles,
   fetchMonthlyFixed,
   fetchObligations,
   fetchSubscriptions,
@@ -33,6 +36,7 @@ import {
   getTransactions,
   getUploads,
   hasFinanceData,
+  type FinanceCycles,
   type FinanceObligation,
   type FinanceSubscription,
   type Insight,
@@ -100,16 +104,120 @@ function formatPeriod(start: string | null | undefined, end: string | null | und
   return "—";
 }
 
+function formatCycleEdge(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/** Salary cycle starts on the 10th. Given a cycle-start ISO, return the
+ *  start of the previous cycle (subtract 1 month, handle Jan → Dec). */
+function prevCycleStart(startIso: string): string {
+  const [y, m] = startIso.split("-").map(Number);
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  return `${py}-${String(pm).padStart(2, "0")}-10`;
+}
+
+/** Start of the next cycle (add 1 month). */
+function nextCycleStart(startIso: string): string {
+  const [y, m] = startIso.split("-").map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}-${String(nm).padStart(2, "0")}-10`;
+}
+
+/** Cycle end is the 9th of the next month after `startIso`. */
+function cycleEndFromStart(startIso: string): string {
+  const [y, m] = startIso.split("-").map(Number);
+  const ey = m === 12 ? y + 1 : y;
+  const em = m === 12 ? 1 : m + 1;
+  return `${ey}-${String(em).padStart(2, "0")}-09`;
+}
+
 function ChatEmpty({ label }: { label: string }) {
   return (
     <p className="text-[13px] text-[#9ca3af] font-medium py-4 text-center">
       {label}
-      <span className="block text-[11px] mt-1 text-[#d1d5db]">Add via chat</span>
+      <span className="block text-[11px] mt-1 text-[#d1d5db]">Добавить через чат</span>
     </p>
   );
 }
 
-export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }) {
+/** Resolve a recurring `billing_day` (1-31) to the next calendar date
+ *  on or after today. Returns null when the day is missing/invalid. */
+function nextBillingDate(
+  billingDay: number | null | undefined,
+  today: Date = new Date()
+): Date | null {
+  if (billingDay == null || !Number.isFinite(billingDay)) return null;
+  const day = Math.max(1, Math.min(28, Math.trunc(billingDay)));
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const todayDay = today.getDate();
+  return todayDay <= day ? new Date(y, m, day) : new Date(y, m + 1, day);
+}
+
+/** Pull a day-of-month out of an obligation's `due_date` field, which is a
+ *  free-form text column. Accepts ISO YYYY-MM-DD or a bare 1-2 digit number. */
+function parseDueDay(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) return Number(iso[3]);
+  const day = /^(\d{1,2})$/.exec(s);
+  if (day) {
+    const n = Number(day[1]);
+    return n >= 1 && n <= 31 ? n : null;
+  }
+  return null;
+}
+
+function formatRelativeDate(date: Date, today: Date = new Date()): string {
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.round((date.getTime() - start.getTime()) / 86_400_000);
+  if (days <= 0) return "сегодня";
+  if (days === 1) return "завтра";
+  if (days < 7) return `через ${days} дн`;
+  return date.toLocaleDateString("ru-RU", { month: "short", day: "numeric" });
+}
+
+/** Pick a Tailwind class set for a loan progress bar based on % paid.
+ *  Mostly paid → green; halfway → indigo; mostly remaining → red. */
+function progressTone(percentPaid: number): {
+  bar: string;
+  text: string;
+  badge: string;
+} {
+  if (percentPaid >= 70) {
+    return {
+      bar: "bg-emerald-500",
+      text: "text-emerald-600",
+      badge: "bg-emerald-50 text-emerald-700",
+    };
+  }
+  if (percentPaid >= 35) {
+    return {
+      bar: "bg-indigo-500",
+      text: "text-indigo-600",
+      badge: "bg-indigo-50 text-indigo-700",
+    };
+  }
+  return {
+    bar: "bg-red-500",
+    text: "text-red-600",
+    badge: "bg-red-50 text-red-700",
+  };
+}
+
+export function Finance({
+  onPageChange,
+  refreshTick = 0,
+}: {
+  onPageChange: (page: Page) => void;
+  refreshTick?: number;
+}) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -117,16 +225,22 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
   const [subscriptions, setSubscriptions] = useState<FinanceSubscription[]>([]);
   const [obligations, setObligations] = useState<FinanceObligation[]>([]);
   const [monthlyFixed, setMonthlyFixed] = useState<MonthlyFixed | null>(null);
+  const [cycles, setCycles] = useState<FinanceCycles | null>(null);
+  const [cycleStart, setCycleStart] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const loadFinanceData = useCallback(async () => {
+  const cycleEnd = cycleStart ? cycleEndFromStart(cycleStart) : null;
+
+  /** Load everything that isn't cycle-scoped (transactions list, uploads,
+   *  insights, recurring items) + the cycle metadata. */
+  const loadStaticData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     const [
-      summaryRes,
+      cyclesRes,
       txRes,
       insightsRes,
       uploadsRes,
@@ -134,7 +248,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
       obsRes,
       fixedRes,
     ] = await Promise.allSettled([
-      getSummary(),
+      fetchFinanceCycles(),
       getTransactions(10),
       getInsights(),
       getUploads(),
@@ -145,11 +259,16 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
 
     const failed: string[] = [];
 
-    if (summaryRes.status === "fulfilled") {
-      setSummary(summaryRes.value);
+    if (cyclesRes.status === "fulfilled") {
+      setCycles(cyclesRes.value);
+      // Default to latest cycle that actually has data, fall back to today's
+      // active cycle when no transactions exist yet.
+      const initial =
+        cyclesRes.value.latest_with_data?.start ?? cyclesRes.value.active.start;
+      setCycleStart((prev) => prev ?? initial);
     } else {
-      setSummary(null);
-      failed.push("summary");
+      setCycles(null);
+      failed.push("cycles");
     }
 
     if (txRes.status === "fulfilled") {
@@ -192,15 +311,77 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
     }
 
     if (failed.length > 0) {
-      setError(`Failed to load: ${failed.join(", ")}`);
+      setError(`Не удалось загрузить: ${failed.join(", ")}`);
     }
 
     setLoading(false);
   }, []);
 
+  /** Refetch summary whenever the selected cycle changes. */
   useEffect(() => {
-    void loadFinanceData();
-  }, [loadFinanceData]);
+    if (!cycleStart || !cycleEnd) return;
+    let cancelled = false;
+    void getSummary(cycleStart, cycleEnd)
+      .then((data) => {
+        if (!cancelled) setSummary(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cycleStart, cycleEnd]);
+
+  useEffect(() => {
+    void loadStaticData();
+  }, [loadStaticData]);
+
+  /** Refetch subscriptions / obligations / monthly-fixed when the chat
+   *  reports that a recurring item was updated or deleted. Skip the initial
+   *  mount (tick === 0) since loadStaticData already covers that. */
+  useEffect(() => {
+    if (refreshTick === 0) return;
+    let cancelled = false;
+    void Promise.allSettled([
+      fetchSubscriptions(),
+      fetchObligations(),
+      fetchMonthlyFixed(),
+    ]).then(([subsRes, obsRes, fixedRes]) => {
+      if (cancelled) return;
+      if (subsRes.status === "fulfilled") {
+        setSubscriptions(subsRes.value.subscriptions);
+      }
+      if (obsRes.status === "fulfilled") {
+        setObligations(obsRes.value.obligations);
+      }
+      if (fixedRes.status === "fulfilled") {
+        setMonthlyFixed(fixedRes.value);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
+
+  const canGoForward = Boolean(
+    cycleStart && cycles && cycleStart < cycles.active.start
+  );
+  const canGoBack = Boolean(
+    cycleStart &&
+      cycles?.earliest_with_data &&
+      cycleStart > cycles.earliest_with_data.start
+  );
+
+  const handlePrevCycle = () => {
+    if (!cycleStart || !canGoBack) return;
+    setCycleStart(prevCycleStart(cycleStart));
+  };
+
+  const handleNextCycle = () => {
+    if (!cycleStart || !canGoForward) return;
+    setCycleStart(nextCycleStart(cycleStart));
+  };
 
   const handleDeleteUpload = async (uploadId: number) => {
     if (!window.confirm("Удалить эту выписку и все её транзакции?")) return;
@@ -208,9 +389,16 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
     setError(null);
     try {
       await deleteUpload(uploadId);
-      await loadFinanceData();
+      await loadStaticData();
+      if (cycleStart && cycleEnd) {
+        try {
+          setSummary(await getSummary(cycleStart, cycleEnd));
+        } catch {
+          setSummary(null);
+        }
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete upload");
+      setError(e instanceof Error ? e.message : "Не удалось удалить выписку");
     } finally {
       setDeletingId(null);
     }
@@ -247,7 +435,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
       const scale = Math.max(max, internal.amount, 1);
       rows.push({
         key: "internal_transfers",
-        name: "Internal transfers",
+        name: "Внутренние переводы",
         amount: internal.amount,
         count: internal.count,
         percent: Math.round((internal.amount / scale) * 100),
@@ -263,8 +451,51 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
 
   const income = summary?.total_income ?? 0;
   const spent = summary?.total_spent ?? 0;
+  const otherIncoming = summary?.other_incoming ?? null;
   const freeCapital = income - spent;
   const primaryInsight = insights[0] ?? null;
+
+  /** Merge subscriptions + obligations into a single chronological list of
+   *  next payments. Items without a usable day-of-month are skipped. */
+  const upcomingPayments = useMemo(() => {
+    const today = new Date();
+    type Upcoming = {
+      key: string;
+      kind: "subscription" | "obligation";
+      name: string;
+      amount: number | null;
+      date: Date;
+    };
+    const items: Upcoming[] = [];
+
+    for (const s of subscriptions) {
+      const date = nextBillingDate(s.billing_day, today);
+      if (!date) continue;
+      items.push({
+        key: `sub-${s.id}`,
+        kind: "subscription",
+        name: s.name,
+        amount: s.amount,
+        date,
+      });
+    }
+
+    for (const o of obligations) {
+      const day = parseDueDay(o.due_date);
+      const date = nextBillingDate(day, today);
+      if (!date) continue;
+      items.push({
+        key: `obl-${o.id}`,
+        kind: "obligation",
+        name: o.name,
+        amount: o.monthly_payment,
+        date,
+      });
+    }
+
+    items.sort((a, b) => a.date.getTime() - b.date.getTime());
+    return items.slice(0, 6);
+  }, [subscriptions, obligations]);
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -275,10 +506,10 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
           </div>
           <div>
             <h1 className={t.pageTitle}>
-              Financial Overview
+              Финансовый обзор
             </h1>
             <p className={cn(t.pageSub, "mt-0.5")}>
-              Spending, income and financial tracking
+              Расходы, доходы и финансовый трекинг
             </p>
           </div>
         </div>
@@ -286,7 +517,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 bg-green-50/50 border border-green-100 px-3.5 py-1.5 rounded-xl">
             <Sparkles size={14} className="text-green-600" />
-            <span className="text-xs font-bold text-green-700">Financial Advisor</span>
+            <span className="text-xs font-bold text-green-700">Финансовый советник</span>
           </div>
 
           <button
@@ -295,28 +526,22 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
             className="flex items-center gap-2 bg-[#6366f1] text-white px-4 py-2 rounded-xl font-bold text-[12px] shadow-md shadow-indigo-500/20 hover:bg-indigo-700 transition-all uppercase tracking-wider"
           >
             <Upload size={14} />
-            Upload statement
+            Загрузить выписку
           </button>
         </div>
       </div>
-
-      {summary?.period_start && summary?.period_end && (
-        <p className="text-[11px] text-[#9ca3af] font-mono -mt-4">
-          Period: {summary.period_start} — {summary.period_end}
-        </p>
-      )}
 
       {error && (
         <p className="text-[14px] text-red-500 bg-red-50 px-4 py-3 rounded-xl">{error}</p>
       )}
 
       {loading ? (
-        <p className="text-[14px] text-[#9ca3af]">Loading…</p>
+        <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
       ) : !hasData ? (
         <div className="bg-white rounded-[20px] p-12 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
-          <p className="text-[16px] font-bold text-[#111827]">No statements uploaded yet</p>
+          <p className="text-[16px] font-bold text-[#111827]">Выписки пока не загружены</p>
           <p className="text-[13px] text-[#9ca3af] mt-2">
-            Upload a Swedbank CSV to see your finances here.
+            Загрузите CSV Swedbank, чтобы увидеть свои финансы.
           </p>
           <button
             type="button"
@@ -324,24 +549,68 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
             className="mt-6 inline-flex items-center gap-2 bg-[#6366f1] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px]"
           >
             <Upload size={16} />
-            Upload statement
+            Загрузить выписку
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-5 gap-6">
           <div className="col-span-3 space-y-6">
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className={cn(t.cardLabel, "mb-6")}>
-                Monthly Snapshot
-              </h2>
+              <div className="flex items-center justify-between gap-4 mb-6">
+                <h2 className={t.cardLabel}>Срез месяца</h2>
+                {cycleStart && cycleEnd && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePrevCycle}
+                      disabled={!canGoBack}
+                      aria-label="Предыдущий цикл"
+                      className="p-1 rounded-full text-gray-500 hover:bg-gray-100 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span className="text-[11px] font-bold text-gray-700 font-mono tabular-nums tracking-wide min-w-[120px] text-center">
+                      {formatCycleEdge(cycleStart)} – {formatCycleEdge(cycleEnd)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleNextCycle}
+                      disabled={!canGoForward}
+                      aria-label="Следующий цикл"
+                      className="p-1 rounded-full text-gray-500 hover:bg-gray-100 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-8">
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Income</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Доход</p>
                   <p className="font-mono text-2xl font-bold text-gray-900">{formatEuro(income)}</p>
+                  <p className="text-[10px] font-bold text-gray-300 uppercase tracking-wider mt-1">
+                    Зарплата и доверенные источники
+                  </p>
+                  {otherIncoming && otherIncoming.amount > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">
+                        Прочие поступления
+                      </p>
+                      <p className="font-mono text-[15px] font-semibold text-gray-500">
+                        {formatEuro(otherIncoming.amount)}
+                        <span className="ml-1.5 text-[10px] font-medium text-gray-400">
+                          ({otherIncoming.count})
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        Переводы, возвраты — не учитываются в свободном капитале
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
                   <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">
-                    Free Capital
+                    Свободный капитал
                   </p>
                   <div className="flex items-center gap-2 text-indigo-600">
                     <p className="font-mono text-3xl font-black">{formatEuro(freeCapital)}</p>
@@ -352,12 +621,12 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
                     )}
                   </div>
                   <p className="text-[10px] font-black text-indigo-600/60 uppercase mt-1">
-                    Income − spent
+                    Доход − расходы
                   </p>
-                  <p className="text-[10px] text-[#9ca3af] mt-2">Spent: {formatEuro(spent)}</p>
+                  <p className="text-[10px] text-[#9ca3af] mt-2">Потрачено: {formatEuro(spent)}</p>
                   {monthlyFixed && monthlyFixed.fixed_total > 0 && (
                     <p className="text-[10px] text-[#9ca3af] mt-1">
-                      Fixed costs: {formatEuro(monthlyFixed.fixed_total)}/mo
+                      Постоянные расходы: {formatEuro(monthlyFixed.fixed_total)}/мес
                     </p>
                   )}
                 </div>
@@ -367,10 +636,10 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
               {categories.length > 0 && <StatusDot color="#ef4444" />}
               <h2 className={cn(t.cardLabel, "mb-6")}>
-                Spending by Category
+                Расходы по категориям
               </h2>
               {categories.length === 0 ? (
-                <p className="text-[14px] text-[#9ca3af]">No spending categories yet.</p>
+                <p className="text-[14px] text-[#9ca3af]">Категорий расходов пока нет.</p>
               ) : (
                 <div className="space-y-5">
                   {categories.map((cat) => (
@@ -392,7 +661,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
                           <span className="text-[10px] text-[#9ca3af]">({cat.count})</span>
                           {cat.isInternal && (
                             <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">
-                              not real spending
+                              не реальные траты
                             </span>
                           )}
                         </div>
@@ -421,19 +690,19 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <h2 className={cn(t.cardLabel, "mb-6")}>
-                Recent Transactions
+                Недавние транзакции
               </h2>
               {transactions.length === 0 ? (
-                <p className="text-[14px] text-[#9ca3af]">No transactions found.</p>
+                <p className="text-[14px] text-[#9ca3af]">Транзакций не найдено.</p>
               ) : (
                 <div className="overflow-hidden">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        <th className="pb-4">Date</th>
-                        <th className="pb-4">Merchant</th>
-                        <th className="pb-4 text-right">Amount</th>
-                        <th className="pb-4 pl-8">Category</th>
+                        <th className="pb-4">Дата</th>
+                        <th className="pb-4">Контрагент</th>
+                        <th className="pb-4 text-right">Сумма</th>
+                        <th className="pb-4 pl-8">Категория</th>
                       </tr>
                     </thead>
                     <tbody className="text-[13px]">
@@ -499,7 +768,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
                   </div>
                 ) : (
                   <p className="text-[14px] leading-relaxed text-white/50">
-                    No insights yet. Keep using AIR4 — patterns will appear here.
+                    Озарений пока нет. Продолжайте использовать AIR4 — паттерны появятся здесь.
                   </p>
                 )}
               </div>
@@ -507,15 +776,67 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-baseline justify-between mb-4">
-                <h2 className={t.cardLabel}>Subscriptions</h2>
+                <h2 className={t.cardLabel}>Предстоящие платежи</h2>
+                {upcomingPayments.length > 0 && (
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Ближайшие {upcomingPayments.length}
+                  </span>
+                )}
+              </div>
+              {upcomingPayments.length === 0 ? (
+                <ChatEmpty label="Запланированных платежей нет" />
+              ) : (
+                <ul className="divide-y divide-gray-50">
+                  {upcomingPayments.map((p) => (
+                    <li
+                      key={p.key}
+                      className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={cn(
+                            "shrink-0 w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[9px] font-bold uppercase tracking-wider",
+                            p.kind === "subscription"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-indigo-50 text-indigo-700"
+                          )}
+                        >
+                          <span className="text-[10px] leading-none">
+                            {p.date.toLocaleDateString("ru-RU", { month: "short" })}
+                          </span>
+                          <span className="font-mono text-[12px] leading-none mt-0.5">
+                            {p.date.getDate()}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-gray-900 truncate">
+                            {p.name}
+                          </p>
+                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                            {formatRelativeDate(p.date)}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
+                        {p.amount != null ? formatEuro(p.amount) : "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+              <div className="flex items-baseline justify-between mb-4">
+                <h2 className={t.cardLabel}>Подписки</h2>
                 {subscriptions.length > 0 && monthlyFixed && (
                   <span className="text-[11px] font-mono font-bold text-indigo-600">
-                    {formatEuro(monthlyFixed.subscriptions_total)}/mo
+                    {formatEuro(monthlyFixed.subscriptions_total)}/мес
                   </span>
                 )}
               </div>
               {subscriptions.length === 0 ? (
-                <ChatEmpty label="No subscriptions tracked" />
+                <ChatEmpty label="Подписки не отслеживаются" />
               ) : (
                 <ul className="divide-y divide-gray-50">
                   {subscriptions.map((s) => (
@@ -529,12 +850,12 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
                         </p>
                         {s.billing_day != null && (
                           <p className="text-[10px] text-gray-400 font-mono mt-0.5">
-                            day {s.billing_day}
+                            {s.billing_day}-е число
                           </p>
                         )}
                       </div>
                       <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
-                        {s.amount != null ? `${formatEuro(s.amount)}/mo` : "—"}
+                        {s.amount != null ? `${formatEuro(s.amount)}/мес` : "—"}
                       </span>
                     </li>
                   ))}
@@ -544,43 +865,96 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-baseline justify-between mb-4">
-                <h2 className={t.cardLabel}>Loans & Obligations</h2>
+                <h2 className={t.cardLabel}>Кредиты и обязательства</h2>
                 {obligations.length > 0 && monthlyFixed && (
                   <span className="text-[11px] font-mono font-bold text-indigo-600">
-                    {formatEuro(monthlyFixed.obligations_total)}/mo
+                    {formatEuro(monthlyFixed.obligations_total)}/мес
                   </span>
                 )}
               </div>
               {obligations.length === 0 ? (
-                <ChatEmpty label="No loans tracked" />
+                <ChatEmpty label="Кредитов нет" />
               ) : (
-                <ul className="divide-y divide-gray-50">
-                  {obligations.map((o) => (
-                    <li
-                      key={o.id}
-                      className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-gray-900 truncate">
-                          {o.name}
-                        </p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400 font-mono mt-0.5">
-                          {o.remaining_amount != null && (
-                            <span>left {formatEuro(o.remaining_amount)}</span>
-                          )}
-                          {o.interest_rate != null && (
-                            <span>{o.interest_rate.toFixed(1)}%</span>
-                          )}
-                          {o.due_date && <span>due {o.due_date}</span>}
+                <ul className="space-y-5">
+                  {obligations.map((o) => {
+                    const total = o.total_amount;
+                    const remaining = o.remaining_amount;
+                    const hasProgress =
+                      total != null &&
+                      total > 0 &&
+                      remaining != null &&
+                      remaining >= 0;
+                    const paid = hasProgress
+                      ? Math.max(0, (total as number) - (remaining as number))
+                      : 0;
+                    const percentPaid = hasProgress
+                      ? Math.min(100, Math.round((paid / (total as number)) * 100))
+                      : 0;
+                    const tone = progressTone(percentPaid);
+                    return (
+                      <li
+                        key={o.id}
+                        className="space-y-2 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="text-[13px] font-bold text-gray-900 truncate">
+                            {o.name}
+                          </p>
+                          <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
+                            {o.monthly_payment != null
+                              ? `${formatEuro(o.monthly_payment)}/мес`
+                              : "—"}
+                          </span>
                         </div>
-                      </div>
-                      <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
-                        {o.monthly_payment != null
-                          ? `${formatEuro(o.monthly_payment)}/mo`
-                          : "—"}
-                      </span>
-                    </li>
-                  ))}
+                        {hasProgress ? (
+                          <>
+                            <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${percentPaid}%` }}
+                                transition={{ duration: 1, ease: "easeOut" }}
+                                className={cn("h-full rounded-full", tone.bar)}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] font-mono text-gray-400">
+                              <span>
+                                выплачено{" "}
+                                <span className={cn("font-bold", tone.text)}>
+                                  {formatEuro(paid)}
+                                </span>{" "}
+                                / {formatEuro(total as number)}
+                              </span>
+                              <span
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider",
+                                  tone.badge
+                                )}
+                              >
+                                {percentPaid}% выплачено
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400 font-mono">
+                              <span>осталось {formatEuro(remaining as number)}</span>
+                              {o.interest_rate != null && (
+                                <span>{o.interest_rate.toFixed(1)}%</span>
+                              )}
+                              {o.due_date && <span>срок {o.due_date}</span>}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400 font-mono">
+                            {remaining != null && (
+                              <span>осталось {formatEuro(remaining)}</span>
+                            )}
+                            {o.interest_rate != null && (
+                              <span>{o.interest_rate.toFixed(1)}%</span>
+                            )}
+                            {o.due_date && <span>срок {o.due_date}</span>}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -590,12 +964,12 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
         <h2 className={cn(t.cardLabel, "mb-6")}>
-          Uploaded Statements
+          Загруженные выписки
         </h2>
         {loading && uploads.length === 0 ? (
-          <p className="text-[14px] text-[#9ca3af]">Loading…</p>
+          <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
         ) : uploads.length === 0 ? (
-          <p className="text-[14px] text-[#9ca3af]">No statements uploaded yet.</p>
+          <p className="text-[14px] text-[#9ca3af]">Выписки пока не загружены.</p>
         ) : (
           <ul className="divide-y divide-gray-50">
             {uploads.map((up) => (
@@ -609,8 +983,8 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
                     {formatPeriod(up.period_start, up.period_end)}
                   </p>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-[#9ca3af] font-bold uppercase tracking-wider">
-                    <span>{up.total_transactions} transactions</span>
-                    <span>Uploaded {formatUploadDate(up.created_at)}</span>
+                    <span>{up.total_transactions} транзакций</span>
+                    <span>Загружено {formatUploadDate(up.created_at)}</span>
                     {up.account_iban && (
                       <span className="font-mono normal-case tracking-normal">{up.account_iban}</span>
                     )}
@@ -621,7 +995,7 @@ export function Finance({ onPageChange }: { onPageChange: (page: Page) => void }
                   onClick={() => void handleDeleteUpload(up.id)}
                   disabled={deletingId === up.id}
                   className="shrink-0 p-2.5 rounded-xl text-red-500 hover:bg-red-50 disabled:opacity-50 transition-colors"
-                  aria-label={`Delete ${up.filename}`}
+                  aria-label={`Удалить ${up.filename}`}
                 >
                   {deletingId === up.id ? (
                     <Loader2 size={18} className="animate-spin" />

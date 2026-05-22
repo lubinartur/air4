@@ -46,7 +46,7 @@ const Toast = ({ id, type, title, body, action, onDismiss }: ToastProps) => {
         </div>
         <div className="space-y-1">
           {type === "info" ? (
-             <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-[0.1em] mb-1">AIR4 NOTICED</p>
+             <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-[0.1em] mb-1">AIR4 ЗАМЕТИЛ</p>
           ) : (
              <h4 className="text-[14px] font-bold text-[#111827] tracking-tight">{title}</h4>
           )}
@@ -64,10 +64,10 @@ const Toast = ({ id, type, title, body, action, onDismiss }: ToastProps) => {
 
 export function ToastDemo() {
   const toasts = [
-    { id: "1", type: "success" as const, title: "Example success", body: "Toast UI preview — not live data.", action: "Dismiss →" },
-    { id: "2", type: "warning" as const, title: "Example warning", body: "Notifications will use real observations when wired.", action: "Dismiss →" },
-    { id: "3", type: "critical" as const, title: "Example critical", body: "No fabricated alerts in production views.", action: "Dismiss →" },
-    { id: "4", type: "info" as const, body: "AIR4 will surface patterns from your data when enough exists.", action: "Dismiss →" },
+    { id: "1", type: "success" as const, title: "Пример: успех", body: "Превью уведомлений — данные демо.", action: "Закрыть →" },
+    { id: "2", type: "warning" as const, title: "Пример: предупреждение", body: "Уведомления будут использовать настоящие наблюдения после подключения.", action: "Закрыть →" },
+    { id: "3", type: "critical" as const, title: "Пример: критично", body: "В рабочих экранах не показываем фейковые алерты.", action: "Закрыть →" },
+    { id: "4", type: "info" as const, body: "AIR4 будет показывать паттерны из ваших данных, когда их накопится достаточно.", action: "Закрыть →" },
   ];
 
   return (
@@ -89,7 +89,7 @@ export function ToastDemo() {
 
       {/* Foreground - Toasts */}
       <div className="absolute inset-0 flex flex-col justify-end items-end p-8 gap-4 pointer-events-none">
-         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 mr-2">Notifications</p>
+         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 mr-2">Уведомления</p>
          <div className="flex flex-col gap-4 pointer-events-auto">
             {toasts.map((t) => (
               <Toast key={t.id} {...t as any} onDismiss={() => {}} />

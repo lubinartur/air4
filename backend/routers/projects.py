@@ -156,18 +156,24 @@ def create_project(body: ProjectIn) -> ProjectOut:
 @router.get("/projects", response_model=list[ProjectOut])
 def list_projects() -> list[ProjectOut]:
     with get_db() as conn:
+        # Previously a correlated `SELECT SUM(...) FROM project_logs ...`
+        # ran once per project row (N+1). A single LEFT JOIN against a
+        # pre-aggregated derived table folds it into one pass and lets
+        # SQLite use `idx_project_logs_project` directly.
         rows = fetch_all(
             conn,
             """
             SELECT
               p.id, p.name, p.description, p.status, p.priority,
               p.started_at, p.created_at, p.updated_at,
-              COALESCE((
-                SELECT SUM(duration_minutes)
-                FROM project_logs
-                WHERE project_id = p.id AND log_type = 'session'
-              ), 0) AS total_sessions_minutes
+              COALESCE(s.total_sessions_minutes, 0) AS total_sessions_minutes
             FROM projects p
+            LEFT JOIN (
+              SELECT project_id, SUM(duration_minutes) AS total_sessions_minutes
+              FROM project_logs
+              WHERE log_type = 'session'
+              GROUP BY project_id
+            ) s ON s.project_id = p.id
             ORDER BY
               CASE p.status
                 WHEN 'active' THEN 0

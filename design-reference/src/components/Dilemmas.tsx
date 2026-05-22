@@ -34,13 +34,13 @@ function isFollowupPending(d: Dilemma): boolean {
 function statusBadge(status: string): { label: string; className: string } {
   const s = status.toLowerCase();
   if (s === "open") {
-    return { label: "OPEN", className: "bg-blue-50 text-blue-600" };
+    return { label: "ОТКРЫТО", className: "bg-blue-50 text-blue-600" };
   }
   if (s === "decided" || s === "closed") {
-    return { label: "DECIDED", className: "bg-green-50 text-green-600" };
+    return { label: "РЕШЕНО", className: "bg-green-50 text-green-600" };
   }
   if (s === "abandoned") {
-    return { label: "ABANDONED", className: "bg-gray-100 text-gray-500" };
+    return { label: "ОТМЕНЕНО", className: "bg-gray-100 text-gray-500" };
   }
   return { label: s.toUpperCase(), className: "bg-gray-100 text-gray-500" };
 }
@@ -54,17 +54,17 @@ export function Dilemmas({ dilemmas }: Props) {
         </div>
         <div>
           <h1 className={ty.pageTitle}>
-            Decision Center
+            Центр решений
           </h1>
           <p className={cn(ty.pageSub, "mt-0.5")}>
-            Active dilemmas and decision history
+            Активные дилеммы и история решений
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 bg-violet-50/50 border border-violet-100 px-3.5 py-1.5 rounded-xl">
         <Sparkles size={14} className="text-violet-600" />
-        <span className="text-xs font-bold text-violet-700">Decision Advisor</span>
+        <span className="text-xs font-bold text-violet-700">Советник по решениям</span>
       </div>
     </div>
   );
@@ -75,11 +75,11 @@ export function Dilemmas({ dilemmas }: Props) {
         {header}
         <PageEmptyState
           icon={Scale}
-          title="No dilemmas yet"
-          subtext="Facing a hard decision? Describe it to AIR4 in chat."
+          title="Дилемм пока нет"
+          subtext="Стоите перед сложным решением? Опишите его AIR4 в чате."
         />
         <p className="text-[13px] text-center text-[#9ca3af] font-medium">
-          Discuss a tough decision with AIR4 in chat — it will appear here.
+          Обсудите трудное решение с AIR4 в чате — оно появится здесь.
         </p>
       </div>
     );
@@ -91,7 +91,7 @@ export function Dilemmas({ dilemmas }: Props) {
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
         <h2 className={cn(ty.cardLabel, "mb-6")}>
-          Your dilemmas
+          Ваши дилеммы
         </h2>
         <ul className="space-y-4">
           {dilemmas.map((d) => {
@@ -119,11 +119,11 @@ export function Dilemmas({ dilemmas }: Props) {
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#9ca3af]">
                   {d.created_at && (
-                    <span>Created {formatDate(d.created_at)}</span>
+                    <span>Создано {formatDate(d.created_at)}</span>
                   )}
                   {isFollowupPending(d) && (
                     <span className="font-medium text-amber-600">
-                      Follow-up due: {formatDate(d.followup_due)}
+                      Напомнить: {formatDate(d.followup_due)}
                     </span>
                   )}
                 </div>

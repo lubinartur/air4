@@ -18,12 +18,14 @@ import { cn } from "../lib/utils";
 import { t } from "../lib/typography";
 import { Page } from "../types";
 import { AIRCheckIn } from "./AIRCheckIn";
+import { LiveFeed } from "./LiveFeed";
 import { OverviewCardEmpty } from "./OverviewCardEmpty";
 
 type Props = {
   summary: Summary | null;
   projects: Project[];
   observations: Observation[];
+  insight: Observation | null;
   bodyMetrics: BodyMetric[];
   workouts: Workout[];
   loading: boolean;
@@ -34,6 +36,34 @@ type Props = {
 };
 
 const CATEGORY_COLORS = ["bg-red-500", "bg-green-500", "bg-orange-500", "bg-blue-500"];
+
+// API persists project / dilemma status as English enum keys; map to
+// Russian for display while keeping the raw value in props for logic.
+const PROJECT_STATUS_LABEL: Record<string, string> = {
+  active: "АКТИВЕН",
+  stalled: "ЗАСТРЯЛ",
+  completed: "ЗАВЕРШЁН",
+  archived: "В АРХИВЕ",
+};
+
+const DILEMMA_STATUS_LABEL: Record<string, string> = {
+  open: "ОТКРЫТО",
+  decided: "РЕШЕНО",
+  closed: "РЕШЕНО",
+  abandoned: "ОТМЕНЕНО",
+};
+
+// Hide internal/transfer/aggregate buckets from the Overview chart so the
+// breakdown reflects real lifestyle spending categories. The Finance page
+// retains them in its dedicated "Internal transfers" / "Other" rows.
+const HIDDEN_CATEGORIES = new Set<string>([
+  "internal_transfers",
+  "transfers",
+  "other",
+  "uncategorized",
+  "unknown",
+  "income",
+]);
 
 function isoMinusDays(n: number): string {
   const d = new Date();
@@ -46,7 +76,7 @@ function monthShort(iso: string | null): string | null {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? null
-    : d.toLocaleString("en-US", { month: "short" });
+    : d.toLocaleString("ru-RU", { month: "short" });
 }
 
 function projectMomentum(updatedAt: string | null | undefined): {
@@ -76,6 +106,7 @@ export function OverviewDashboard({
   summary,
   projects,
   observations,
+  insight,
   bodyMetrics,
   workouts,
   loading,
@@ -100,18 +131,18 @@ export function OverviewDashboard({
   const topCategories = useMemo(() => {
     if (!summary) return [] as Array<[string, number]>;
     return Object.entries(summary.by_category ?? {})
-      .filter(([k]) => k !== "internal_transfers")
+      .filter(([k]) => !HIDDEN_CATEGORIES.has(k))
       .map(([k, v]) => [k, v.amount] as [string, number])
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 4);
+      .slice(0, 6);
   }, [summary]);
   const maxCatAmount = topCategories[0]?.[1] ?? 1;
 
   // --- Health derived ---
   const latestWeight = latestBodyWeight(bodyMetrics);
   const bmi = bmiFromMetrics(bodyMetrics);
-  const weightLabel = latestWeight ? `${latestWeight.weight} kg` : "—";
-  const bmiLabel = bmi != null ? `BMI ${bmi}` : null;
+  const weightLabel = latestWeight ? `${latestWeight.weight} кг` : "—";
+  const bmiLabel = bmi != null ? `ИМТ ${bmi}` : null;
 
   // --- Workout streak (last 7 days, oldest → today) ---
   const streak = useMemo(() => {
@@ -122,7 +153,7 @@ export function OverviewDashboard({
   const latestWorkoutDate = workouts[0]?.date ?? null;
   const daysSinceWorkout = latestWorkoutDate ? daysSince(latestWorkoutDate) : null;
   const lastWorkoutLabel = latestWorkoutDate
-    ? new Date(latestWorkoutDate).toLocaleDateString("en-US", {
+    ? new Date(latestWorkoutDate).toLocaleDateString("ru-RU", {
         month: "short",
         day: "numeric",
       })
@@ -166,7 +197,7 @@ export function OverviewDashboard({
   // First-load skeleton — keep simple
   if (loading && !summary && projects.length === 0 && workouts.length === 0) {
     return (
-      <div className="text-[14px] text-gray-400 px-2 py-12">Loading overview…</div>
+      <div className="text-[14px] text-gray-400 px-2 py-12">Загрузка обзора…</div>
     );
   }
 
@@ -178,7 +209,7 @@ export function OverviewDashboard({
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md h-[180px]">
           <div>
             <span className={cn(t.cardLabel, "block mb-2")}>
-              Total Spent
+              Всего потрачено
             </span>
             <span className={t.hero}>
               {hasFinance ? formatEuro(totalSpent) : "—"}
@@ -187,16 +218,16 @@ export function OverviewDashboard({
 
           <div className="flex gap-6 mt-auto">
             <div className="space-y-0.5">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">
-                Income
-              </span>
+              <span className={cn(t.cardLabel, "block")}>Доход</span>
               <span className="text-[13px] font-extrabold text-gray-500 font-mono">
                 {hasFinance && totalIncome > 0 ? formatEuro(totalIncome) : "—"}
               </span>
             </div>
             <div className="space-y-0.5">
-              <span className="text-[9px] font-bold text-[#6366F1] uppercase tracking-wider block">
-                Free
+              <span
+                className={cn(t.cardLabel, "block", "text-[#6366F1]")}
+              >
+                Свободно
               </span>
               <span
                 className={cn(
@@ -214,26 +245,27 @@ export function OverviewDashboard({
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md h-[180px]">
           <div>
             <span className={cn(t.cardLabel, "block mb-2")}>
-              Health Weight
+              Вес
             </span>
-            <div className="flex items-baseline gap-2">
-              <span className={t.hero}>
-                {weightLabel}
-              </span>
+            <div className="flex flex-col">
+              <span className={t.hero}>{weightLabel}</span>
               {bmiLabel && (
-                <span className={t.heroSub}>{bmiLabel}</span>
+                <span className="text-[11px] font-bold text-gray-400 font-mono mt-1 tracking-wider">
+                  {bmiLabel}
+                </span>
               )}
             </div>
           </div>
 
           <div className="space-y-1 mt-auto">
-            <span className="text-[9.5px] font-bold text-gray-400 uppercase tracking-wider block">
-              Last 7 days
-            </span>
+            <span className={cn(t.cardLabel, "block")}>Последние 7 дней</span>
             <div className="flex items-center gap-1">
               {streak.map((trained, i) => (
+                // Streak is a fixed-length last-N-days array; position
+                // is the only identity (Day -N…Day 0). Using a namespaced
+                // index key so the intent is explicit rather than lazy.
                 <span
-                  key={i}
+                  key={`streak-day-${i}`}
                   className={cn(
                     "text-[17px] leading-none",
                     trained ? "text-[#6366F1]" : "text-gray-200"
@@ -250,7 +282,7 @@ export function OverviewDashboard({
         <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md h-[180px]">
           <div>
             <span className={cn(t.cardLabel, "block mb-2")}>
-              Active Projects
+              Активные проекты
             </span>
             <div className="flex items-baseline justify-between">
               <span className={t.hero}>
@@ -258,7 +290,7 @@ export function OverviewDashboard({
               </span>
               {stalledProjects > 0 && (
                 <span className="text-xs font-black text-red-500 uppercase tracking-wide bg-red-50 border border-red-100 px-2.5 py-0.5 rounded-full">
-                  {stalledProjects} Stalled
+                  Застряло: {stalledProjects}
                 </span>
               )}
             </div>
@@ -266,10 +298,8 @@ export function OverviewDashboard({
 
           <div className="bg-[#F5F5F7]/30 rounded-xl p-3 flex items-center justify-between mt-auto">
             <div className="space-y-0.5">
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">
-                Last Workout
-              </span>
-              <span className="text-[11px] font-extrabold text-gray-700">
+              <span className={cn(t.cardLabel, "block")}>Последняя тренировка</span>
+              <span className="text-[13px] font-extrabold text-gray-700 font-mono">
                 {lastWorkoutLabel}
               </span>
             </div>
@@ -278,25 +308,80 @@ export function OverviewDashboard({
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                   <span className="text-[10px] font-bold text-red-500 uppercase">
-                    {daysSinceWorkout} days without training
+                    Без тренировок {daysSinceWorkout} дн
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                   <span className="text-[10px] font-bold text-green-600 uppercase">
-                    on streak
+                    в темпе
                   </span>
                 </div>
               )
             ) : (
               <span className="text-[10px] font-bold text-gray-400 uppercase">
-                no workouts yet
+                тренировок ещё нет
               </span>
             )}
           </div>
         </div>
       </div>
+
+      {/* -------------------- AIR4 Insight (dark, voice of AIR4) -------------------- */}
+      <button
+        type="button"
+        onClick={() => insight && onPageChange("Patterns")}
+        disabled={!insight}
+        className={cn(
+          "w-full text-left bg-[#1a1a2e] rounded-[20px] p-6 shadow-[0_2px_24px_rgba(26,26,46,0.18)] transition-all duration-300 group/insight",
+          insight
+            ? "cursor-pointer hover:shadow-[0_4px_32px_rgba(99,102,241,0.28)] hover:bg-[#1f1f36]"
+            : "cursor-default"
+        )}
+      >
+        <div className="flex items-start gap-4">
+          <div className="shrink-0 w-10 h-10 rounded-xl bg-[#6366F1]/15 flex items-center justify-center ring-1 ring-[#6366F1]/30">
+            <Sparkles size={16} className="text-[#A5B4FC]" strokeWidth={2.5} />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[10px] font-black text-[#A5B4FC] uppercase tracking-widest">
+                Озарение AIR4
+              </span>
+              <span className="w-1 h-1 rounded-full bg-[#6366F1]/60" />
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                {insight ? "Паттерн обнаружен" : "Слушает"}
+              </span>
+            </div>
+
+            {insight ? (
+              <>
+                <p className="text-[15px] font-bold text-white leading-snug tracking-tight">
+                  {insight.title}
+                </p>
+                {insight.body && (
+                  <p className="text-[12px] text-gray-400 font-medium leading-relaxed mt-1.5 line-clamp-2">
+                    {insight.body}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-[13px] text-gray-400 font-medium leading-relaxed">
+                Озарений пока нет. Продолжайте использовать AIR4 — паттерны появятся здесь.
+              </p>
+            )}
+          </div>
+
+          {insight && (
+            <ChevronRight
+              size={18}
+              className="text-gray-500 group-hover/insight:text-[#A5B4FC] transition-colors shrink-0 mt-1"
+            />
+          )}
+        </div>
+      </button>
 
       {/* -------------------- AIR4 Check-in -------------------- */}
       <AIRCheckIn
@@ -311,10 +396,10 @@ export function OverviewDashboard({
             <div className="flex justify-between items-start">
               <div>
                 <span className={cn(t.cardLabel, "block mb-1")}>
-                  Finance Spend Chart
+                  Расходы по категориям
                 </span>
                 <span className="text-lg font-extrabold text-gray-900">
-                  Allocation Breakdown
+                  Структура трат
                 </span>
               </div>
               {periodLabel && (
@@ -331,21 +416,22 @@ export function OverviewDashboard({
                   return (
                     <div
                       key={key}
-                      className="flex justify-between items-center text-[11px] font-bold text-gray-600"
+                      className="flex items-center gap-4 text-[11px] font-bold text-gray-600"
                     >
-                      <span className="w-24 uppercase tracking-wider text-left truncate">
+                      <span className="w-32 shrink-0 uppercase tracking-wider text-left leading-tight break-words">
                         {formatCategoryLabel(key)}
                       </span>
-                      <div className="flex-1 mx-4 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div
                           className={cn(
                             "h-full rounded-full",
-                            CATEGORY_COLORS[i] ?? "bg-gray-400"
+                            CATEGORY_COLORS[i % CATEGORY_COLORS.length] ??
+                              "bg-gray-400"
                           )}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
-                      <span className="font-mono w-16 text-right text-gray-700">
+                      <span className="font-mono w-16 shrink-0 text-right text-gray-700">
                         {formatEuro(amount)}
                       </span>
                     </div>
@@ -367,15 +453,15 @@ export function OverviewDashboard({
             {hasFinance && totalIncome > 0 ? (
               <span
                 className={cn(
-                  "text-sm font-extrabold uppercase tracking-wider",
+                  "text-[11px] font-extrabold uppercase tracking-wider",
                   freeCapital >= 0 ? "text-green-600" : "text-red-500"
                 )}
               >
-                FREE CAPITAL: {formatEuro(freeCapital)}
+                Свободный капитал: {formatEuro(freeCapital)}
               </span>
             ) : (
-              <span className="text-sm font-extrabold text-gray-400 uppercase tracking-wider">
-                FREE CAPITAL: —
+              <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">
+                Свободный капитал: —
               </span>
             )}
             <button
@@ -383,7 +469,7 @@ export function OverviewDashboard({
               onClick={() => onPageChange("Finance")}
               className={cn(t.link, "hover:text-indigo-800 flex items-center gap-0.5")}
             >
-              Analyze Ledgers
+              Открыть финансы
               <ChevronRight size={12} />
             </button>
           </div>
@@ -394,14 +480,14 @@ export function OverviewDashboard({
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className={t.cardLabel}>
-                Projects Directory
+                Каталог проектов
               </span>
               <button
                 type="button"
                 onClick={() => onPageChange("Projects")}
                 className={cn(t.link, "hover:text-indigo-800 flex items-center gap-0.5")}
               >
-                All
+                Все
                 <ChevronRight size={12} />
               </button>
             </div>
@@ -433,7 +519,7 @@ export function OverviewDashboard({
                               : "bg-gray-100 text-gray-500"
                           )}
                         >
-                          {p.status}
+                          {PROJECT_STATUS_LABEL[p.status] ?? p.status.toUpperCase()}
                         </span>
                       </div>
                       <span className="text-[10px] text-gray-400 font-semibold font-mono shrink-0">
@@ -457,65 +543,78 @@ export function OverviewDashboard({
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-              {activeProjects.length} active
-              {topProjects.length > 0 && ` · Momentum ${overallMomentum}%`}
+            <p className={t.cardLabel}>
+              Активных: {activeProjects.length}
+              {topProjects.length > 0 && ` · Импульс ${overallMomentum}%`}
             </p>
           </div>
         </div>
       </div>
 
-      {/* -------------------- Row 3: Observations -------------------- */}
-      <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <span className={t.cardLabel}>
-              Observed Patterns
-            </span>
-            <button
-              type="button"
-              onClick={() => onPageChange("Patterns")}
-              className={cn(t.link, "hover:text-indigo-800 flex items-center gap-0.5")}
-            >
-              Chronicle
-              <ChevronRight size={12} />
-            </button>
+      {/* -------------------- Row 3: Live Feed (2/3) + Observed Patterns (1/3) -------------------- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <LiveFeed />
+
+        <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col justify-between transition-all duration-300 hover:shadow-md">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className={t.cardLabel}>Обнаруженные паттерны</span>
+              <button
+                type="button"
+                onClick={() => onPageChange("Patterns")}
+                className={cn(
+                  t.link,
+                  "hover:text-indigo-800 flex items-center gap-0.5"
+                )}
+              >
+                Хроника
+                <ChevronRight size={12} />
+              </button>
+            </div>
+
+            {observations.length === 0 ? (
+              <OverviewCardEmpty type="patterns" compact />
+            ) : (
+              <div className="space-y-2 pt-1">
+                {observations.slice(0, 3).map((obs) => (
+                  <button
+                    key={obs.id}
+                    type="button"
+                    onClick={() => onPageChange("Patterns")}
+                    className="w-full text-left pl-3 border-l-2 border-l-[#6366F1] py-1.5 flex items-center justify-between gap-2 group/obs hover:bg-indigo-50/30 rounded-r-md transition-colors"
+                  >
+                    <span className="text-[12px] font-bold text-gray-800 leading-snug line-clamp-2 group-hover/obs:text-[#6366F1] transition-colors">
+                      {obs.title}
+                    </span>
+                    <ChevronRight
+                      size={14}
+                      className="text-gray-300 group-hover/obs:text-[#6366F1] transition-colors shrink-0"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {observations.length === 0 ? (
-            <OverviewCardEmpty type="patterns" compact />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
-              {observations.slice(0, 2).map((obs) => (
-                <div
-                  key={obs.id}
-                  className="pl-4 border-l-2 border-l-[#6366F1] py-1 space-y-1"
-                >
-                  <span className="text-[9px] font-bold text-[#6366F1] uppercase tracking-wider block">
-                    {obs.title}
-                  </span>
-                  <p className="text-[11.5px] text-gray-600 font-semibold leading-relaxed italic line-clamp-3">
-                    “{obs.body}”
-                  </p>
-                </div>
-              ))}
+          {observations.length > 0 && (
+            <div className="flex items-center justify-between gap-2 pt-4 border-t border-gray-50 mt-5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Sparkles size={11} className="text-[#6366F1] shrink-0" />
+                <span className="text-[9px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full truncate">
+                  Обнаружено {observations.length}{" "}
+                  {observations.length % 10 === 1 && observations.length % 100 !== 11
+                    ? "аномалия"
+                    : observations.length % 10 >= 2 && observations.length % 10 <= 4 && (observations.length % 100 < 12 || observations.length % 100 > 14)
+                    ? "аномалии"
+                    : "аномалий"}
+                </span>
+              </div>
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest text-right whitespace-nowrap">
+                AI оценка согласована
+              </span>
             </div>
           )}
         </div>
-
-        {observations.length > 0 && (
-          <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-5">
-            <div className="flex items-center gap-2">
-              <Sparkles size={13} className="text-[#6366F1]" />
-              <span className="text-[11px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full">
-                {observations.length} {observations.length === 1 ? "anomaly" : "anomalies"} detected
-              </span>
-            </div>
-            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-              AI Assessment aligned
-            </span>
-          </div>
-        )}
       </div>
 
       {/* -------------------- Row 4: Active Dilemma -------------------- */}
@@ -530,11 +629,11 @@ export function OverviewDashboard({
             </div>
             <div className="space-y-1.5 min-w-0">
               <div className="flex items-center gap-2.5">
-                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none">
-                  Primary Dilemma
+                <span className={cn(t.cardLabel, "leading-none")}>
+                  Главная дилемма
                 </span>
                 <span className="bg-green-50 text-green-600 border border-green-200 text-[8.5px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                  {openDilemma.status}
+                  {DILEMMA_STATUS_LABEL[openDilemma.status] ?? openDilemma.status.toUpperCase()}
                 </span>
               </div>
 
@@ -553,11 +652,18 @@ export function OverviewDashboard({
           {dilemmaDays != null && (
             <div className="flex md:flex-col items-end gap-2 justify-between md:justify-center shrink-0">
               <div className="text-right">
-                <span className="text-[9px] font-black text-red-400 block uppercase tracking-widest">
-                  Timeline
+                <span
+                  className={cn(t.cardLabel, "block text-red-400")}
+                >
+                  Открыто
                 </span>
                 <span className="font-mono text-sm font-black text-red-500">
-                  {dilemmaDays} {dilemmaDays === 1 ? "Day" : "Days"} Open
+                  {dilemmaDays}{" "}
+                  {dilemmaDays % 10 === 1 && dilemmaDays % 100 !== 11
+                    ? "день"
+                    : dilemmaDays % 10 >= 2 && dilemmaDays % 10 <= 4 && (dilemmaDays % 100 < 12 || dilemmaDays % 100 > 14)
+                    ? "дня"
+                    : "дней"}
                 </span>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { Page } from "../types";
+import { PAGE_LABELS } from "../constants";
 
 interface HeaderProps {
   currentPage: Page;
@@ -29,18 +30,18 @@ export function Header({ currentPage }: HeaderProps) {
       <div>
         {showOwnH1 && (
           <h1 className="text-4xl font-black text-[#111827] tracking-tight">
-            {currentPage}
+            {PAGE_LABELS[currentPage] ?? currentPage}
           </h1>
         )}
         {showSubtitle && (
           <p className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mt-1">
-            Thinking Companion
+            Спутник мышления
           </p>
         )}
       </div>
       <button className="flex items-center gap-2 bg-[#6366f1] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px] shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all uppercase tracking-wider">
         <Plus size={18} />
-        Add event
+        Добавить событие
       </button>
     </header>
   );

@@ -16,26 +16,26 @@ const CONFIG: Record<
 > = {
   finance: {
     icon: Upload,
-    title: "No statements uploaded yet",
-    subtext: "Upload your first Swedbank CSV to see where your money goes",
-    button: "Upload statement",
+    title: "Выписки пока не загружены",
+    subtext: "Загрузите первую выписку Swedbank, чтобы увидеть, куда уходят деньги",
+    button: "Загрузить выписку",
   },
   projects: {
     icon: Plus,
-    title: "No projects yet",
-    subtext: "Add a project via chat",
-    button: "Add first project",
+    title: "Проектов пока нет",
+    subtext: "Добавьте проект через чат",
+    button: "Добавить проект",
   },
   health: {
     icon: Activity,
-    title: "No health data yet",
-    subtext: "Tell AIR4 your weight in chat, or log a workout in chat.",
+    title: "Данных о здоровье пока нет",
+    subtext: "Напишите AIR4 в чате свой вес или залогируйте тренировку.",
   },
   patterns: {
     icon: Repeat,
-    title: "Collecting data...",
-    subtext: "Keep logging.",
-    extra: "Patterns emerge after 2–3 weeks of real usage",
+    title: "Собираем данные...",
+    subtext: "Продолжайте логировать.",
+    extra: "Паттерны проявятся через 2–3 недели реального использования",
     extraClassName: "text-amber-500",
   },
 };

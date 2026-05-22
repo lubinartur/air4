@@ -10,6 +10,17 @@ type DomainFilter = "all" | "finance" | "health" | "projects" | "life" | "person
 
 const FILTERS: DomainFilter[] = ["all", "finance", "health", "projects", "life", "personal"];
 
+// Russian labels for the filter chips. Keeps the underlying enum values
+// in English so backend queries / persisted state stay unchanged.
+const FILTER_LABELS: Record<DomainFilter, string> = {
+  all: "все",
+  finance: "финансы",
+  health: "здоровье",
+  projects: "проекты",
+  life: "жизнь",
+  personal: "личное",
+};
+
 const DOMAIN_BADGE: Record<string, string> = {
   health: "bg-emerald-50 text-emerald-700 border-emerald-100",
   finance: "bg-amber-50 text-amber-700 border-amber-100",
@@ -23,7 +34,7 @@ function groupEventsByDate(
 ): { date: string; items: LifeEvent[] }[] {
   const byDate = new Map<string, LifeEvent[]>();
   for (const event of events) {
-    const d = event.date || "Unknown";
+    const d = event.date || "Без даты";
     if (!byDate.has(d)) byDate.set(d, []);
     byDate.get(d)!.push(event);
   }
@@ -85,17 +96,17 @@ export function Memory() {
         </div>
         <div>
           <h1 className={t.pageTitle}>
-            Memory Archive
+            Архив памяти
           </h1>
           <p className={cn(t.pageSub, "mt-0.5")}>
-            Events, milestones and life context
+            События, milestone-ы и жизненный контекст
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 bg-blue-50/50 border border-blue-100 px-3.5 py-1.5 rounded-xl">
         <Sparkles size={14} className="text-blue-600" />
-        <span className="text-xs font-bold text-blue-700">Memory Engine</span>
+        <span className="text-xs font-bold text-blue-700">Движок памяти</span>
       </div>
     </div>
   );
@@ -120,7 +131,7 @@ export function Memory() {
               disabled && "opacity-40 cursor-not-allowed hover:text-gray-500"
             )}
           >
-            <span>{f}</span>
+            <span>{FILTER_LABELS[f]}</span>
             <span
               className={cn(
                 "font-mono text-[9px]",
@@ -139,7 +150,7 @@ export function Memory() {
     return (
       <div className="flex flex-col gap-8 pb-10">
         {header}
-        <p className="text-[14px] text-[#9ca3af]">Loading…</p>
+        <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
       </div>
     );
   }
@@ -150,8 +161,8 @@ export function Memory() {
         {header}
         <PageEmptyState
           icon={Database}
-          title="No memories yet"
-          subtext="Start chatting with AIR4 — your memories will appear here."
+          title="Воспоминаний пока нет"
+          subtext="Начните диалог с AIR4 — ваши воспоминания появятся здесь."
         />
       </div>
     );
@@ -164,7 +175,7 @@ export function Memory() {
 
       {grouped.length === 0 ? (
         <p className="text-[13px] text-[#9ca3af] py-8 text-center">
-          No events in this domain yet.
+          В этой области пока нет событий.
         </p>
       ) : (
         <div className="space-y-6">
@@ -224,7 +235,7 @@ export function Memory() {
 
       {filter === "all" && total > events.length && (
         <p className="text-[12px] text-center text-[#9ca3af]">
-          Showing latest {events.length} of {total} events
+          Показаны последние {events.length} из {total} событий
         </p>
       )}
     </div>

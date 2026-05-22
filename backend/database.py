@@ -37,6 +37,15 @@ CREATE TABLE IF NOT EXISTS user_profile (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_profile_single ON user_profile(id);
 
+-- Small key/value store for one-time migration flags and similar runtime
+-- metadata. Use `get_meta` / `set_meta` helpers instead of touching this
+-- table directly.
+CREATE TABLE IF NOT EXISTS _app_meta (
+    key        TEXT PRIMARY KEY,
+    value      TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS user_facts (
     id          INTEGER PRIMARY KEY,
     key         TEXT NOT NULL UNIQUE,
@@ -273,6 +282,24 @@ CREATE TABLE IF NOT EXISTS obligations (
     created_at        TEXT DEFAULT (datetime('now')),
     updated_at        TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS income_sources (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL,
+    keywords    TEXT NOT NULL,                -- JSON array of substrings (case-insensitive)
+    category    TEXT DEFAULT 'salary',        -- 'salary' | 'freelance' | 'rental' | 'other'
+    is_active   INTEGER DEFAULT 1,
+    created_at  TEXT DEFAULT (datetime('now')),
+    updated_at  TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id         INTEGER PRIMARY KEY,
+    role       TEXT NOT NULL,                 -- 'user' | 'assistant'
+    content    TEXT NOT NULL,
+    page       TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """
@@ -296,6 +323,18 @@ CREATE INDEX IF NOT EXISTS idx_health_checkups_date ON health_checkups(date);
 CREATE INDEX IF NOT EXISTS idx_health_checkups_marker ON health_checkups(marker_name);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(is_active);
 CREATE INDEX IF NOT EXISTS idx_obligations_active ON obligations(is_active);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at);
+-- Audit follow-ups: support feed/timeline/summary hot paths.
+-- transactions(upload_id, account_iban) — joins with `uploads`, per-IBAN
+-- filtering in summary_loader and the cycles router. events/observations
+-- ordered by created_at for /api/feed. subscriptions/user_facts ordered
+-- by updated_at for the most-recent-change lookups in feed + recurring.
+CREATE INDEX IF NOT EXISTS idx_transactions_upload_id ON transactions(upload_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_account_iban ON transactions(account_iban);
+CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
+CREATE INDEX IF NOT EXISTS idx_observations_created_at ON observations(created_at);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_updated_at ON subscriptions(updated_at);
+CREATE INDEX IF NOT EXISTS idx_user_facts_updated_at ON user_facts(updated_at);
 """
 
 
@@ -449,23 +488,61 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         )
 
 
+_DEFAULT_INCOME_SOURCES: tuple[tuple[str, str, str], ...] = (
+    # (name, JSON keywords, category)
+    ("Placet Group salary", '["töötasu", "preemia"]', "salary"),
+)
+
+
+def _seed_income_sources(conn: sqlite3.Connection) -> None:
+    """Insert default income sources only on first run.
+
+    Skipped entirely once the table has any rows (active or inactive),
+    so the user can edit/delete defaults without them being restored.
+    """
+    row = conn.execute("SELECT COUNT(*) FROM income_sources").fetchone()
+    if row and int(row[0]) > 0:
+        return
+    for name, keywords, category in _DEFAULT_INCOME_SOURCES:
+        conn.execute(
+            """
+            INSERT INTO income_sources (name, keywords, category, is_active)
+            VALUES (?, ?, ?, 1)
+            """,
+            (name, keywords, category),
+        )
+
+
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     try:
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA cache_size=-64000")
+        _apply_runtime_pragmas(conn)
         conn.executescript(SCHEMA_SQL)
         _migrate_schema(conn)
         conn.executescript(INDEX_SQL)
         conn.execute(
             "INSERT OR IGNORE INTO user_profile (id, name, context) VALUES (1, NULL, NULL)"
         )
+        _seed_income_sources(conn)
         conn.commit()
     finally:
         conn.close()
+
+
+def _apply_runtime_pragmas(conn: sqlite3.Connection) -> None:
+    """Tuning that must be re-applied on each new connection.
+
+    `journal_mode=WAL` is persisted on the DB file once set, but SQLite
+    treats `synchronous`, `foreign_keys`, and `cache_size` as
+    per-connection. `init_db()` opens its own connection and then closes
+    it, so without re-applying them here every request reverts to
+    defaults (`synchronous=FULL`, 2 MB cache). Confirmed via PRAGMA dump.
+    """
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA cache_size=-64000")
 
 
 @contextmanager
@@ -473,7 +550,7 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
+    _apply_runtime_pragmas(conn)
     try:
         yield conn
     finally:
@@ -501,3 +578,27 @@ def execute(
     cur = conn.execute(sql, tuple(params))
     conn.commit()
     return int(cur.lastrowid or 0)
+
+
+def get_meta(conn: sqlite3.Connection, key: str) -> str | None:
+    """Read a value from the `_app_meta` key/value store. Returns ``None``
+    when the key isn't set. Used for one-time migration flags."""
+    row = conn.execute(
+        "SELECT value FROM _app_meta WHERE key = ?", (key,)
+    ).fetchone()
+    return None if row is None else (None if row[0] is None else str(row[0]))
+
+
+def set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Upsert a value into the `_app_meta` key/value store and commit."""
+    conn.execute(
+        """
+        INSERT INTO _app_meta(key, value, updated_at)
+        VALUES (?, ?, datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = datetime('now')
+        """,
+        (key, value),
+    )
+    conn.commit()

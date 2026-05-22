@@ -13,6 +13,7 @@ from routers import (
     chat,
     dilemmas,
     events,
+    feed,
     finance_recurring,
     goals,
     health,
@@ -60,6 +61,7 @@ app.include_router(goals.router, prefix="/api", tags=["goals"])
 app.include_router(finance_recurring.router, prefix="/api", tags=["finance"])
 app.include_router(hypotheses.router, prefix="/api", tags=["hypotheses"])
 app.include_router(interview.router, prefix="/api", tags=["interview"])
+app.include_router(feed.router, prefix="/api", tags=["feed"])
 
 
 _scheduler_logger = logging.getLogger("observations.scheduler")
@@ -99,6 +101,36 @@ async def _run_observation_scheduler() -> None:
 @app.on_event("startup")
 async def startup() -> None:
     init_db()
+    # One-time backfill: copy legacy `user_facts`-derived subscriptions
+    # into the `subscriptions` table. The migration scans every fact row,
+    # so we gate it on an `_app_meta` flag — after the first successful
+    # run it never touches `user_facts` again. To re-run after schema
+    # changes, delete the row: DELETE FROM _app_meta WHERE key =
+    # 'subscription_backfill_done'.
+    try:
+        from database import get_meta, set_meta
+        from services.subscription_migration import (
+            migrate_facts_to_subscriptions,
+        )
+
+        _MIGRATION_KEY = "subscription_backfill_done"
+        with get_db() as conn:
+            already_ran = get_meta(conn, _MIGRATION_KEY) == "1"
+            if not already_ran:
+                report = migrate_facts_to_subscriptions(conn)
+                set_meta(conn, _MIGRATION_KEY, "1")
+                if report.get("inserted"):
+                    logging.getLogger("startup").info(
+                        "Backfilled subscriptions from user_facts: %s", report
+                    )
+                else:
+                    logging.getLogger("startup").info(
+                        "Subscription backfill ran (no new rows); flag set"
+                    )
+    except Exception:
+        logging.getLogger("startup").exception(
+            "Subscription backfill from user_facts failed"
+        )
     global _observation_task
     if _observation_task is None or _observation_task.done():
         _observation_task = asyncio.create_task(_run_observation_scheduler())

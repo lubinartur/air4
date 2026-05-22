@@ -36,8 +36,8 @@ import {
 import { formatWorkoutType } from "../lib/format";
 
 const MONTH_LABELS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "янв", "фев", "мар", "апр", "май", "июн",
+  "июл", "авг", "сен", "окт", "ноя", "дек",
 ];
 
 const StatusDot = ({ color = "#ef4444" }: { color?: string }) => (
@@ -49,9 +49,9 @@ const StatusDot = ({ color = "#ef4444" }: { color?: string }) => (
 
 function formatVolume(value: number): string {
   if (value >= 1000) {
-    return `${(value / 1000).toFixed(value >= 10000 ? 1 : 2)}t`;
+    return `${(value / 1000).toFixed(value >= 10000 ? 1 : 2)} т`;
   }
-  return `${Math.round(value)} kg`;
+  return `${Math.round(value)} кг`;
 }
 
 function parseIsoDate(iso: string): Date | null {
@@ -73,10 +73,10 @@ function daysSinceIso(iso: string, now: Date = new Date()): number {
 }
 
 function bmiCategoryLabel(bmi: number): { label: string; className: string } {
-  if (bmi < 18.5) return { label: "Status: Underweight", className: "text-amber-500" };
-  if (bmi < 25) return { label: "Status: Normal range", className: "text-emerald-600" };
-  if (bmi < 30) return { label: "Status: Overweight Class 1", className: "text-rose-500" };
-  return { label: "Status: Obesity", className: "text-rose-600" };
+  if (bmi < 18.5) return { label: "Статус: Недостаточный вес", className: "text-amber-500" };
+  if (bmi < 25) return { label: "Статус: Норма", className: "text-emerald-600" };
+  if (bmi < 30) return { label: "Статус: Избыточный вес", className: "text-rose-500" };
+  return { label: "Статус: Ожирение", className: "text-rose-600" };
 }
 
 function todayIso(): string {
@@ -111,7 +111,7 @@ function WorkoutDetailsModal({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label="Закрыть"
           className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <X size={20} />
@@ -128,13 +128,13 @@ function WorkoutDetailsModal({
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 text-[13px] text-gray-600">
             {workout.duration != null && (
               <span>
-                <span className="text-gray-400">Duration:</span>{" "}
-                <span className="font-bold text-gray-900">{workout.duration} min</span>
+                <span className="text-gray-400">Длительность:</span>{" "}
+                <span className="font-bold text-gray-900">{workout.duration} мин</span>
               </span>
             )}
             {workout.total_volume != null && workout.total_volume > 0 && (
               <span>
-                <span className="text-gray-400">Volume:</span>{" "}
+                <span className="text-gray-400">Объём:</span>{" "}
                 <span className="font-bold text-gray-900">{formatVolume(workout.total_volume)}</span>
               </span>
             )}
@@ -148,12 +148,12 @@ function WorkoutDetailsModal({
           <div className="mt-6 space-y-6">
             {workout.exercises.length === 0 ? (
               <p className="text-[14px] text-[#9ca3af]">
-                No exercise details logged for this workout.
+                Детали упражнений по этой тренировке не записаны.
               </p>
             ) : (
-              workout.exercises.map((ex, exIdx) => (
+              workout.exercises.map((ex) => (
                 <div
-                  key={`${ex.exerciseName}-${exIdx}`}
+                  key={ex.exerciseName}
                   className="border border-gray-100 rounded-2xl p-4"
                 >
                   <div className="flex items-baseline justify-between gap-3 mb-3">
@@ -165,25 +165,25 @@ function WorkoutDetailsModal({
                     )}
                   </div>
                   {ex.sets.length === 0 ? (
-                    <p className="text-[12px] text-[#9ca3af]">No sets logged.</p>
+                    <p className="text-[12px] text-[#9ca3af]">Подходы не записаны.</p>
                   ) : (
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                          <th className="pb-2 w-16">Set</th>
-                          <th className="pb-2">Weight</th>
-                          <th className="pb-2">Reps</th>
+                          <th className="pb-2 w-16">Подход</th>
+                          <th className="pb-2">Вес</th>
+                          <th className="pb-2">Повторы</th>
                         </tr>
                       </thead>
                       <tbody className="text-[13px] font-mono">
-                        {ex.sets.map((s, i) => (
+                        {ex.sets.map((s) => (
                           <tr
-                            key={`${s.setNumber}-${i}`}
+                            key={s.setNumber}
                             className="border-t border-gray-50"
                           >
                             <td className="py-2 text-gray-400">{s.setNumber}</td>
                             <td className="py-2 font-bold text-gray-900">
-                              {s.weight != null ? `${s.weight} kg` : "—"}
+                              {s.weight != null ? `${s.weight} кг` : "—"}
                             </td>
                             <td className="py-2 text-gray-700">
                               {s.reps != null ? s.reps : "—"}
@@ -291,10 +291,10 @@ export function Sport() {
   }, [weightLogs]);
 
   const trendLabel = useMemo(() => {
-    if (weightLogs.length < 2) return "Trend: single data point";
-    if (trendDelta < -0.5) return "Trend: cutting";
-    if (trendDelta > 0.5) return "Trend: bulking";
-    return "Trend: stable body mass";
+    if (weightLogs.length < 2) return "Тренд: одна точка данных";
+    if (trendDelta < -0.5) return "Тренд: сушка";
+    if (trendDelta > 0.5) return "Тренд: набор массы";
+    return "Тренд: стабильный вес";
   }, [trendDelta, weightLogs.length]);
 
   const chartBounds = useMemo(() => {
@@ -319,7 +319,7 @@ export function Sport() {
       e.preventDefault();
       const parsed = parseFloat(newWeightInput);
       if (Number.isNaN(parsed) || parsed <= 30 || parsed >= 250) {
-        setWeightError("Enter a weight between 30 and 250 kg");
+        setWeightError("Введите вес от 30 до 250 кг");
         return;
       }
 
@@ -336,7 +336,7 @@ export function Sport() {
         });
         setNewWeightInput("");
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to save weight";
+        const msg = err instanceof Error ? err.message : "Не удалось сохранить вес";
         setWeightError(msg);
       } finally {
         setWeightSaving(false);
@@ -350,7 +350,7 @@ export function Sport() {
       e.preventDefault();
       const duration = parseInt(newWorkoutDuration, 10);
       if (Number.isNaN(duration) || duration <= 0) {
-        setWorkoutError("Duration must be a positive number of minutes");
+        setWorkoutError("Длительность должна быть положительным числом минут");
         return;
       }
 
@@ -369,7 +369,7 @@ export function Sport() {
         setNewWorkoutDuration("");
         setNewWorkoutNotes("");
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to save workout";
+        const msg = err instanceof Error ? err.message : "Не удалось сохранить тренировку";
         setWorkoutError(msg);
       } finally {
         setWorkoutSaving(false);
@@ -394,10 +394,10 @@ export function Sport() {
             </div>
             <div>
               <h1 className={t.pageTitle}>
-                Athletic Command & Sport
+                Спорт и тренировки
               </h1>
               <p className={cn(t.pageSub, "mt-0.5")}>
-                Physical Performance, Structural Weights & Session History
+                Физическая форма, рабочие веса и история тренировок
               </p>
             </div>
           </div>
@@ -405,13 +405,13 @@ export function Sport() {
 
         <div className="flex items-center gap-2 bg-amber-50/50 border border-amber-100 px-3.5 py-1.5 rounded-xl">
           <Flame size={14} className="text-amber-600" />
-          <span className="text-xs font-bold text-amber-700">Sport Performance Standard</span>
+          <span className="text-xs font-bold text-amber-700">Спортивный советник</span>
         </div>
       </div>
 
       {loading && (
         <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-          <p className="text-[14px] text-[#9ca3af]">Loading sport data…</p>
+          <p className="text-[14px] text-[#9ca3af]">Загрузка спортивных данных…</p>
         </div>
       )}
 
@@ -425,14 +425,14 @@ export function Sport() {
               <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between group transition-all relative">
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <p className={t.cardLabel}>Weight</p>
+                    <p className={t.cardLabel}>Вес</p>
                     <Scale size={16} className="text-rose-500" />
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className={t.hero}>
                       {currentWeight != null ? currentWeight : "—"}
                     </span>
-                    <span className={t.heroSub}>kg</span>
+                    <span className={t.heroSub}>кг</span>
                   </div>
                   <span className="text-[10px] text-gray-400 mt-1 block">{trendLabel}</span>
                 </div>
@@ -445,7 +445,7 @@ export function Sport() {
                     <input
                       type="number"
                       step="0.1"
-                      placeholder="New weight..."
+                      placeholder="Новый вес..."
                       value={newWeightInput}
                       onChange={(e) => setNewWeightInput(e.target.value)}
                       disabled={weightSaving}
@@ -456,7 +456,7 @@ export function Sport() {
                       disabled={weightSaving}
                       className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-wider transition-colors"
                     >
-                      {weightSaving ? "…" : "Log"}
+                      {weightSaving ? "…" : "Записать"}
                     </button>
                   </div>
                   {weightError && (
@@ -469,23 +469,23 @@ export function Sport() {
               <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between transition-all">
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <p className={t.cardLabel}>Height</p>
+                    <p className={t.cardLabel}>Рост</p>
                     <Activity size={16} className="text-indigo-500" />
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className={t.hero}>
                       {currentHeightCm != null ? currentHeightCm : "—"}
                     </span>
-                    <span className={t.heroSub}>cm</span>
+                    <span className={t.heroSub}>см</span>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-1 block">Active biometric ceiling</span>
+                  <span className="text-[10px] text-gray-400 mt-1 block">Активный биометрический верхний предел</span>
                 </div>
                 <div className="pt-4 border-t border-gray-50">
                   <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
-                    Clinical Status
+                    Клинический статус
                   </span>
                   <span className="text-xs font-bold text-gray-700 mt-0.5 block">
-                    Static Biological Baseline
+                    Стабильная биологическая база
                   </span>
                 </div>
               </div>
@@ -495,7 +495,7 @@ export function Sport() {
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <p className={t.cardLabel}>
-                      Calculated BMI
+                      Расчётный ИМТ
                     </p>
                     <Zap size={16} className="text-amber-500" />
                   </div>
@@ -503,7 +503,7 @@ export function Sport() {
                     <span className={t.hero}>
                       {bmiText}
                     </span>
-                    <span className={t.heroSub}>Index</span>
+                    <span className={t.heroSub}>индекс</span>
                   </div>
                   <span
                     className={cn(
@@ -511,15 +511,15 @@ export function Sport() {
                       bmiInfo?.className ?? "text-gray-400"
                     )}
                   >
-                    {bmiInfo?.label ?? "Status: not enough data"}
+                    {bmiInfo?.label ?? "Статус: недостаточно данных"}
                   </span>
                 </div>
                 <div className="pt-4 border-t border-gray-50">
                   <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
-                    Composition
+                    Состав тела
                   </span>
                   <span className="text-xs font-bold text-gray-700 mt-0.5 block">
-                    High Musculature Lean Index
+                    Высокий показатель сухой мышечной массы
                   </span>
                 </div>
               </div>
@@ -529,9 +529,14 @@ export function Sport() {
             <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-sm font-extrabold text-gray-900">Dry Weight Trajectory</h3>
+                  <h3 className="text-sm font-extrabold text-gray-900">Динамика веса</h3>
                   <p className="text-[10px] text-gray-400 mt-0.5">
-                    Last {weightLogs.length || 0} measurement{weightLogs.length === 1 ? "" : "s"} from body metrics.
+                    Последние {weightLogs.length || 0}{" "}
+                    {weightLogs.length % 10 === 1 && weightLogs.length % 100 !== 11
+                      ? "измерение"
+                      : weightLogs.length % 10 >= 2 && weightLogs.length % 10 <= 4 && (weightLogs.length % 100 < 12 || weightLogs.length % 100 > 14)
+                      ? "измерения"
+                      : "измерений"} из биометрии.
                   </p>
                 </div>
 
@@ -541,18 +546,18 @@ export function Sport() {
                       <>
                         <TrendingDown size={14} className="text-emerald-500" />
                         <span className="text-emerald-600 font-mono">
-                          {trendDelta.toFixed(1)} kg ({trendSpanDays} day{trendSpanDays === 1 ? "" : "s"})
+                          {trendDelta.toFixed(1)} кг ({trendSpanDays} дн)
                         </span>
                       </>
                     ) : trendDelta > 0 ? (
                       <>
                         <TrendingUp size={14} className="text-rose-500" />
                         <span className="text-rose-500 font-mono">
-                          +{trendDelta.toFixed(1)} kg ({trendSpanDays} day{trendSpanDays === 1 ? "" : "s"})
+                          +{trendDelta.toFixed(1)} кг ({trendSpanDays} дн)
                         </span>
                       </>
                     ) : (
-                      <span className="text-gray-400 font-mono">No change</span>
+                      <span className="text-gray-400 font-mono">Без изменений</span>
                     )}
                   </div>
                 )}
@@ -560,7 +565,7 @@ export function Sport() {
 
               {weightLogs.length === 0 ? (
                 <p className="text-[13px] text-[#9ca3af] py-6 text-center">
-                  No weight data yet — log via chat (e.g. «вес 95 кг») or the form above.
+                  Данных о весе пока нет — запишите через чат (например, «вес 95 кг») или через форму выше.
                 </p>
               ) : (
                 <div className="h-[120px] flex items-end gap-2.5 pt-6 pb-2 px-1 relative">
@@ -570,11 +575,11 @@ export function Sport() {
                     const cappedHt = Math.max(10, Math.min(100, hPct));
                     return (
                       <div
-                        key={`${log.rawDate}-${index}`}
+                        key={log.rawDate}
                         className="flex-1 flex flex-col items-center gap-2 group cursor-pointer relative"
                       >
                         <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 bg-gray-900 text-white font-mono text-[9px] px-1.5 py-0.5 rounded transition-all duration-300 z-10 pointer-events-none">
-                          {log.weight}kg
+                          {log.weight} кг
                         </div>
                         <div className="w-full bg-indigo-50/50 rounded-t-lg transition-all duration-300 h-[100px] flex items-end overflow-hidden border border-indigo-50/30 group-hover:border-indigo-100">
                           <motion.div
@@ -598,16 +603,21 @@ export function Sport() {
                 <div>
                   <h3 className="text-[13px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
                     <History size={16} className="text-indigo-600" />
-                    Gym Workout & Performance Logs
+                    Журнал тренировок
                   </h3>
                   <p className="text-[11px] text-gray-400 mt-1">
-                    Coaich imports + manual sessions. Click a row for full set-by-set breakdown.
+                    Импорт из Coaich + ручные сессии. Кликните по строке для разбора по подходам.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   {workouts.length > 0 && (
                     <span className="text-[10px] font-mono text-gray-400 uppercase">
-                      {workouts.length} session{workouts.length === 1 ? "" : "s"}
+                      {workouts.length}{" "}
+                      {workouts.length % 10 === 1 && workouts.length % 100 !== 11
+                        ? "сессия"
+                        : workouts.length % 10 >= 2 && workouts.length % 10 <= 4 && (workouts.length % 100 < 12 || workouts.length % 100 > 14)
+                        ? "сессии"
+                        : "сессий"}
                     </span>
                   )}
                   <button
@@ -619,7 +629,7 @@ export function Sport() {
                     className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100/50 transition-colors"
                   >
                     {showAddWorkout ? <X size={14} /> : <Plus size={14} />}
-                    {showAddWorkout ? "Close" : "Log Session"}
+                    {showAddWorkout ? "Закрыть" : "Записать сессию"}
                   </button>
                 </div>
               </div>
@@ -633,12 +643,12 @@ export function Sport() {
                     exit={{ height: 0, opacity: 0 }}
                     className="bg-gray-50 border border-gray-100 p-4 rounded-xl space-y-3 overflow-hidden text-xs"
                   >
-                    <p className="font-bold text-gray-700">Add New Training Session</p>
+                    <p className="font-bold text-gray-700">Добавить тренировку</p>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="flex flex-col gap-1">
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                          Type
+                          Тип
                         </span>
                         <select
                           value={newWorkoutType}
@@ -650,18 +660,18 @@ export function Sport() {
                           disabled={workoutSaving}
                           className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 disabled:opacity-50"
                         >
-                          <option value="strength">Strength / Weights</option>
-                          <option value="cardio">Cardio / Zone 2</option>
+                          <option value="strength">Силовая / Веса</option>
+                          <option value="cardio">Кардио / Зона 2</option>
                         </select>
                       </div>
 
                       <div className="flex flex-col gap-1">
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                          Duration (min)
+                          Длительность (мин)
                         </span>
                         <input
                           type="number"
-                          placeholder="e.g. 60"
+                          placeholder="например, 60"
                           required
                           min={1}
                           value={newWorkoutDuration}
@@ -673,11 +683,11 @@ export function Sport() {
 
                       <div className="flex flex-col gap-1">
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                          Notes / Lift logs
+                          Заметки / упражнения
                         </span>
                         <input
                           type="text"
-                          placeholder="e.g. Bench Press 80kg"
+                          placeholder="например, жим лёжа 80 кг"
                           value={newWorkoutNotes}
                           onChange={(e) => setNewWorkoutNotes(e.target.value)}
                           disabled={workoutSaving}
@@ -696,7 +706,7 @@ export function Sport() {
                         disabled={workoutSaving}
                         className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold px-4 py-2 rounded-lg leading-none"
                       >
-                        {workoutSaving ? "Saving…" : "Save Session"}
+                        {workoutSaving ? "Сохранение…" : "Сохранить сессию"}
                       </button>
                     </div>
                   </motion.form>
@@ -705,7 +715,7 @@ export function Sport() {
 
               {workouts.length === 0 ? (
                 <p className="text-[13px] text-[#9ca3af] py-4">
-                  No workouts yet — log one above, or import a Coaich backup via{" "}
+                  Тренировок пока нет — добавьте через форму выше или импортируйте бэкап Coaich:{" "}
                   <span className="font-mono">python3 import_workouts.py coaich-backup.json</span>.
                 </p>
               ) : (
@@ -719,7 +729,7 @@ export function Sport() {
                       topExercise ||
                       formatWorkoutType(w.type);
                     const durationText =
-                      w.duration != null ? `${w.duration} min` : "—";
+                      w.duration != null ? `${w.duration} мин` : "—";
                     const volumeText =
                       w.total_volume != null && w.total_volume > 0
                         ? ` • ${formatVolume(w.total_volume)}`
@@ -747,7 +757,7 @@ export function Sport() {
                               {logText}
                             </p>
                             <span className="text-[10px] text-gray-400 font-mono mt-0.5 block">
-                              {formatWorkoutType(w.type)} training • {durationText}
+                              {formatWorkoutType(w.type)} • {durationText}
                               {volumeText}
                             </span>
                           </div>
@@ -774,16 +784,16 @@ export function Sport() {
                 </div>
                 <div>
                   <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                    AIR4 SPORT DECK
+                    Спортивный отчёт AIR4
                   </h4>
                   <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
                     {workouts.length === 0
-                      ? `"No imported sessions yet. Bring in a Coaich backup so I can spot streaks, fatigue, and progressive overload."`
+                      ? `«Импортированных сессий пока нет. Импортируйте бэкап Coaich — я смогу отслеживать серии, усталость и прогрессию.»`
                       : streakDays > 7
-                        ? `"${streakDays} days since the last logged session. High levels of Testosterone conversions may increase adipose holding if left physically un-stimulated."`
+                        ? `«${streakDays} дн с последней тренировки. Высокий уровень андрогенов без физического стимула может усиливать накопление жира.»`
                         : streakDays > 2
-                          ? `"${streakDays} days off — short rest cycle. Keep dynamic cardiovascular zone-2 triggers consistent to push blood viscosity limits into normal ranges."`
-                          : `"Recent session logged ${streakDays === 0 ? "today" : `${streakDays} day${streakDays === 1 ? "" : "s"} ago`}. Maintain rhythm — high mechanical load with hydration discipline."`}
+                          ? `«${streakDays} дн перерыва — короткий цикл отдыха. Держите кардио в зоне 2 регулярным, чтобы вязкость крови оставалась в норме.»`
+                          : `«Последняя сессия записана ${streakDays === 0 ? "сегодня" : `${streakDays} дн назад`}. Держите ритм — высокая механическая нагрузка плюс дисциплина гидратации.»`}
                   </p>
                 </div>
               </div>
@@ -792,21 +802,21 @@ export function Sport() {
             <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800 mb-4 flex items-center gap-1.5">
                 <Clock size={14} className="text-[#6366f1]" />
-                Temporal Training Coherence
+                Согласованность тренировок во времени
               </h3>
 
               <div className="space-y-4">
                 <div className="text-xs p-3.5 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-700">Testosterone Retention</p>
+                  <p className="font-bold text-gray-700">Удержание тестостерона</p>
                   <p className="text-gray-400 mt-1 leading-relaxed">
-                    Supraphysiological androgens require regular glycolytic mobilization. High mechanical loads trigger muscular structural density, helping prevent high body fluids.
+                    Супрафизиологические андрогены требуют регулярной гликолитической нагрузки. Высокие механические веса повышают плотность мышц и помогают избегать задержки жидкости.
                   </p>
                 </div>
 
                 <div className="text-xs p-3.5 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-700">Cardiovascular Viscosity</p>
+                  <p className="font-bold text-gray-700">Вязкость крови</p>
                   <p className="text-gray-400 mt-1 leading-relaxed">
-                    At 50.6% Hematocrit, blood viscosity is thick. High hydration (4.0L/day) and low-intensity aerobic zone-2 sessions (e.g. 40 minutes at 135 bpm) are therapeutic.
+                    При гематокрите 50,6% вязкость крови высокая. Гидратация (4 л/день) и аэробные сессии в зоне 2 (например, 40 минут при 135 уд/мин) — терапевтичны.
                   </p>
                 </div>
               </div>
@@ -814,9 +824,9 @@ export function Sport() {
 
             <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 text-center py-6 flex flex-col items-center justify-center">
               <Flame size={28} className="text-orange-500 mb-2 animate-bounce" />
-              <h4 className="text-xs font-bold text-gray-800">Metabolic Status</h4>
+              <h4 className="text-xs font-bold text-gray-800">Метаболический статус</h4>
               <p className="text-[11px] text-gray-400 mt-1 leading-relaxed max-w-[200px]">
-                Daily caloric requirement is estimated at 2,850 kcal during training phases. Minimize comfort restaurant dining during sluggish projects.
+                Суточная норма калорий в тренировочной фазе — около 2850 ккал. Минимизируйте «утешительные» походы в рестораны в периоды застрявших проектов.
               </p>
             </div>
           </div>

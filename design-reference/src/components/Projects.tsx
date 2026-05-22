@@ -75,7 +75,7 @@ function momentumFromDays(days: number): number {
 function formatTotalTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  return `${h} h ${m} min`;
+  return `${h} ч ${m} мин`;
 }
 
 function formatCountdown(seconds: number): string {
@@ -95,7 +95,7 @@ function parseServerIso(raw: string | null | undefined): Date | null {
 function formatLogTimestamp(iso: string | null | undefined): string {
   const d = parseServerIso(iso);
   if (!d) return "—";
-  return d.toLocaleString("en-US", {
+  return d.toLocaleString("ru-RU", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -155,7 +155,7 @@ export function Projects() {
       const data = await fetchProjects();
       setProjects(data);
     } catch (err) {
-      setProjectsError(err instanceof Error ? err.message : "Failed to load projects");
+      setProjectsError(err instanceof Error ? err.message : "Не удалось загрузить проекты");
       setProjects([]);
     } finally {
       setProjectsLoading(false);
@@ -192,7 +192,7 @@ export function Projects() {
         setShowNotesForm(false);
       }
     } catch (err) {
-      setDetailError(err instanceof Error ? err.message : "Failed to load project");
+      setDetailError(err instanceof Error ? err.message : "Не удалось загрузить проект");
       setDetail(null);
       setTodos([]);
     } finally {
@@ -284,7 +284,7 @@ export function Projects() {
       e.preventDefault();
       const name = newProjName.trim();
       if (!name) {
-        setCreateError("Name is required");
+        setCreateError("Введите название");
         return;
       }
       setCreating(true);
@@ -301,7 +301,7 @@ export function Projects() {
         setShowAddProject(false);
         await loadProjects();
       } catch (err) {
-        setCreateError(err instanceof Error ? err.message : "Failed to create project");
+        setCreateError(err instanceof Error ? err.message : "Не удалось создать проект");
       } finally {
         setCreating(false);
       }
@@ -378,7 +378,7 @@ export function Projects() {
       setSecondsElapsedThisSession(0);
       setTimeLeft(POMODORO_SECONDS);
     } catch (err) {
-      setSessionError(err instanceof Error ? err.message : "Failed to start session");
+      setSessionError(err instanceof Error ? err.message : "Не удалось начать сессию");
     } finally {
       setSessionBusy(false);
     }
@@ -393,7 +393,7 @@ export function Projects() {
     async (e: FormEvent) => {
       e.preventDefault();
       if (selectedId == null) return;
-      const label = sessionNotesInput.trim() || "Focus session";
+      const label = sessionNotesInput.trim() || "Фокус-сессия";
       setSessionBusy(true);
       setSessionError(null);
       try {
@@ -415,7 +415,7 @@ export function Projects() {
         setTimeLeft(POMODORO_SECONDS);
         void loadProjects();
       } catch (err) {
-        setSessionError(err instanceof Error ? err.message : "Failed to save session");
+        setSessionError(err instanceof Error ? err.message : "Не удалось сохранить сессию");
       } finally {
         setSessionBusy(false);
       }
@@ -443,19 +443,25 @@ export function Projects() {
     const totalMinutes = detail?.total_sessions_minutes ?? 0;
     const totalOutput = formatTotalTime(totalMinutes * 60);
     const uiStatus = detail ? toUiStatus(detail.status) : "ACTIVE";
-    const projectName = detail?.name ?? "Project";
+    const projectName = detail?.name ?? "Проект";
 
     let dynamicInsight =
-      "AIR4 PROJECT REVIEW: No focus signals registered recently. Start the 25-minute Pomodoro timer inside this detail center to restart the development momentum index.";
+      "AIR4: Фокус-сигналов давно не было. Запустите 25-минутный таймер Pomodoro в этом разделе, чтобы вернуть импульс развития.";
     if (detail) {
       const days = daysSince(detail.updated_at);
       const momentum = momentumFromDays(days);
+      const dayWord =
+        days % 10 === 1 && days % 100 !== 11
+          ? "день"
+          : days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 12 || days % 100 > 14)
+          ? "дня"
+          : "дней";
       if (days >= 14) {
-        dynamicInsight = `AIR4 PROJECT WATCH: ${projectName} has been quiet for ${days} days. Log a session or add a milestone to restart momentum.`;
+        dynamicInsight = `AIR4: «${projectName}» молчит уже ${days} ${dayWord}. Запишите сессию или milestone, чтобы вернуть импульс.`;
       } else if (momentum < 60) {
-        dynamicInsight = `AIR4 PROJECT WATCH: ${projectName} is at ${momentum}% momentum. Coordinate the next deliverable and start an active session.`;
+        dynamicInsight = `AIR4: «${projectName}» — импульс ${momentum}%. Назначьте следующий результат и запустите активную сессию.`;
       } else {
-        dynamicInsight = `AIR4 PROJECT WATCH: ${projectName} momentum is healthy at ${momentum}%. Keep the cadence — pick the next todo and run a focus block.`;
+        dynamicInsight = `AIR4: «${projectName}» — импульс ${momentum}%, здоровый темп. Держите ритм — возьмите следующую задачу и проведите фокус-блок.`;
       }
     }
 
@@ -467,7 +473,7 @@ export function Projects() {
             <button
               onClick={handleBackToOverview}
               className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 hover:bg-indigo-50/50 hover:border-indigo-100 transition-all flex items-center justify-center shrink-0"
-              title="Return to Directory"
+              title="Назад к списку"
             >
               <ArrowLeft size={18} />
             </button>
@@ -487,12 +493,20 @@ export function Projects() {
                           : "bg-gray-100 text-gray-600"
                     )}
                   >
-                    {uiStatus}
+                    {uiStatus === "ACTIVE"
+                      ? "АКТИВЕН"
+                      : uiStatus === "STALLED"
+                      ? "ЗАСТРЯЛ"
+                      : uiStatus === "COMPLETED"
+                      ? "ЗАВЕРШЁН"
+                      : uiStatus === "PAUSED"
+                      ? "НА ПАУЗЕ"
+                      : "В АРХИВЕ"}
                   </span>
                 )}
               </div>
               <p className={cn(t.pageSub, "mt-0.5")}>
-                Project Details & Structured Micro-Sprints
+                Детали проекта и структурированные микро-спринты
               </p>
             </div>
           </div>
@@ -501,7 +515,7 @@ export function Projects() {
             <Clock size={15} className="text-indigo-600" />
             <div>
               <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
-                Total Time Tracked
+                Всего времени
               </p>
               <p className="text-sm font-black text-indigo-800 leading-none mt-0.5">
                 {totalOutput}
@@ -512,7 +526,7 @@ export function Projects() {
 
         {detailLoading && (
           <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-            <p className="text-[14px] text-[#9ca3af]">Loading project…</p>
+            <p className="text-[14px] text-[#9ca3af]">Загрузка проекта…</p>
           </div>
         )}
 
@@ -531,16 +545,16 @@ export function Projects() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-sm font-bold text-gray-900">
-                      Active Focus Countdown
+                      Активный фокус-таймер
                     </h3>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      Execute structured development sprints. Default Pomodoro cycle.
+                      Структурированные спринты разработки. Стандартный цикл Pomodoro.
                     </p>
                   </div>
                   {timerActive && (
                     <span className="flex items-center gap-1.5 px-2 py-1 bg-red-50 border border-red-100 rounded-lg text-red-600 font-bold text-[10px] tracking-wide uppercase">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                      Tracking Focus
+                      Идёт фокус
                     </span>
                   )}
                 </div>
@@ -548,7 +562,7 @@ export function Projects() {
                 <div className="flex flex-col items-center justify-center py-6 bg-gray-50/40 border border-gray-100/50 rounded-2xl relative">
                   {secondsElapsedThisSession > 0 && !timerActive && !showNotesForm && (
                     <div className="absolute top-4 text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded">
-                      Paused: {formatCountdown(secondsElapsedThisSession)} tracked
+                      Пауза: записано {formatCountdown(secondsElapsedThisSession)}
                     </div>
                   )}
 
@@ -558,7 +572,7 @@ export function Projects() {
 
                   {secondsElapsedThisSession > 0 && (
                     <p className="text-[10px] text-gray-400 font-mono mt-2 uppercase tracking-wider">
-                      Elapsed: {formatCountdown(secondsElapsedThisSession)}
+                      Прошло: {formatCountdown(secondsElapsedThisSession)}
                     </p>
                   )}
 
@@ -570,7 +584,7 @@ export function Projects() {
                         className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2"
                       >
                         <Play size={14} className="fill-white" />
-                        {sessionBusy ? "Starting…" : "Start Session"}
+                        {sessionBusy ? "Запуск…" : "Начать сессию"}
                       </button>
                     ) : (
                       <button
@@ -578,7 +592,7 @@ export function Projects() {
                         className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2"
                       >
                         <Pause size={14} className="fill-white" />
-                        Stop Session
+                        Остановить
                       </button>
                     )}
 
@@ -587,7 +601,7 @@ export function Projects() {
                         onClick={handleResetTimer}
                         className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black text-xs uppercase tracking-wider rounded-xl transition-all"
                       >
-                        Reset
+                        Сбросить
                       </button>
                     )}
                   </div>
@@ -608,17 +622,17 @@ export function Projects() {
                     >
                       <div>
                         <h4 className="text-xs font-black text-indigo-800 uppercase tracking-wider">
-                          Save Focus Logs
+                          Сохранить фокус-сессию
                         </h4>
                         <p className="text-[11px] text-gray-400 mt-1">
-                          Server will record duration from session start ({Math.max(1, Math.round(secondsElapsedThisSession / 60))} min so far).
+                          Сервер зафиксирует длительность с начала сессии (пока — {Math.max(1, Math.round(secondsElapsedThisSession / 60))} мин).
                         </p>
                       </div>
 
                       <div className="flex flex-col md:flex-row gap-3">
                         <input
                           type="text"
-                          placeholder="What did you do during this focus slot?"
+                          placeholder="Что вы делали в этой фокус-сессии?"
                           required
                           value={sessionNotesInput}
                           onChange={(e) => setSessionNotesInput(e.target.value)}
@@ -630,7 +644,7 @@ export function Projects() {
                           disabled={sessionBusy}
                           className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all"
                         >
-                          {sessionBusy ? "Saving…" : "Save Session Log"}
+                          {sessionBusy ? "Сохранение…" : "Сохранить запись"}
                         </button>
                       </div>
                     </motion.form>
@@ -642,17 +656,17 @@ export function Projects() {
               <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-5">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900">
-                    Project Milestones & Checklist
+                    Milestone и чек-лист
                   </h3>
                   <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
-                    Define development goals to reach the target outcomes.
+                    Определите цели разработки, чтобы прийти к нужному результату.
                   </p>
                 </div>
 
                 <form onSubmit={handleAddTodo} className="flex gap-2.5">
                   <input
                     type="text"
-                    placeholder="Add todo..."
+                    placeholder="Добавить задачу..."
                     value={newTodoText}
                     onChange={(e) => setNewTodoText(e.target.value)}
                     disabled={todoBusy}
@@ -664,7 +678,7 @@ export function Projects() {
                     className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center"
                   >
                     <Plus size={14} className="mr-1" />
-                    Add
+                    Добавить
                   </button>
                 </form>
 
@@ -704,7 +718,7 @@ export function Projects() {
                   ) : (
                     <div className="py-8 text-center text-gray-400 text-xs flex flex-col items-center justify-center">
                       <ListTodo size={24} className="text-gray-300 mb-2" />
-                      No goal points mapped. Insert a task above to build your checkboard.
+                      Целей пока нет. Добавьте задачу выше, чтобы собрать чек-лист.
                     </div>
                   )}
                 </div>
@@ -722,7 +736,7 @@ export function Projects() {
                   </div>
                   <div>
                     <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                      AIR4 Project Deck
+                      Отчёт AIR4 по проекту
                     </h4>
                     <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
                       “{dynamicInsight}”
@@ -735,10 +749,10 @@ export function Projects() {
               <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-5">
                 <div>
                   <h3 className="text-sm font-bold text-gray-900">
-                    Project Stream & Logs
+                    Поток и журнал проекта
                   </h3>
                   <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
-                    Keep logs of milestones, sessions and standard commits.
+                    Ведите журнал milestone'ов, сессий и обычных коммитов.
                   </p>
                 </div>
 
@@ -748,7 +762,7 @@ export function Projects() {
                 >
                   <input
                     type="text"
-                    placeholder="Add note/status update..."
+                    placeholder="Добавить заметку или обновление статуса..."
                     required
                     value={newLogText}
                     onChange={(e) => setNewLogText(e.target.value)}
@@ -772,7 +786,7 @@ export function Projects() {
                               : "bg-white text-gray-400 border-gray-100 hover:text-gray-600"
                           )}
                         >
-                          {type.toUpperCase()}
+                          {type === "milestone" ? "MILESTONE" : "ЗАПИСЬ"}
                         </button>
                       ))}
                     </div>
@@ -782,7 +796,7 @@ export function Projects() {
                       disabled={logBusy || !newLogText.trim()}
                       className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-colors"
                     >
-                      {logBusy ? "…" : "Note"}
+                      {logBusy ? "…" : "Запись"}
                     </button>
                   </div>
                 </form>
@@ -809,7 +823,11 @@ export function Projects() {
                                     : "bg-blue-50 text-blue-600"
                               )}
                             >
-                              {label}
+                              {label === "SESSION"
+                                ? "СЕССИЯ"
+                                : label === "MILESTONE"
+                                ? "MILESTONE"
+                                : "ЗАПИСЬ"}
                             </span>
                             <span className="text-[10px] text-gray-400 font-mono">
                               {formatLogTimestamp(log.created_at)}
@@ -823,7 +841,7 @@ export function Projects() {
                     })
                   ) : (
                     <div className="py-6 text-center text-gray-400 italic">
-                      No activity logs yet.
+                      Записей активности пока нет.
                     </div>
                   )}
                 </div>
@@ -848,10 +866,10 @@ export function Projects() {
             </div>
             <div>
               <h1 className={t.pageTitle}>
-                Project Command Center
+                Командный центр проектов
               </h1>
               <p className={cn(t.pageSub, "mt-0.5")}>
-                Active Projects, Sessions & Focus Tracking
+                Активные проекты, сессии и фокус-трекинг
               </p>
             </div>
           </div>
@@ -860,7 +878,7 @@ export function Projects() {
         <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
           <Sparkles size={14} className="text-indigo-600" />
           <span className="text-xs font-bold text-indigo-700">
-            Project Advisor Standard
+            Советник по проектам
           </span>
         </div>
       </div>
@@ -872,9 +890,9 @@ export function Projects() {
           <div className="bg-white p-5 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-gray-900">Project Directory</h3>
+                <h3 className="text-sm font-bold text-gray-900">Каталог проектов</h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  Manage goals & active development timelines.
+                  Управляйте целями и активной разработкой.
                 </p>
               </div>
 
@@ -886,7 +904,7 @@ export function Projects() {
                 className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100/50 transition-colors"
               >
                 {showAddProject ? <X size={14} /> : <Plus size={14} />}
-                {showAddProject ? "Close Form" : "Create Project"}
+                {showAddProject ? "Закрыть форму" : "Создать проект"}
               </button>
             </div>
 
@@ -899,16 +917,16 @@ export function Projects() {
                   exit={{ height: 0, opacity: 0 }}
                   className="bg-gray-50 border border-gray-100 p-4 rounded-xl space-y-3 overflow-hidden text-xs"
                 >
-                  <p className="font-bold text-gray-700">Initialize New Project</p>
+                  <p className="font-bold text-gray-700">Новый проект</p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                        Project Name
+                        Название проекта
                       </span>
                       <input
                         type="text"
-                        placeholder="e.g. Memory Vault"
+                        placeholder="например, Memory Vault"
                         required
                         value={newProjName}
                         onChange={(e) => setNewProjName(e.target.value)}
@@ -919,7 +937,7 @@ export function Projects() {
 
                     <div className="flex flex-col gap-1">
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                        Baseline Status
+                        Стартовый статус
                       </span>
                       <select
                         value={newProjStatus}
@@ -931,20 +949,20 @@ export function Projects() {
                         disabled={creating}
                         className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 disabled:opacity-50"
                       >
-                        <option value="ACTIVE">ACTIVE</option>
-                        <option value="STALLED">STALLED</option>
-                        <option value="COMPLETED">COMPLETED</option>
+                        <option value="ACTIVE">АКТИВЕН</option>
+                        <option value="STALLED">ЗАСТРЯЛ</option>
+                        <option value="COMPLETED">ЗАВЕРШЁН</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                      Description Blueprint
+                      Описание
                     </span>
                     <input
                       type="text"
-                      placeholder="Brief overview of the targets..."
+                      placeholder="Краткое описание целей..."
                       value={newProjDesc}
                       onChange={(e) => setNewProjDesc(e.target.value)}
                       disabled={creating}
@@ -962,7 +980,7 @@ export function Projects() {
                       disabled={creating}
                       className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold px-4 py-2 rounded-lg leading-none"
                     >
-                      {creating ? "Saving…" : "Initialize Project"}
+                      {creating ? "Сохранение…" : "Создать проект"}
                     </button>
                   </div>
                 </motion.form>
@@ -972,7 +990,7 @@ export function Projects() {
 
           {projectsLoading ? (
             <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-              <p className="text-[14px] text-[#9ca3af]">Loading projects…</p>
+              <p className="text-[14px] text-[#9ca3af]">Загрузка проектов…</p>
             </div>
           ) : projectsError ? (
             <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-[12px] text-rose-600">
@@ -981,7 +999,7 @@ export function Projects() {
           ) : projects.length === 0 ? (
             <div className="bg-white p-8 rounded-[20px] shadow-sm border border-gray-100 text-center">
               <p className="text-[13px] text-[#9ca3af]">
-                No projects yet — create one above or via chat.
+                Проектов пока нет — создайте через форму выше или в чате.
               </p>
             </div>
           ) : (
@@ -1015,7 +1033,15 @@ export function Projects() {
                                 : "bg-gray-100 text-gray-600"
                           )}
                         >
-                          {uiStatus}
+                          {uiStatus === "ACTIVE"
+                            ? "АКТИВЕН"
+                            : uiStatus === "STALLED"
+                            ? "ЗАСТРЯЛ"
+                            : uiStatus === "COMPLETED"
+                            ? "ЗАВЕРШЁН"
+                            : uiStatus === "PAUSED"
+                            ? "НА ПАУЗЕ"
+                            : "В АРХИВЕ"}
                         </span>
                       </div>
 
@@ -1028,7 +1054,15 @@ export function Projects() {
                       <div className="flex items-center gap-3 text-[11px] font-bold text-gray-400">
                         <span className="flex items-center gap-1.5">
                           <Clock size={12} className="text-slate-400" />
-                          Last active: {days >= 999 ? "—" : `${days} day${days === 1 ? "" : "s"} ago`}
+                          Последняя активность: {days >= 999
+                            ? "—"
+                            : `${days} ${
+                                days % 10 === 1 && days % 100 !== 11
+                                  ? "день"
+                                  : days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 12 || days % 100 > 14)
+                                  ? "дня"
+                                  : "дней"
+                              } назад`}
                         </span>
                         {totalSeconds > 0 && (
                           <span className="font-mono">
@@ -1041,7 +1075,7 @@ export function Projects() {
                     <div className="flex flex-col md:items-end gap-4 min-w-[210px] pt-4 md:pt-0 border-t md:border-t-0 border-gray-50">
                       <div className="w-full space-y-1">
                         <div className="flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          <span>Momentum</span>
+                          <span>Импульс</span>
                           <span className="font-mono">{momentum}%</span>
                         </div>
 
@@ -1066,7 +1100,7 @@ export function Projects() {
                         onClick={() => setSelectedId(project.id)}
                         className="w-full md:w-auto flex items-center justify-center gap-1 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 bg-indigo-50/50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100/30 transition-all self-end"
                       >
-                        Open Project →
+                        Открыть проект →
                       </button>
                     </div>
                   </div>
@@ -1086,14 +1120,20 @@ export function Projects() {
               </div>
               <div>
                 <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                  AIR4 Project Deck
+                  Отчёт AIR4 по проектам
                 </h4>
                 <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
                   {projects.length === 0
-                    ? `"No projects yet. Create one to start tracking momentum and focus sessions."`
+                    ? `«Проектов пока нет. Создайте проект, чтобы начать отслеживать импульс и фокус-сессии.»`
                     : stalledCount > 0
-                      ? `"${stalledCount} project${stalledCount === 1 ? "" : "s"} stalled for 14+ days. Pick one and start a session."`
-                      : `"All projects active. Keep the cadence — open one and run a focus block."`}
+                      ? `«${stalledCount} ${
+                          stalledCount % 10 === 1 && stalledCount % 100 !== 11
+                            ? "проект застрял"
+                            : stalledCount % 10 >= 2 && stalledCount % 10 <= 4 && (stalledCount % 100 < 12 || stalledCount % 100 > 14)
+                            ? "проекта застряли"
+                            : "проектов застряли"
+                        } на 14+ дней. Откройте один и запустите сессию.»`
+                      : `«Все проекты активны. Держите темп — откройте один и запустите фокус-блок.»`}
                 </p>
               </div>
             </div>
@@ -1102,14 +1142,14 @@ export function Projects() {
           <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800">
-                Active Session
+                Активная сессия
               </h3>
             </div>
 
             <div className="bg-gray-50/50 p-5 rounded-xl text-center border border-dashed border-gray-200">
-              <p className="text-xs font-bold text-gray-600">No active session.</p>
+              <p className="text-xs font-bold text-gray-600">Активной сессии нет.</p>
               <p className="text-[11px] text-gray-400 mt-1 leading-snug">
-                Open a project from the directory list and start tracking your development sessions.
+                Откройте проект из каталога и начните отслеживать сессии разработки.
               </p>
             </div>
           </div>
@@ -1118,17 +1158,17 @@ export function Projects() {
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={16} className="text-[#6366f1]" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800">
-                Focus Distribution
+                Распределение фокуса
               </h3>
             </div>
 
             <p className="text-xs text-gray-400 mt-1 leading-relaxed mb-4">
-              Relative effort distribution metric across active focus schedules.
+              Относительная доля усилий по активным фокус-расписаниям.
             </p>
 
             {focusDistribution.length === 0 ? (
               <p className="text-[11px] text-gray-400 italic">
-                Run a focus session in any project to populate this chart.
+                Запустите фокус-сессию в любом проекте, чтобы наполнить график.
               </p>
             ) : (
               <div className="space-y-4">

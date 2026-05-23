@@ -27,12 +27,27 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from difflib import SequenceMatcher
 
+from database import fetch_all
 from services.llm_client import parse_json_object
 from services.llm_client_shared import call_claude
 
 logger = logging.getLogger(__name__)
+
+# Deduplication: scan dilemmas created in this window and merge new
+# extractions into a matching one instead of inserting a duplicate.
+# 24h is wide enough to cover multi-session deliberations (user mulls a
+# purchase across an evening + next morning) without merging unrelated
+# decisions that happen to share a tag weeks apart.
+_DEDUP_WINDOW_HOURS = 24
+
+# Threshold for SequenceMatcher.ratio() on (lowercased) titles. 0.6 is
+# permissive enough to merge "Покупка ноутбука" with "Отказ от покупки
+# ноутбука" (~0.74) and "Купить ноутбук" (~0.7), while still leaving
+# unrelated decisions like "Сменить работу" as their own rows.
+_TITLE_SIMILARITY_THRESHOLD = 0.6
 
 # Lowercase Russian stems that indicate a decision is on the table.
 # Substring match (not word-boundary) intentionally covers every
@@ -63,6 +78,159 @@ _DECISION_STEMS: tuple[str, ...] = (
 def _has_decision_keyword(text: str) -> bool:
     lowered = (text or "").lower()
     return any(stem in lowered for stem in _DECISION_STEMS)
+
+
+def _parse_tags_field(raw: object | None) -> list[str]:
+    """`tags` is JSON in SQLite — tolerate empty / malformed payloads
+    so a single corrupt row never blocks deduplication for the rest."""
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return [str(x).strip().lower() for x in raw if str(x).strip()]
+    try:
+        parsed = json.loads(str(raw))
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [str(x).strip().lower() for x in parsed if str(x).strip()]
+
+
+def _find_duplicate(
+    conn: sqlite3.Connection,
+    *,
+    title: str,
+    tags: list[str],
+) -> dict | None:
+    """Return the best existing dilemma to merge into, or None.
+
+    A row in the last ``_DEDUP_WINDOW_HOURS`` qualifies when EITHER:
+      • its title is ≥``_TITLE_SIMILARITY_THRESHOLD`` similar to the
+        new title (SequenceMatcher on lowercased strings), OR
+      • it shares at least one tag with the new extraction.
+
+    When multiple rows qualify we keep the one with the highest title
+    similarity (ties broken by recency, since we pre-sort DESC). The
+    30-minute "same session" rule from the spec is naturally covered:
+    rows that recent will always be inside the 24h window and almost
+    always share a tag with the new extraction.
+    """
+    cutoff = (
+        datetime.now() - timedelta(hours=_DEDUP_WINDOW_HOURS)
+    ).strftime("%Y-%m-%d %H:%M:%S")
+    rows = fetch_all(
+        conn,
+        """
+        SELECT id, title, description, status, decision_made, tags,
+               followup_due, created_at
+          FROM dilemmas
+         WHERE datetime(created_at) >= datetime(?)
+         ORDER BY datetime(created_at) DESC, id DESC
+        """,
+        (cutoff,),
+    )
+    if not rows:
+        return None
+
+    new_title_lower = title.lower()
+    new_tags_set = {t.lower() for t in tags}
+
+    best: tuple[float, dict] | None = None
+    for row in rows:
+        existing_title = str(row.get("title") or "")
+        ratio = SequenceMatcher(
+            None, new_title_lower, existing_title.lower()
+        ).ratio()
+        existing_tags = set(_parse_tags_field(row.get("tags")))
+        tag_overlap = bool(new_tags_set & existing_tags) if new_tags_set else False
+        if ratio >= _TITLE_SIMILARITY_THRESHOLD or tag_overlap:
+            if best is None or ratio > best[0]:
+                best = (ratio, row)
+    return best[1] if best else None
+
+
+def _merge_into_existing(
+    conn: sqlite3.Connection,
+    existing: dict,
+    *,
+    new_description: str | None,
+    new_decision_made: str | None,
+    new_status: str,
+    new_tags: list[str],
+) -> dict:
+    """Apply a non-destructive update to an existing dilemma row.
+
+    Merge rules (all designed to preserve user-visible context):
+      • **status** — only promote ``open → decided``; never demote.
+      • **decision_made** — adopt the new value only when it's strictly
+        more informative than what's stored (existing is empty, or new
+        is meaningfully longer). Stops a terse re-statement of the
+        same choice from clobbering a richer earlier phrasing.
+      • **description** — fill if missing; otherwise keep the original.
+      • **tags** — union, preserving the existing tag order so anything
+        a future UI surfaces stays stable across merges.
+      • **followup_due** — left untouched so the 14-day clock keeps
+        ticking from the original decision moment.
+      • **title** — left untouched (the canonical thread name).
+    """
+    existing_decision = (existing.get("decision_made") or "").strip() or None
+    if new_decision_made:
+        # "More specific" = clearly longer than what's stored. Equal /
+        # shorter restatements are ignored so we don't overwrite e.g.
+        # "Купить MacBook Pro 14 36GB" with a later "Купить MacBook".
+        if not existing_decision or len(new_decision_made) > len(existing_decision) + 4:
+            next_decision = new_decision_made
+        else:
+            next_decision = existing_decision
+    else:
+        next_decision = existing_decision
+
+    existing_status = str(existing.get("status") or "open").strip().lower()
+    next_status = (
+        "decided"
+        if (existing_status == "open" and new_status == "decided")
+        else existing_status
+    )
+
+    existing_description = (existing.get("description") or "").strip() or None
+    next_description = existing_description or new_description
+
+    existing_tags = _parse_tags_field(existing.get("tags"))
+    seen = set(existing_tags)
+    merged_tags = list(existing_tags)
+    for tag in new_tags:
+        if tag not in seen:
+            merged_tags.append(tag)
+            seen.add(tag)
+    tags_json = json.dumps(merged_tags, ensure_ascii=False)
+
+    conn.execute(
+        """
+        UPDATE dilemmas
+           SET description   = ?,
+               decision_made = ?,
+               status        = ?,
+               tags          = ?
+         WHERE id = ?
+        """,
+        (
+            next_description,
+            next_decision,
+            next_status,
+            tags_json,
+            int(existing["id"]),
+        ),
+    )
+    conn.commit()
+
+    return {
+        "id": int(existing["id"]),
+        "title": str(existing.get("title") or ""),
+        "status": next_status,
+        "decision_made": next_decision,
+        "followup_due": existing.get("followup_due"),
+        "merged": True,
+    }
 
 
 _PROMPT = """You analyze user chat messages (Russian) to detect when the user is making or actively considering a meaningful life/work decision.
@@ -155,8 +323,29 @@ async def extract_decisions(
         ][:5]
     else:
         tags_clean = []
-    tags_json = json.dumps(tags_clean, ensure_ascii=False)
 
+    # Dedup: if a related dilemma was created in the last 24h, merge
+    # the new extraction into it instead of spawning a duplicate row.
+    # Prevents the failure mode where every chat turn in the same
+    # purchase-decision conversation produces a fresh dilemma.
+    existing = _find_duplicate(conn, title=title, tags=tags_clean)
+    if existing is not None:
+        merged = _merge_into_existing(
+            conn,
+            existing,
+            new_description=description,
+            new_decision_made=decision_made,
+            new_status=status,
+            new_tags=tags_clean,
+        )
+        logger.info(
+            "decision_extractor: merged into existing dilemma id=%s (new title=%r)",
+            merged["id"],
+            title,
+        )
+        return merged
+
+    tags_json = json.dumps(tags_clean, ensure_ascii=False)
     followup_due = (date.today() + timedelta(days=14)).isoformat()
 
     cur = conn.execute(

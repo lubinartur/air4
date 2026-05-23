@@ -708,6 +708,63 @@ export async function fetchHealthCheckups(): Promise<HealthCheckupGroup[]> {
   }));
 }
 
+export type HealthMarkerHistoryPoint = {
+  date: string;
+  value: number;
+  unit: string | null;
+  status: HealthMarkerStatus;
+  reference_min: number | null;
+  reference_max: number | null;
+};
+
+export type HealthMarkerHistory = {
+  marker_name: string;
+  points: HealthMarkerHistoryPoint[];
+};
+
+/** Fetch all historical values for a single biomarker (oldest first).
+ *
+ *  Matches case-insensitively on the backend, so passing the exact
+ *  string displayed in the UI is sufficient — earlier checkups with
+ *  drifted casing/spacing still land in the same trend. Returns an
+ *  empty `points` array on 404 so callers don't have to special-case
+ *  the "no history yet" state — they only need to handle non-404
+ *  network/parse failures.
+ *
+ *  Uses raw `fetch` (not `apiFetch`) so we can branch on status
+ *  without sniffing the error message — the body is a FastAPI JSON
+ *  detail, not a stringified status code. */
+export async function fetchMarkerHistory(
+  markerName: string
+): Promise<HealthMarkerHistory> {
+  const encoded = encodeURIComponent(markerName);
+  const res = await fetch(`/api/health/markers/${encoded}/history`);
+  if (res.status === 404) {
+    return { marker_name: markerName, points: [] };
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `marker history failed (${res.status})`);
+  }
+  const data = (await res.json()) as {
+    marker_name?: string;
+    points?: HealthMarkerHistoryPoint[];
+  };
+  return {
+    marker_name: String(data.marker_name ?? markerName),
+    points: (data.points ?? []).map((p) => ({
+      date: String(p.date ?? ""),
+      value: Number(p.value),
+      unit: p.unit != null ? String(p.unit) : null,
+      status: String(p.status ?? "NORMAL").toUpperCase(),
+      reference_min:
+        p.reference_min != null ? Number(p.reference_min) : null,
+      reference_max:
+        p.reference_max != null ? Number(p.reference_max) : null,
+    })),
+  };
+}
+
 export async function fetchWorkouts(): Promise<Workout[]> {
   const rows = await apiFetch<unknown>("/api/health/workouts");
   if (!Array.isArray(rows)) return [];

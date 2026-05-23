@@ -15,9 +15,12 @@ import { cn } from "../lib/utils";
 import { t } from "../lib/typography";
 import {
   fetchHealthCheckups,
+  fetchMarkerHistory,
   type HealthCheckupGroup,
   type HealthMarker,
+  type HealthMarkerHistory,
 } from "../lib/api";
+import { MarkerTrendChart, MarkerTrendLegend } from "./MarkerTrendChart";
 
 type MarkerStatus = "HIGH" | "LOW" | "NORMAL";
 
@@ -262,6 +265,10 @@ export function Health() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OUT_OF_RANGE" | "NORMAL">("ALL");
   const [selectedMarker, setSelectedMarker] = useState<BloodMarker | null>(null);
+  const [detailTab, setDetailTab] = useState<"value" | "trend">("value");
+  const [markerHistory, setMarkerHistory] = useState<HealthMarkerHistory | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -290,6 +297,45 @@ export function Health() {
   useEffect(() => {
     setSelectedMarker(null);
   }, [selectedDate]);
+
+  // Reset to the "value" tab whenever the user opens a new marker —
+  // landing on a stale "trend" view from a previous marker would be
+  // confusing on the brief flash before the new history loads.
+  useEffect(() => {
+    setDetailTab("value");
+    setMarkerHistory(null);
+    setHistoryError(null);
+  }, [selectedMarker?.name]);
+
+  // Lazy-load history only when the user actually switches to the
+  // trend tab. Cached per-marker via `markerHistory` so toggling
+  // back and forth doesn't re-fetch.
+  useEffect(() => {
+    if (detailTab !== "trend" || !selectedMarker) return;
+    if (markerHistory?.marker_name?.toLowerCase() === selectedMarker.name.toLowerCase()) {
+      return;
+    }
+    let cancelled = false;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    void fetchMarkerHistory(selectedMarker.name)
+      .then((data) => {
+        if (cancelled) return;
+        setMarkerHistory(data);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setHistoryError(
+          e instanceof Error ? e.message : "Не удалось загрузить историю"
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [detailTab, selectedMarker, markerHistory]);
 
   const activeGroup = useMemo(
     () =>
@@ -702,7 +748,7 @@ export function Health() {
                     <X size={14} />
                   </button>
 
-                  <div className="flex items-center gap-2.5 mb-4">
+                  <div className="flex items-center gap-2.5 mb-4 pr-8">
                     <span
                       className={cn(
                         "w-2.5 h-2.5 rounded-full",
@@ -718,58 +764,132 @@ export function Health() {
                     </h3>
                   </div>
 
-                  {/* Label/value rows are flush with the card's
-                      p-6 padding — no nested gray box that would
-                      double the left inset. Each row is a flex split
-                      so the label hugs the card's left edge and the
-                      value snaps to the right edge, regardless of
-                      label length. */}
-                  <div className="mb-4 space-y-2">
-                    <div className="flex justify-between items-baseline text-xs">
-                      <span className="text-gray-400">Ваше значение</span>
-                      <span className="font-mono font-bold text-gray-800">
-                        {formatNumber(selectedMarker.value)} {selectedMarker.unit}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-baseline text-xs">
-                      <span className="text-gray-400">Референс</span>
-                      <span className="font-mono text-gray-600">
-                        {selectedMarker.range}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-baseline text-xs">
-                      <span className="text-gray-400">Статус</span>
-                      <span
-                        className={cn(
-                          "font-bold uppercase tracking-wider text-[10px]",
-                          selectedMarker.status === "HIGH"
-                            ? "text-red-500"
-                            : selectedMarker.status === "LOW"
-                              ? "text-amber-500"
-                              : "text-green-500"
-                        )}
-                      >
-                        {selectedMarker.status === "HIGH"
-                          ? "ВЫШЕ"
-                          : selectedMarker.status === "LOW"
-                          ? "НИЖЕ"
-                          : "НОРМА"}
-                      </span>
-                    </div>
+                  {/* Tab toggle — "Значение" (current value + AIR4
+                      protocol, existing content) vs "Динамика" (line
+                      chart over all checkup dates). Lazy-loads the
+                      history endpoint only on first switch to trend. */}
+                  <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-wider mb-4 border-b border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setDetailTab("value")}
+                      className={cn(
+                        "pb-2 -mb-px border-b-2 transition-colors",
+                        detailTab === "value"
+                          ? "border-indigo-600 text-indigo-600"
+                          : "border-transparent text-gray-400 hover:text-gray-600"
+                      )}
+                    >
+                      Значение
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailTab("trend")}
+                      className={cn(
+                        "pb-2 -mb-px border-b-2 transition-colors",
+                        detailTab === "trend"
+                          ? "border-indigo-600 text-indigo-600"
+                          : "border-transparent text-gray-400 hover:text-gray-600"
+                      )}
+                    >
+                      Динамика
+                    </button>
                   </div>
 
-                  <p className="text-xs text-gray-500 leading-relaxed italic mb-4">
-                    "{selectedMarker.info}"
-                  </p>
+                  {detailTab === "value" ? (
+                    <>
+                      {/* Label/value rows are flush with the card's
+                          p-6 padding — no nested gray box that would
+                          double the left inset. Each row is a flex split
+                          so the label hugs the card's left edge and the
+                          value snaps to the right edge, regardless of
+                          label length. */}
+                      <div className="mb-4 space-y-2">
+                        <div className="flex justify-between items-baseline text-xs">
+                          <span className="text-gray-400">Ваше значение</span>
+                          <span className="font-mono font-bold text-gray-800">
+                            {formatNumber(selectedMarker.value)} {selectedMarker.unit}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline text-xs">
+                          <span className="text-gray-400">Референс</span>
+                          <span className="font-mono text-gray-600">
+                            {selectedMarker.range}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-baseline text-xs">
+                          <span className="text-gray-400">Статус</span>
+                          <span
+                            className={cn(
+                              "font-bold uppercase tracking-wider text-[10px]",
+                              selectedMarker.status === "HIGH"
+                                ? "text-red-500"
+                                : selectedMarker.status === "LOW"
+                                  ? "text-amber-500"
+                                  : "text-green-500"
+                            )}
+                          >
+                            {selectedMarker.status === "HIGH"
+                              ? "ВЫШЕ"
+                              : selectedMarker.status === "LOW"
+                              ? "НИЖЕ"
+                              : "НОРМА"}
+                          </span>
+                        </div>
+                      </div>
 
-                  <div className="pt-4 border-t border-gray-100">
-                    <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-2">
-                      Рекомендация AIR4
-                    </h4>
-                    <p className="text-[11px] text-gray-400 leading-snug">
-                      {interventionFor(selectedMarker)}
-                    </p>
-                  </div>
+                      <p className="text-xs text-gray-500 leading-relaxed italic mb-4">
+                        "{selectedMarker.info}"
+                      </p>
+
+                      <div className="pt-4 border-t border-gray-100">
+                        <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-2">
+                          Рекомендация AIR4
+                        </h4>
+                        <p className="text-[11px] text-gray-400 leading-snug">
+                          {interventionFor(selectedMarker)}
+                        </p>
+                      </div>
+                    </>
+                  ) : historyLoading ? (
+                    <div className="h-[160px] flex items-center justify-center text-[11px] text-gray-400">
+                      Загрузка истории…
+                    </div>
+                  ) : historyError ? (
+                    <div className="h-[160px] flex items-center justify-center text-[11px] text-red-500 text-center px-3">
+                      {historyError}
+                    </div>
+                  ) : markerHistory ? (
+                    <div className="space-y-3">
+                      <MarkerTrendChart history={markerHistory} />
+                      <MarkerTrendLegend
+                        refMin={
+                          markerHistory.points.find(
+                            (p) => p.reference_min != null
+                          )?.reference_min ?? null
+                        }
+                        refMax={
+                          markerHistory.points.find(
+                            (p) => p.reference_max != null
+                          )?.reference_max ?? null
+                        }
+                        unit={
+                          markerHistory.points.find((p) => p.unit)?.unit ?? null
+                        }
+                      />
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wider pt-2 border-t border-gray-100">
+                        {markerHistory.points.length} измерений ·{" "}
+                        {markerHistory.points[0]?.date} —{" "}
+                        {
+                          markerHistory.points[markerHistory.points.length - 1]
+                            ?.date
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="h-[160px] flex items-center justify-center text-[11px] text-gray-400">
+                      Готовлю график…
+                    </div>
+                  )}
                 </motion.div>
               ) : (
                 <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 text-center py-10 flex flex-col items-center justify-center">

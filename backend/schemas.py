@@ -404,6 +404,27 @@ class HealthCheckupsListOut(BaseModel):
     checkups: list[HealthCheckupGroupOut] = Field(default_factory=list)
 
 
+class HealthMarkerHistoryPoint(BaseModel):
+    """One historical sample for a single biomarker.
+
+    `marker_name` echoes the *canonical* (most recent) name across all
+    aliases — the API matches names case-insensitively so that minor
+    casing/spacing drift between checkups still groups under one trend.
+    """
+
+    date: str
+    value: float
+    unit: str | None = None
+    status: str = "NORMAL"
+    reference_min: float | None = None
+    reference_max: float | None = None
+
+
+class HealthMarkerHistoryOut(BaseModel):
+    marker_name: str
+    points: list[HealthMarkerHistoryPoint] = Field(default_factory=list)
+
+
 class UserProfileSectionOut(BaseModel):
     name: str | None = None
     city: str | None = None

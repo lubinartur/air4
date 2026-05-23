@@ -12,6 +12,8 @@ from schemas import (
     BodyMetricOut,
     HealthCheckupGroupOut,
     HealthCheckupsListOut,
+    HealthMarkerHistoryOut,
+    HealthMarkerHistoryPoint,
     HealthMarkerOut,
     WorkoutExerciseOut,
     WorkoutIn,
@@ -314,6 +316,69 @@ def _normalize_status(
     if ref_min is not None and value < ref_min:
         return "LOW"
     return "NORMAL"
+
+
+@router.get(
+    "/health/markers/{marker_name}/history",
+    response_model=HealthMarkerHistoryOut,
+)
+def marker_history(marker_name: str) -> HealthMarkerHistoryOut:
+    """Return all historical values for a single biomarker, oldest first.
+
+    Names are matched case-insensitively against
+    `LOWER(TRIM(marker_name))` so a click on "Hemoglobin" in the 2026
+    checkup still picks up "hemoglobin" / "HEMOGLOBIN" rows recorded
+    in earlier reports. The canonical `marker_name` echoed back is
+    the most recent variant, which is what the UI is already showing
+    in the row the user clicked.
+    """
+    needle = (marker_name or "").strip()
+    if not needle:
+        raise HTTPException(status_code=400, detail="marker_name is required")
+
+    with get_db() as conn:
+        rows = fetch_all(
+            conn,
+            """
+            SELECT date, marker_name, value, unit,
+                   reference_min, reference_max, status
+            FROM health_checkups
+            WHERE LOWER(TRIM(marker_name)) = LOWER(TRIM(?))
+            ORDER BY date ASC, id ASC
+            """,
+            (needle,),
+        )
+
+    if not rows:
+        # 404 lets the FE distinguish "no history for this marker" from
+        # a transport failure and fall back to a friendly empty-state
+        # in the chart panel.
+        raise HTTPException(
+            status_code=404,
+            detail=f"no history for marker '{marker_name}'",
+        )
+
+    points: list[HealthMarkerHistoryPoint] = []
+    for row in rows:
+        value = _to_float(row.get("value")) or 0.0
+        ref_min = _to_float(row.get("reference_min"))
+        ref_max = _to_float(row.get("reference_max"))
+        points.append(
+            HealthMarkerHistoryPoint(
+                date=str(row["date"]),
+                value=value,
+                unit=row.get("unit"),
+                status=_normalize_status(value, ref_min, ref_max, row.get("status")),
+                reference_min=ref_min,
+                reference_max=ref_max,
+            )
+        )
+
+    # Echo the most recent variant of the name back (the one the UI
+    # is showing on the active checkup) instead of whatever casing
+    # the URL contained.
+    canonical = str(rows[-1]["marker_name"])
+    return HealthMarkerHistoryOut(marker_name=canonical, points=points)
 
 
 @router.get("/health/checkups", response_model=HealthCheckupsListOut)

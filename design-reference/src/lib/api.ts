@@ -270,6 +270,16 @@ export type ChatResponseMeta = {
   recurring_updated?: RecurringUpdate[];
 };
 
+/** Image / PDF uploaded with a chat message. Used both for outgoing
+ *  requests (FE → BE) and to render attachments coming back from
+ *  `/api/chat/history`. `data` is plain base64 (no data: URI prefix);
+ *  the UI prepends the prefix when rendering `<img>` thumbnails. */
+export type ChatAttachment = {
+  data: string;
+  media_type: string;
+  name?: string | null;
+};
+
 export type ChatStreamCallbacks = {
   /** Fired for each incremental token/chunk. */
   onDelta?: (text: string) => void;
@@ -291,6 +301,11 @@ export async function streamChat(
     message: string;
     history: Array<{ role: string; content: string }>;
     current_page?: string | null;
+    /** Optional file payload. When set, the backend forwards it to
+     *  Claude as either an image or document content block. */
+    file_data?: string;
+    file_type?: string;
+    file_name?: string;
   },
   callbacks: ChatStreamCallbacks = {},
   signal?: AbortSignal
@@ -396,6 +411,7 @@ export type ChatHistoryMessage = {
   content: string;
   page: string | null;
   created_at: string | null;
+  attachment?: ChatAttachment | null;
 };
 
 export type ChatHistoryResponse = {

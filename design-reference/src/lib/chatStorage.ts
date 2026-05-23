@@ -15,7 +15,24 @@ export function loadChatHistory(): Message[] {
 
 export function saveChatHistory(messages: Message[]): void {
   try {
-    sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+    // Strip base64 attachment payloads before caching — a single 5 MB
+    // image would otherwise blow past the ~5 MB sessionStorage quota
+    // and silently drop the entire history. Keep the metadata so we
+    // can show a stub on instant rehydrate; /api/chat/history will
+    // restore the full attachment a moment later on mount.
+    const lite = messages.map((m) =>
+      m.attachment
+        ? {
+            ...m,
+            attachment: {
+              data: "",
+              media_type: m.attachment.media_type,
+              name: m.attachment.name,
+            },
+          }
+        : m
+    );
+    sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(lite));
   } catch {
     /* ignore quota errors */
   }

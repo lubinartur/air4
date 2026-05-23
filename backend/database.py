@@ -301,11 +301,17 @@ CREATE TABLE IF NOT EXISTS income_sources (
 );
 
 CREATE TABLE IF NOT EXISTS chat_messages (
-    id         INTEGER PRIMARY KEY,
-    role       TEXT NOT NULL,                 -- 'user' | 'assistant'
-    content    TEXT NOT NULL,
-    page       TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
+    id              INTEGER PRIMARY KEY,
+    role            TEXT NOT NULL,                 -- 'user' | 'assistant'
+    content         TEXT NOT NULL,
+    page            TEXT,
+    -- Optional attachment for chat input: base64-encoded image or PDF.
+    -- Stored inline so the chat history reload can re-render the bubble
+    -- with its thumbnail/icon. Only ever populated on user-role rows.
+    attachment_data TEXT,
+    attachment_type TEXT,
+    attachment_name TEXT,
+    created_at      TEXT DEFAULT (datetime('now'))
 );
 
 -- Categorization memory. Every confirmed user correction on a
@@ -488,6 +494,20 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
 
     if "interview_answers" in tables:
         _ensure_columns(conn, "interview_answers", [("domain", "TEXT")])
+
+    if "chat_messages" in tables:
+        # Attachment columns added for image/PDF uploads in the chat
+        # input. Pre-existing rows stay attachment-less (NULL), which
+        # the API serializes as `attachment: null`.
+        _ensure_columns(
+            conn,
+            "chat_messages",
+            [
+                ("attachment_data", "TEXT"),
+                ("attachment_type", "TEXT"),
+                ("attachment_name", "TEXT"),
+            ],
+        )
 
     if "subscriptions" in tables:
         _ensure_columns(

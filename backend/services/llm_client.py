@@ -13,11 +13,18 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
 def chat(
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     system: str,
     model: str = "claude-sonnet-4-5",
     max_tokens: int = 1024,
 ) -> str:
+    """Send a turn to Claude and return the text reply.
+
+    `messages[*]["content"]` may be either a plain string (legacy text
+    turn) or a list of Anthropic content blocks
+    (e.g. `[{"type":"image",...}, {"type":"text",...}]`). The SDK
+    accepts both shapes, so no special-casing is needed here.
+    """
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
@@ -28,7 +35,7 @@ def chat(
 
 
 def chat_stream(
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     system: str,
     model: str = "claude-sonnet-4-5",
     max_tokens: int = 1024,

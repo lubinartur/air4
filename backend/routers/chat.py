@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import json
 import logging
 import os
@@ -12,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from fastapi import Query
 
 from database import fetch_all, fetch_one, get_db
-from schemas import ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
+from schemas import ChatAttachment, ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
 from services.body_extractor import extract_body_data
 from services.chat_history import fetch_recent_chat_messages, save_exchange
 from services.decision_extractor import extract_decisions
@@ -115,6 +117,94 @@ def _collect_user_messages(body: ChatIn) -> list[str]:
 
 def _api_key() -> str:
     return os.getenv("ANTHROPIC_API_KEY", "") or ""
+
+
+# Anthropic vision input limits (sonnet-4-5). 10 MB is well under
+# what the API accepts but matches the FE upload cap so we reject
+# oversized files before paying the encode/transit cost.
+_MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+_ALLOWED_IMAGE_TYPES = frozenset(
+    {"image/jpeg", "image/png", "image/gif", "image/webp"}
+)
+_ALLOWED_DOC_TYPES = frozenset({"application/pdf"})
+
+
+def _normalize_attachment(body: ChatIn) -> dict[str, str] | None:
+    """Validate the optional file payload on ChatIn and return a dict
+    suitable for both LLM forwarding and DB persistence, or None when
+    no usable attachment was sent.
+
+    Raises 400 on the cases where the user clearly *tried* to upload
+    something invalid (unsupported type, malformed base64, oversized),
+    so the UI can surface the reason instead of silently dropping it.
+    """
+    raw = (body.file_data or "").strip()
+    if not raw:
+        return None
+
+    media_type = (body.file_type or "").strip().lower()
+    if media_type not in _ALLOWED_IMAGE_TYPES and media_type not in _ALLOWED_DOC_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported attachment type: {media_type or 'unknown'}",
+        )
+
+    # Strip a `data:<mime>;base64,` prefix if the FE forgot to trim it.
+    if raw.startswith("data:"):
+        comma = raw.find(",")
+        if comma == -1:
+            raise HTTPException(status_code=400, detail="Malformed data URL")
+        raw = raw[comma + 1 :]
+
+    try:
+        decoded = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Attachment is not valid base64: {exc}"
+        ) from exc
+
+    if len(decoded) > _MAX_ATTACHMENT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Attachment too large ({len(decoded)} bytes, "
+                f"max {_MAX_ATTACHMENT_BYTES})"
+            ),
+        )
+
+    name = (body.file_name or "").strip() or None
+    return {"data": raw, "media_type": media_type, "name": name}
+
+
+def _attachment_to_block(attachment: dict[str, str]) -> dict[str, Any]:
+    """Convert a normalized attachment dict to an Anthropic content
+    block. PDFs use `document`, everything else (already validated as
+    image/*) uses `image`."""
+    media_type = attachment["media_type"]
+    block_type = "document" if media_type in _ALLOWED_DOC_TYPES else "image"
+    return {
+        "type": block_type,
+        "source": {
+            "type": "base64",
+            "media_type": media_type,
+            "data": attachment["data"],
+        },
+    }
+
+
+def _build_user_turn(message: str, attachment: dict[str, str] | None) -> dict[str, Any]:
+    """Compose the current user message as either a plain-text turn or
+    a multi-block turn with the attachment placed *before* the text so
+    Claude is grounded in the file when answering."""
+    if not attachment:
+        return {"role": "user", "content": message}
+    return {
+        "role": "user",
+        "content": [
+            _attachment_to_block(attachment),
+            {"type": "text", "text": message},
+        ],
+    }
 
 
 async def _run_post_chat_extractors(
@@ -229,7 +319,10 @@ def _apply_obligation_confirmations_safely(assistant_text: str) -> list[dict[str
 
 
 def _persist_exchange(
-    user_message: str, assistant_message: str, page: str | None
+    user_message: str,
+    assistant_message: str,
+    page: str | None,
+    attachment: dict[str, str] | None = None,
 ) -> None:
     try:
         with get_db() as conn:
@@ -238,6 +331,7 @@ def _persist_exchange(
                 user_message=user_message,
                 assistant_message=assistant_message,
                 page=page,
+                attachment=attachment,
             )
     except Exception:
         logger.exception("Failed to persist chat exchange")
@@ -263,8 +357,22 @@ async def chat_endpoint(
     accept: str | None = Header(None),
 ):
     message = (body.message or "").strip()
-    if not message:
+    attachment = _normalize_attachment(body)
+    if not message and not attachment:
         raise HTTPException(status_code=400, detail="Message is required.")
+    # Claude rejects a content array with zero text blocks. When the
+    # user sent only a file, give the model a minimal text prompt so
+    # the multimodal turn is still valid; the FE button is disabled
+    # in this state but we belt-and-suspenders it here.
+    if not message and attachment:
+        message = "(см. вложение)"
+    if attachment:
+        logger.info(
+            "chat: attachment received name=%r type=%s b64_len=%d",
+            attachment.get("name"),
+            attachment.get("media_type"),
+            len(attachment.get("data") or ""),
+        )
 
     user_messages = _collect_user_messages(body)
     api_key = _api_key()
@@ -303,8 +411,8 @@ async def chat_endpoint(
         current_page=body.current_page,
         relevant_events=relevant_events,
     )
-    messages: list[dict[str, str]] = list(llm_history)
-    messages.append({"role": "user", "content": message})
+    messages: list[dict[str, Any]] = list(llm_history)
+    messages.append(_build_user_turn(message, attachment))
 
     wants_stream = accept and "text/event-stream" in accept
 
@@ -372,7 +480,9 @@ async def chat_endpoint(
                 yield f"data: {json.dumps({'type': 'delta', 'text': confirmation}, ensure_ascii=False)}\n\n"
 
             assistant_text = (full_text or "") + (confirmation or "")
-            _persist_exchange(message, assistant_text, body.current_page)
+            _persist_exchange(
+                message, assistant_text, body.current_page, attachment=attachment
+            )
 
             fact_recurring = await _run_post_chat_extractors(
                 user_messages, api_key
@@ -404,7 +514,9 @@ async def chat_endpoint(
         updates + obligation_updates
     )
 
-    _persist_exchange(message, response_text, body.current_page)
+    _persist_exchange(
+        message, response_text, body.current_page, attachment=attachment
+    )
     fact_recurring = await _run_post_chat_extractors(user_messages, api_key)
     all_updates = _merge_recurring_updates(
         updates,
@@ -416,6 +528,21 @@ async def chat_endpoint(
         event_saved=None,
         facts_saved=[],
         recurring_updated=all_updates,
+    )
+
+
+def _row_to_attachment(row: dict[str, Any]) -> ChatAttachment | None:
+    """Build a ChatAttachment from a chat_messages row, or None when
+    the row has no attachment columns populated. Tolerant of legacy
+    rows missing the columns entirely."""
+    data = row.get("attachment_data")
+    media_type = row.get("attachment_type")
+    if not data or not media_type:
+        return None
+    return ChatAttachment(
+        data=str(data),
+        media_type=str(media_type),
+        name=(str(row["attachment_name"]) if row.get("attachment_name") else None),
     )
 
 
@@ -437,6 +564,7 @@ def chat_history(limit: int = Query(50, ge=1, le=500)) -> ChatHistoryOut:
             created_at=(
                 str(r["created_at"]) if r.get("created_at") is not None else None
             ),
+            attachment=_row_to_attachment(r),
         )
         for r in rows
     ]

@@ -1,11 +1,19 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { Send, ArrowLeft, MessageSquare } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
+import { Send, ArrowLeft, MessageSquare, Paperclip, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
-import type { Message, Page } from "../types";
+import type { Message, MessageAttachment, Page } from "../types";
 import { fetchChatHistory, streamChat } from "../lib/api";
+import {
+  ATTACHMENT_ACCEPT,
+  describeAttachmentError,
+  formatAttachmentSize,
+  isImageAttachment,
+  readFileAsAttachment,
+} from "../lib/chatAttachments";
+import { MessageAttachmentView } from "./MessageAttachmentView";
 import { PAGE_LABELS } from "../constants";
 import type {
   Summary,
@@ -92,7 +100,10 @@ export function FullscreenChat({
 }: FullscreenChatProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
+  const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [sessionStartedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
@@ -161,7 +172,11 @@ export function FullscreenChat({
               (m.role === "user" || m.role === "assistant") &&
               m.content.trim() !== ""
           )
-          .map((m) => ({ role: m.role, content: m.content }));
+          .map((m) => ({
+            role: m.role,
+            content: m.content,
+            attachment: m.attachment ?? undefined,
+          }));
         if (remote.length > 0) setMessages(remote);
       })
       .catch(() => {
@@ -178,16 +193,41 @@ export function FullscreenChat({
     }
   }, [messages]);
 
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAttachmentError(null);
+    const result = await readFileAsAttachment(file);
+    if (result.attachment) {
+      setAttachment(result.attachment);
+    } else if (result.error) {
+      setAttachmentError(describeAttachmentError(result.error));
+    }
+  };
+
+  const handleClearAttachment = () => {
+    setAttachment(null);
+    setAttachmentError(null);
+  };
+
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() && !attachment) return;
     const text = input.trim();
+    const outgoingAttachment = attachment;
     const historyBeforeAssistant = messages;
     setMessages((prev) => [
       ...prev,
-      { role: "user", content: text },
+      {
+        role: "user",
+        content: text,
+        attachment: outgoingAttachment ?? undefined,
+      },
       { role: "assistant", content: "", chunks: [], isStreaming: true },
     ]);
     setInput("");
+    setAttachment(null);
+    setAttachmentError(null);
 
     let receivedAny = false;
     let meta: ChatResponseMeta | undefined;
@@ -209,6 +249,13 @@ export function FullscreenChat({
           // Backend appends `message` as the current user turn, so the
           // history we send must NOT already include it.
           history: historyBeforeAssistant,
+          ...(outgoingAttachment
+            ? {
+                file_data: outgoingAttachment.data,
+                file_type: outgoingAttachment.media_type,
+                file_name: outgoingAttachment.name ?? undefined,
+              }
+            : {}),
         },
         {
           onDelta: (delta) => {
@@ -414,6 +461,13 @@ export function FullscreenChat({
                         : "bg-white border-l-[4px] border-l-indigo-600 text-[#111827]"
                     )}
                   >
+                    {msg.attachment && (
+                      <MessageAttachmentView
+                        attachment={msg.attachment}
+                        size="wide"
+                        className={msg.content ? "mb-3" : undefined}
+                      />
+                    )}
                     {msg.role === "assistant" && msg.isStreaming && msg.chunks ? (
                       // Streaming render — each SSE delta is its own
                       // <span> so the CSS keyframe runs once per chunk.
@@ -424,11 +478,11 @@ export function FullscreenChat({
                           </span>
                         ))}
                       </div>
-                    ) : (
+                    ) : msg.content ? (
                       <div className="prose prose-slate max-w-none">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </motion.div>
               ))
@@ -436,25 +490,80 @@ export function FullscreenChat({
           </div>
 
           <div className="px-12 py-8 bg-white border-t border-gray-100">
-            <div className="relative group max-w-4xl mx-auto">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleSend();
-                }}
-                placeholder="Поговорите с AIR4..."
-                className="w-full bg-gray-50 border-2 border-transparent rounded-full py-4 px-8 pr-16 text-[16px] focus:outline-none focus:bg-white focus:border-indigo-600 focus:ring-8 focus:ring-indigo-600/5 transition-all shadow-inner"
-              />
-              <button
-                type="button"
-                onClick={() => void handleSend()}
-                disabled={!input.trim()}
-                className="absolute right-3 top-2 bottom-2 aspect-square rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-40 transition-all shadow-md shadow-indigo-500/20"
-              >
-                <Send size={20} className="ml-0.5" />
-              </button>
+            <div className="max-w-4xl mx-auto">
+              {(attachment || attachmentError) && (
+                <div className="mb-3 space-y-1.5">
+                  {attachment && (
+                    <div className="inline-flex items-center gap-2.5 max-w-full bg-indigo-50 border border-indigo-100 rounded-full pl-1.5 pr-3 py-1.5">
+                      {isImageAttachment(attachment) ? (
+                        <img
+                          src={`data:${attachment.media_type};base64,${attachment.data}`}
+                          alt=""
+                          className="w-7 h-7 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="w-7 h-7 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase flex items-center justify-center">
+                          PDF
+                        </span>
+                      )}
+                      <span className="text-[13px] font-semibold text-indigo-700 truncate max-w-[280px]">
+                        {attachment.name ?? "файл"}
+                      </span>
+                      <span className="text-[11px] text-indigo-500 font-mono">
+                        {formatAttachmentSize(attachment)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleClearAttachment}
+                        className="ml-1 w-6 h-6 rounded-full hover:bg-indigo-100 text-indigo-600 flex items-center justify-center"
+                        aria-label="Убрать вложение"
+                        title="Убрать вложение"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+                  {attachmentError && (
+                    <p className="text-[12px] text-red-500">{attachmentError}</p>
+                  )}
+                </div>
+              )}
+              <div className="relative group">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ATTACHMENT_ACCEPT}
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleSend();
+                  }}
+                  placeholder="Поговорите с AIR4..."
+                  className="w-full bg-gray-50 border-2 border-transparent rounded-full py-4 pl-16 pr-16 text-[16px] focus:outline-none focus:bg-white focus:border-indigo-600 focus:ring-8 focus:ring-indigo-600/5 transition-all shadow-inner"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute left-3 top-2 bottom-2 aspect-square rounded-full bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                  aria-label="Прикрепить файл"
+                  title="Прикрепить изображение или PDF"
+                >
+                  <Paperclip size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim() && !attachment}
+                  className="absolute right-3 top-2 bottom-2 aspect-square rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-40 transition-all shadow-md shadow-indigo-500/20"
+                >
+                  <Send size={20} className="ml-0.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -32,10 +32,28 @@ class UploadDeleteOut(BaseModel):
     transactions_removed: int
 
 
+class ChatAttachment(BaseModel):
+    """Image / PDF attached to a user chat turn.
+
+    `data` is base64-encoded raw bytes (no `data:` URI prefix). The router
+    validates size + media-type before forwarding to the LLM.
+    """
+
+    data: str
+    media_type: str
+    name: str | None = None
+
+
 class ChatIn(BaseModel):
     message: str
     history: list[dict[str, Any]] = Field(default_factory=list)
     current_page: str | None = None
+    # Optional file upload. JSON over `/api/chat` so the streaming
+    # path stays unchanged; multipart would force a parallel codepath
+    # without buying anything for ≤10 MB payloads.
+    file_data: str | None = None
+    file_type: str | None = None
+    file_name: str | None = None
 
 
 class ChatOut(BaseModel):
@@ -51,6 +69,7 @@ class ChatMessageOut(BaseModel):
     content: str
     page: str | None = None
     created_at: str | None = None
+    attachment: ChatAttachment | None = None
 
 
 class ChatHistoryOut(BaseModel):

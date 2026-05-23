@@ -15,6 +15,15 @@ export type Page =
   | "Profile"
   | "Toasts";
 
+export interface MessageAttachment {
+  /** Base64 payload (no `data:` URI prefix). */
+  data: string;
+  /** MIME type: `image/*` (jpeg/png/gif/webp) or `application/pdf`. */
+  media_type: string;
+  /** Original filename, used as the pill label and PDF display name. */
+  name?: string | null;
+}
+
 export interface Message {
   role: "user" | "assistant";
   /** Final / persisted text of the message. Always kept in sync with the
@@ -27,5 +36,8 @@ export interface Message {
   /** True only for the assistant bubble currently receiving SSE deltas.
    *  Drives the per-chunk fade-in + terminal cursor in the chat panels. */
   isStreaming?: boolean;
+  /** Optional image/PDF the user attached. Renders as an inline
+   *  thumbnail (image) or a file pill (PDF) inside the bubble. */
+  attachment?: MessageAttachment;
 }
 

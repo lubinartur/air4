@@ -1032,9 +1032,10 @@ export function Finance({
     void loadStaticData();
   }, [loadStaticData]);
 
-  /** Refetch subscriptions / obligations / monthly-fixed when the chat
-   *  reports that a recurring item was updated or deleted. Skip the initial
-   *  mount (tick === 0) since loadStaticData already covers that. */
+  /** Refetch subscriptions / obligations / monthly-fixed after every chat
+   *  message while the Finance page is active (App bumps `refreshTick` on
+   *  each send, not only when `recurring_updated` is non-empty). Skip the
+   *  initial mount (tick === 0) since loadStaticData already covers that. */
   useEffect(() => {
     if (refreshTick === 0) return;
     let cancelled = false;

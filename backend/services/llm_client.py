@@ -59,3 +59,29 @@ def parse_json_array(text: str) -> list[Any]:
             except json.JSONDecodeError:
                 return []
         return []
+
+
+def parse_json_object(text: str) -> dict[str, Any]:
+    """Mirror of `parse_json_array` for single-object extractions.
+
+    Tolerates models that wrap JSON in prose / markdown by falling
+    back to a `{...}` substring slice. Returns an empty dict when
+    nothing parseable is found — callers should treat that as
+    "no extraction happened" rather than as an error.
+    """
+    import json
+
+    s = (text or "").strip()
+    try:
+        value = json.loads(s)
+        return value if isinstance(value, dict) else {}
+    except json.JSONDecodeError:
+        start = s.find("{")
+        end = s.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                value = json.loads(s[start : end + 1])
+                return value if isinstance(value, dict) else {}
+            except json.JSONDecodeError:
+                return {}
+        return {}

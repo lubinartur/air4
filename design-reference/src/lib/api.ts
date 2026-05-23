@@ -67,11 +67,29 @@ export type Dilemma = {
   id: number;
   title: string;
   description?: string | null;
-  status: string;
+  options?: string | null;
+  analysis?: string | null;
   recommendation?: string | null;
+  status: string;
   followup_due?: string | null;
   followup_done?: boolean | number;
+  followup_answer?: string | null;
+  decision_made?: string | null;
+  outcome?: string | null;
+  tags?: string[];
   created_at?: string | null;
+};
+
+export type DilemmaStats = {
+  total: number;
+  open: number;
+  decided: number;
+  closed: number;
+  abandoned: number;
+  followups_due: number;
+  followups_completed: number;
+  followup_rate: number;
+  top_tags: { tag: string; count: number }[];
 };
 
 export type Observation = {
@@ -236,7 +254,7 @@ export type RecurringUpdate = {
   type: "subscription" | "obligation";
   id: number;
   name: string;
-  action: "updated" | "deleted";
+  action: "created" | "updated" | "deleted";
   field?: "amount" | "monthly_payment";
   old_value?: number | null;
   new_value?: number;
@@ -1015,6 +1033,23 @@ export async function fetchDilemmas(): Promise<Dilemma[]> {
 }
 
 export const getDilemmas = fetchDilemmas;
+
+export async function getPendingFollowups(): Promise<Dilemma[]> {
+  return apiFetch<Dilemma[]>("/api/dilemmas/pending-followups");
+}
+
+export async function getDilemmaStats(): Promise<DilemmaStats> {
+  return apiFetch<DilemmaStats>("/api/dilemmas/stats");
+}
+
+export async function submitFollowupAnswer(
+  dilemmaId: number,
+  answer: string,
+): Promise<Dilemma> {
+  return jsonPost<Dilemma>(`/api/dilemmas/${dilemmaId}/followup-answer`, {
+    answer,
+  });
+}
 
 export type UserProfileSection = {
   name: string | null;

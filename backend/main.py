@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import get_db, init_db
 from routers import (
+    category_rules,
     chat,
     dilemmas,
     events,
@@ -50,6 +51,7 @@ app.include_router(upload.router, prefix="/api", tags=["upload"])
 app.include_router(summary.router, prefix="/api", tags=["summary"])
 app.include_router(insights.router, prefix="/api", tags=["insights"])
 app.include_router(transactions.router, prefix="/api", tags=["transactions"])
+app.include_router(category_rules.router, prefix="/api", tags=["finance"])
 app.include_router(projects.router, prefix="/api", tags=["projects"])
 app.include_router(dilemmas.router, prefix="/api", tags=["dilemmas"])
 app.include_router(observations.router, prefix="/api", tags=["observations"])

@@ -179,6 +179,12 @@ class ProjectTodosListOut(BaseModel):
 
 
 class DilemmaOut(BaseModel):
+    """Decision Memory record. `decision_made` is the user's choice,
+    `outcome` is what actually happened (filled by the follow-up loop
+    ~14 days after the decision), `tags` is a list of free-form
+    domain markers (finance, health, career, ...).
+    """
+
     id: int
     title: str
     description: str | None = None
@@ -189,7 +195,68 @@ class DilemmaOut(BaseModel):
     followup_due: str | None = None
     followup_done: bool = False
     followup_answer: str | None = None
+    decision_made: str | None = None
+    outcome: str | None = None
+    tags: list[str] = Field(default_factory=list)
     created_at: str | None = None
+
+
+class DilemmaIn(BaseModel):
+    """Create a new dilemma. Used by the chat decision extractor and
+    by future manual-entry UI. `followup_due` defaults to today + 14
+    days server-side when omitted."""
+
+    title: str = Field(min_length=1, max_length=300)
+    description: str | None = None
+    options: str | None = None
+    analysis: str | None = None
+    recommendation: str | None = None
+    status: str = "open"
+    decision_made: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    followup_due: str | None = None  # ISO date YYYY-MM-DD
+
+
+class DilemmaPatch(BaseModel):
+    """Partial update — any subset of fields. Used to record the
+    decision, the outcome, or to flip status without rewriting the
+    whole row."""
+
+    title: str | None = None
+    description: str | None = None
+    options: str | None = None
+    analysis: str | None = None
+    recommendation: str | None = None
+    status: str | None = None
+    decision_made: str | None = None
+    outcome: str | None = None
+    tags: list[str] | None = None
+    followup_due: str | None = None
+
+
+class FollowupAnswerIn(BaseModel):
+    """Body for POST /dilemmas/{id}/followup-answer. The answer is
+    stored verbatim in `followup_answer` AND mirrored into `outcome`
+    when `outcome` is still empty, so the Dilemmas page has a single
+    source of truth for "what happened" without overwriting a manual
+    edit."""
+
+    answer: str = Field(min_length=1, max_length=2000)
+
+
+class DilemmaStatsOut(BaseModel):
+    """Aggregate counters surfaced by GET /dilemmas/stats. Used by the
+    Dilemmas page header and any future "decision health" widgets."""
+
+    total: int = 0
+    open: int = 0
+    decided: int = 0
+    closed: int = 0
+    abandoned: int = 0
+    followups_due: int = 0
+    followups_completed: int = 0
+    followup_rate: float = 0.0
+    top_tags: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class TransactionOut(BaseModel):
@@ -460,6 +527,27 @@ class MonthlyFixedOut(BaseModel):
     fixed_total: float = 0.0
     subscriptions_count: int = 0
     obligations_count: int = 0
+
+
+class CategoryRuleOut(BaseModel):
+    """Merchant→category mapping learned from a user confirmation
+    (or seeded by a future system rule). Exposed via
+    `GET /api/category-rules` so the UI can show which merchants
+    auto-categorize and how often each rule has fired."""
+
+    id: int
+    pattern: str
+    category: str
+    match_type: str = "contains"
+    confidence: float = 1.0
+    times_applied: int = 0
+    source: str = "user"
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class CategoryRulesListOut(BaseModel):
+    rules: list[CategoryRuleOut] = Field(default_factory=list)
 
 
 class DeleteResultOut(BaseModel):

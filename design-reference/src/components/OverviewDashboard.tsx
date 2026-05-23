@@ -45,6 +45,7 @@ type Props = {
   workouts: Workout[];
   loading: boolean;
   openDilemma: Dilemma | null;
+  pendingFollowups: Dilemma[];
   activeProjects: Project[];
   onPageChange: (page: Page) => void;
   onOpenChatWithMessage: (text: string) => void;
@@ -297,6 +298,7 @@ export function OverviewDashboard({
   workouts,
   loading,
   openDilemma,
+  pendingFollowups,
   activeProjects,
   onPageChange,
   onOpenChatWithMessage,
@@ -433,7 +435,37 @@ export function OverviewDashboard({
       };
     }
 
-    // 2. Workout drought (>5 days since last logged workout).
+    // 2. Pending decision follow-up — the user committed to a
+    //    decision ~2 weeks ago and the follow-up window is now open.
+    //    Ranks above workout drought / observations because it's a
+    //    time-bound commitment the user made to themselves; letting
+    //    it slide silently defeats the whole Decision Memory loop.
+    //    Pick the oldest due follow-up so the queue drains FIFO.
+    if (pendingFollowups.length > 0) {
+      const fu = pendingFollowups[0];
+      const daysAgo = fu.created_at ? daysSince(fu.created_at) : null;
+      const intro = daysAgo != null
+        ? `${daysAgo} ${pluralizeDays(daysAgo)} назад ты решил «${fu.title}». Как вышло?`
+        : `Ты решил «${fu.title}». Как вышло?`;
+      return {
+        question: intro,
+        actions: [
+          {
+            label: "Расскажу",
+            onClick: () =>
+              onOpenChatWithMessage(
+                `Исход по решению «${fu.title}»: `,
+              ),
+          },
+          {
+            label: "Позже",
+            onClick: () => setAdvisorDismissed(true),
+          },
+        ],
+      };
+    }
+
+    // 3. Workout drought (>5 days since last logged workout).
     if (daysSinceWorkout != null && daysSinceWorkout > 5) {
       return {
         question: `${daysSinceWorkout} ${pluralizeDays(daysSinceWorkout)} без тренировки. Что мешает?`,
@@ -450,7 +482,7 @@ export function OverviewDashboard({
       };
     }
 
-    // 3. Active observation — rephrase the title as a yes/no question
+    // 4. Active observation — rephrase the title as a yes/no question
     //    if it isn't already one. Real LLM-driven rephrasing (like the
     //    spec's "Объём тренировок упал после 18 мая. Это временно?"
     //    example) belongs on the backend; this is the deterministic
@@ -476,7 +508,7 @@ export function OverviewDashboard({
       };
     }
 
-    // 4. Open dilemma — nudge a decision after it's been pending.
+    // 5. Open dilemma — nudge a decision after it's been pending.
     if (openDilemma && dilemmaDays != null) {
       return {
         question: `Дилемма открыта уже ${dilemmaDays} ${pluralizeDays(dilemmaDays)}. Принял решение?`,
@@ -496,7 +528,7 @@ export function OverviewDashboard({
       };
     }
 
-    // 5. Fallback — let the user pick their priority from their own
+    // 6. Fallback — let the user pick their priority from their own
     //    active projects. If they have none, surface page shortcuts.
     if (activeProjects.length > 0) {
       return {
@@ -520,6 +552,7 @@ export function OverviewDashboard({
     };
   }, [
     stalledList,
+    pendingFollowups,
     daysSinceWorkout,
     featuredObservation,
     openDilemma,

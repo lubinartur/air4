@@ -482,7 +482,34 @@ def _recurring_name_from_key(fact: dict[str, Any]) -> str:
     return key_to_display_name(cleaned) or "Unnamed"
 
 
-def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
+def _recurring_descriptor(
+    *,
+    kind: str,
+    row_id: int,
+    name: str,
+    action: str,
+    field: str,
+    new_value: float,
+    old_value: float | None = None,
+    currency: str = "EUR",
+) -> dict[str, Any]:
+    """Shape matches `subscription_updater` so chat can merge both sources
+    into a single `recurring_updated` list for the Finance UI."""
+    return {
+        "type": kind,
+        "id": row_id,
+        "name": name,
+        "action": action,
+        "field": field,
+        "old_value": old_value,
+        "new_value": new_value,
+        "currency": currency,
+    }
+
+
+def _upsert_subscription_from_fact(
+    db: Any, fact: dict[str, Any]
+) -> dict[str, Any] | None:
     key = str(fact.get("key") or "")
     value = str(fact.get("value") or "")
     has_known_service = _matched_known_service(key) is not None
@@ -490,16 +517,16 @@ def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
     # cadence to avoid grabbing one-off mentions. Keys that name a specific
     # service (netflix, chatgpt, spotify, etc.) are inherently recurring.
     if not has_known_service and not _has_monthly_cadence(value):
-        return
+        return None
     amount = parse_amount_from_text(value)
     if amount is None or amount <= 0:
-        return
+        return None
     name = canonical_subscription_name(key)
     # Reject system/meta descriptions ("Manages Subscriptions And Loans" etc.)
     # — they leak in when a key has no known brand and the title-cased key
     # is used as the fallback name.
     if is_blacklisted_subscription_name(name):
-        return
+        return None
     existing = fetch_one(
         db,
         "SELECT id, source, amount FROM subscriptions WHERE LOWER(name) = LOWER(?)",
@@ -508,7 +535,10 @@ def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
     if existing is not None:
         # Never overwrite a manually-entered row from chat extraction.
         if str(existing.get("source") or "").lower() == "manual":
-            return
+            return None
+        old = existing.get("amount")
+        if old is not None and float(old) == amount:
+            return None
         execute(
             db,
             """
@@ -521,8 +551,16 @@ def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
             """,
             (amount, int(existing["id"])),
         )
-        return
-    execute(
+        return _recurring_descriptor(
+            kind="subscription",
+            row_id=int(existing["id"]),
+            name=name,
+            action="updated",
+            field="amount",
+            new_value=amount,
+            old_value=float(old) if old is not None else None,
+        )
+    new_id = execute(
         db,
         """
         INSERT INTO subscriptions
@@ -533,31 +571,44 @@ def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
         """,
         (name, amount),
     )
+    return _recurring_descriptor(
+        kind="subscription",
+        row_id=new_id,
+        name=name,
+        action="created",
+        field="amount",
+        new_value=amount,
+    )
 
 
-def _upsert_obligation_from_fact(db: Any, fact: dict[str, Any]) -> None:
+def _upsert_obligation_from_fact(
+    db: Any, fact: dict[str, Any]
+) -> dict[str, Any] | None:
     value = str(fact.get("value") or "")
     if not _has_monthly_cadence(value):
         # Loan facts usually describe principal/balance, not the monthly
         # payment — without an explicit monthly cadence the parsed € amount
         # would be misleading. Let the user enter loan details manually.
-        return
+        return None
     if _looks_like_inbound_money(value):
         # Value describes income (rental income, salary) rather than an
         # outbound monthly payment.
-        return
+        return None
     amount = parse_amount_from_text(value)
     if amount is None or amount <= 0:
-        return
+        return None
     name = _recurring_name_from_key(fact)
     existing = fetch_one(
         db,
-        "SELECT id, source FROM obligations WHERE LOWER(name) = LOWER(?)",
+        "SELECT id, source, monthly_payment FROM obligations WHERE LOWER(name) = LOWER(?)",
         (name,),
     )
     if existing is not None:
         if str(existing.get("source") or "").lower() == "manual":
-            return
+            return None
+        old = existing.get("monthly_payment")
+        if old is not None and float(old) == amount:
+            return None
         execute(
             db,
             """
@@ -570,8 +621,16 @@ def _upsert_obligation_from_fact(db: Any, fact: dict[str, Any]) -> None:
             """,
             (amount, int(existing["id"])),
         )
-        return
-    execute(
+        return _recurring_descriptor(
+            kind="obligation",
+            row_id=int(existing["id"]),
+            name=name,
+            action="updated",
+            field="monthly_payment",
+            new_value=amount,
+            old_value=float(old) if old is not None else None,
+        )
+    new_id = execute(
         db,
         """
         INSERT INTO obligations
@@ -582,9 +641,17 @@ def _upsert_obligation_from_fact(db: Any, fact: dict[str, Any]) -> None:
         """,
         (name, amount),
     )
+    return _recurring_descriptor(
+        kind="obligation",
+        row_id=new_id,
+        name=name,
+        action="created",
+        field="monthly_payment",
+        new_value=amount,
+    )
 
 
-def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> None:
+def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> dict[str, Any] | None:
     """If a fact describes a subscription or loan, mirror it into the
     dedicated table so finance UI can show structured rows.
 
@@ -592,25 +659,28 @@ def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> None:
     and a positive € amount is parseable from the value. Work facts,
     project facts, credit-card usage strategies, account balances and
     interest-free periods are never mirrored.
+
+    Returns a `recurring_updated`-shaped dict when a row was created or
+    updated, else ``None``.
     """
     try:
         if _fact_looks_like_subscription(fact):
-            _upsert_subscription_from_fact(db, fact)
-            return
+            return _upsert_subscription_from_fact(db, fact)
         if _fact_looks_like_obligation(fact):
-            _upsert_obligation_from_fact(db, fact)
+            return _upsert_obligation_from_fact(db, fact)
     except Exception:
         logger.exception(
             "Failed to mirror fact to recurring table: %s", fact.get("key")
         )
+    return None
 
 
 async def extract_facts(
     user_messages: list[str], db: Any, api_key: str
-) -> list[dict]:
+) -> tuple[list[dict], list[dict[str, Any]]]:
     messages = [m.strip() for m in user_messages if (m or "").strip()]
     if not messages:
-        return []
+        return [], []
 
     try:
         raw_text = await call_claude(
@@ -619,9 +689,10 @@ async def extract_facts(
         items = parse_json_array(raw_text)
     except Exception:
         logger.exception("Claude fact extraction failed")
-        return []
+        return [], []
 
     saved: list[dict] = []
+    recurring_updated: list[dict[str, Any]] = []
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -632,8 +703,10 @@ async def extract_facts(
             row = _upsert_fact(db, fact)
             if row is not None:
                 saved.append(row)
-                _maybe_persist_recurring(db, fact)
+                recurring = _maybe_persist_recurring(db, fact)
+                if recurring is not None:
+                    recurring_updated.append(recurring)
         except Exception:
             logger.exception("Failed to save fact: %s", fact.get("key"))
 
-    return saved
+    return saved, recurring_updated

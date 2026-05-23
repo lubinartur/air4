@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from database import execute, fetch_one, get_db
 from schemas import UploadSummaryOut
-from services.categorizer import categorize
+from services.categorizer import apply_category_rules, categorize
 from services.parser import (
     TransactionIn,
     mark_internal_transfers,
@@ -67,8 +67,15 @@ def _process_one_file(
     filename: str,
     txns: list[TransactionIn],
     categories: list[str],
+    confirmed_flags: list[bool],
 ) -> tuple[int, int, int, Counter]:
-    """Insert one upload + transactions; return upload_id, new_count, skipped, categories."""
+    """Insert one upload + transactions; return upload_id, new_count, skipped, categories.
+
+    `confirmed_flags` is index-aligned with `txns` and `categories` —
+    `True` means a `category_rules` row produced the category with
+    confidence above the auto-confirm threshold, so the inserted row
+    can land as `category_confirmed = 1` and skip the review prompt.
+    """
     file_iban = primary_iban_from_transactions(txns)
     if file_iban:
         register_known_ibans([file_iban])
@@ -90,17 +97,23 @@ def _process_one_file(
         ),
     )
 
+    # `category_confirmed` is now per-row (was hard-coded `0`). Rule
+    # matches with confidence ≥ threshold flag the row as confirmed so
+    # the user is never prompted to re-categorize a merchant they've
+    # already settled on.
     insert_sql = """
         INSERT OR IGNORE INTO transactions
         (upload_id, transaction_hash, date, description, amount, currency, category,
          category_confirmed, account_iban, is_debit, is_internal_transfer, raw_description)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     new_count = 0
     skipped = 0
     saved_categories: list[str] = []
 
-    for txn, cat in zip(txns, categories, strict=False):
+    for txn, cat, confirmed in zip(
+        txns, categories, confirmed_flags, strict=False
+    ):
         tx_hash = _transaction_hash(txn)
         existing = fetch_one(
             conn,
@@ -121,6 +134,7 @@ def _process_one_file(
                 float(txn.amount),
                 txn.currency,
                 cat or "other",
+                1 if confirmed else 0,
                 txn.account_iban or None,
                 1 if txn.is_debit else 0,
                 1 if txn.is_internal_transfer else 0,
@@ -176,10 +190,24 @@ def upload(
         categories = categorize(txns)
         account_ibans = sorted(file_ibans)
 
+        # Open the DB once for the full overlay + insert pipeline so
+        # `apply_category_rules` and `_process_one_file` see the same
+        # snapshot and any rule `times_applied` bump commits together
+        # with the new transactions.
         with get_db() as conn:
             sync_known_ibans_from_db(conn)
+
+            # Categorization memory overlay: user-confirmed rules take
+            # priority over the LLM's per-batch guess. The result is a
+            # parallel list of (final_category, was_confirmed_by_rule)
+            # tuples; we unzip into two index-aligned lists for the
+            # downstream insert.
+            applied = apply_category_rules(conn, txns, categories)
+            final_categories = [a[0] for a in applied]
+            confirmed_flags = [a[1] for a in applied]
+
             upload_id, new_count, skipped, counts = _process_one_file(
-                conn, filename, txns, categories
+                conn, filename, txns, final_categories, confirmed_flags
             )
 
         period_start, period_end = period_range(txns)

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from database import execute, fetch_all, fetch_one, get_db
 from schemas import PaginatedTransactionsOut, TransactionOut
+from services.categorizer import upsert_category_rule_from_confirmation
 from services.summary_loader import latest_upload_id
 
 router = APIRouter()
@@ -356,14 +357,17 @@ def update_transaction_category(
         )
 
     with get_db() as conn:
+        # Pull description too so we can learn a merchant→category rule
+        # in the same DB transaction as the manual correction.
         row = fetch_one(
             conn,
-            "SELECT id, category FROM transactions WHERE id = ?",
+            "SELECT id, category, description FROM transactions WHERE id = ?",
             (int(transaction_id),),
         )
         if row is None:
             raise HTTPException(status_code=404, detail="Transaction not found")
         previous_category = row.get("category") if isinstance(row, dict) else None
+        description = row.get("description") if isinstance(row, dict) else None
 
         execute(
             conn,
@@ -381,6 +385,18 @@ def update_transaction_category(
             transaction_id=int(transaction_id),
             previous_category=previous_category,
             new_category=category,
+        )
+
+        # Categorization memory: every confirmed correction seeds (or
+        # updates) a merchant rule so the next CSV upload doesn't
+        # surface the same merchant for review again. Silently no-ops
+        # when the description has no extractable merchant pattern
+        # (e.g. pure boilerplate "Maksekorraldus 25.04.2026").
+        upsert_category_rule_from_confirmation(
+            conn,
+            description=description,
+            category=category,
+            source="user",
         )
 
         updated = fetch_one(

@@ -15,6 +15,7 @@ from database import fetch_all, fetch_one, get_db
 from schemas import ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
 from services.body_extractor import extract_body_data
 from services.chat_history import fetch_recent_chat_messages, save_exchange
+from services.decision_extractor import extract_decisions
 from services.event_extractor import extract_events
 from services.fact_extractor import extract_facts
 from services.llm_client import chat, chat_stream
@@ -101,16 +102,26 @@ def _api_key() -> str:
     return os.getenv("ANTHROPIC_API_KEY", "") or ""
 
 
-async def _run_post_chat_extractors(user_messages: list[str], api_key: str) -> None:
+async def _run_post_chat_extractors(
+    user_messages: list[str], api_key: str
+) -> list[dict[str, Any]]:
+    """Run post-chat side effects and return recurring rows created or
+    updated by fact extraction (subscriptions / obligations).
+
+    Awaited before the chat response meta is sent so the Finance page
+    can refetch immediately and see new rows. Failures are logged and
+    swallowed — the chat reply still lands.
+    """
+    recurring_from_facts: list[dict[str, Any]] = []
     if not user_messages:
-        return
+        return recurring_from_facts
     try:
         with get_db() as conn:
             await extract_body_data(user_messages, conn)
     except Exception:
         logger.exception("Background body extraction failed")
     if not api_key.strip():
-        return
+        return recurring_from_facts
     try:
         with get_db() as conn:
             await extract_events(user_messages, conn, api_key)
@@ -118,13 +129,42 @@ async def _run_post_chat_extractors(user_messages: list[str], api_key: str) -> N
         logger.exception("Background event extraction failed")
     try:
         with get_db() as conn:
-            await extract_facts(user_messages, conn, api_key)
+            _saved, recurring_from_facts = await extract_facts(
+                user_messages, conn, api_key
+            )
     except Exception:
         logger.exception("Background fact extraction failed")
+    # Decision Memory layer: detect "решил / выбрал / буду делать" and
+    # auto-create a dilemma with followup_due = today + 14d. Wrapped
+    # in its own try/except so a failure here can never mask the
+    # earlier extractors or break the user's chat reply.
+    try:
+        with get_db() as conn:
+            await extract_decisions(user_messages, conn, api_key)
+    except Exception:
+        logger.exception("Background decision extraction failed")
+    return recurring_from_facts
 
 
-def _schedule_post_chat_extractors(user_messages: list[str], api_key: str) -> None:
-    asyncio.create_task(_run_post_chat_extractors(user_messages, api_key))
+def _merge_recurring_updates(
+    correction_updates: list[dict[str, Any]],
+    extractor_updates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Combine subscription_updater corrections with fact_extractor
+    creates/updates. Corrections win on duplicate (type, id) pairs."""
+    if not extractor_updates:
+        return list(correction_updates)
+    if not correction_updates:
+        return list(extractor_updates)
+    seen = {(u.get("type"), u.get("id")) for u in correction_updates}
+    merged = list(correction_updates)
+    for item in extractor_updates:
+        key = (item.get("type"), item.get("id"))
+        if key in seen:
+            continue
+        merged.append(item)
+        seen.add(key)
+    return merged
 
 
 def _meta_payload(recurring_updated: list[dict[str, Any]] | None = None) -> str:
@@ -281,9 +321,13 @@ async def chat_endpoint(
             assistant_text = (full_text or "") + (confirmation or "")
             _persist_exchange(message, assistant_text, body.current_page)
 
-            yield f"data: {_meta_payload(updates)}\n\n"
+            fact_recurring = await _run_post_chat_extractors(
+                user_messages, api_key
+            )
+            all_updates = _merge_recurring_updates(updates, fact_recurring)
+
+            yield f"data: {_meta_payload(all_updates)}\n\n"
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
-            _schedule_post_chat_extractors(user_messages, api_key)
 
         return StreamingResponse(
             generate(),
@@ -302,13 +346,14 @@ async def chat_endpoint(
     response_text = response_text + format_confirmation(updates)
 
     _persist_exchange(message, response_text, body.current_page)
-    _schedule_post_chat_extractors(user_messages, api_key)
+    fact_recurring = await _run_post_chat_extractors(user_messages, api_key)
+    all_updates = _merge_recurring_updates(updates, fact_recurring)
 
     return ChatOut(
         response=response_text,
         event_saved=None,
         facts_saved=[],
-        recurring_updated=updates,
+        recurring_updated=all_updates,
     )
 
 

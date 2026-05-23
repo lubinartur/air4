@@ -189,11 +189,22 @@ export default function App() {
   const handleMessageSent = useCallback(
     (meta?: ChatResponseMeta) => {
       void refreshOverviewData();
-      if ((meta?.recurring_updated?.length ?? 0) > 0) {
+      // Finance sidebar stays mounted on the Finance page; fullscreen
+      // chat from Finance unmounts it but we still bump the tick so a
+      // return visit shows fresh data. Always refetch recurring rows
+      // after chat on Finance — fact_extractor may create obligations
+      // that only appear in meta.recurring_updated after extractors run.
+      const financeContext =
+        currentPage === "Finance" ||
+        (currentPage === "Chat" && previousPage === "Finance");
+      if (
+        financeContext ||
+        (meta?.recurring_updated?.length ?? 0) > 0
+      ) {
         setFinanceRefreshTick((tick) => tick + 1);
       }
     },
-    [refreshOverviewData]
+    [refreshOverviewData, currentPage, previousPage]
   );
 
   useEffect(() => {
@@ -266,6 +277,19 @@ export default function App() {
   const openDilemma = dilemmas.find((d) => d.status === "open") ?? null;
   const activeProjects = projects.filter((p) => p.status === "active");
   const displayObservation = pickDisplayObservation(observations);
+  // Derive pending follow-ups locally from the already-loaded dilemma
+  // list — saves a round-trip and stays in sync with every refresh
+  // path (initial load + post-chat reload). The dedicated endpoint
+  // (/api/dilemmas/pending-followups) is still exposed for headless
+  // consumers (widgets, mobile, etc.) that don't fetch the full list.
+  const pendingFollowups = (() => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    return dilemmas.filter((d) => {
+      if (!d.followup_due) return false;
+      if (d.followup_done === true || d.followup_done === 1) return false;
+      return String(d.followup_due).slice(0, 10) <= todayIso;
+    });
+  })();
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">
@@ -311,6 +335,7 @@ export default function App() {
                   workouts={workouts}
                   loading={overviewLoading}
                   openDilemma={openDilemma}
+                  pendingFollowups={pendingFollowups}
                   activeProjects={activeProjects}
                   onPageChange={setCurrentPage}
                   onOpenChatWithMessage={openChatWithMessage}
@@ -329,7 +354,7 @@ export default function App() {
               ) : currentPage === "Goals" ? (
                 <Goals goals={goals} />
               ) : currentPage === "Dilemmas" ? (
-                <Dilemmas dilemmas={dilemmas} />
+                <Dilemmas dilemmas={dilemmas} onRefresh={loadDilemmas} />
               ) : currentPage === "Patterns" ? (
                 <Patterns hypotheses={hypotheses} />
               ) : currentPage === "Memory" ? (

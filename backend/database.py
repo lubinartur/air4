@@ -206,6 +206,13 @@ CREATE TABLE IF NOT EXISTS dilemmas (
     followup_due    TEXT,
     followup_done   INTEGER DEFAULT 0,
     followup_answer TEXT,
+    -- Decision Memory Layer (see _migrate_schema for existing-DB upgrade):
+    -- `decision_made` is the concrete choice the user landed on,
+    -- `outcome` is what actually happened ~2 weeks later,
+    -- `tags` is a JSON array of free-form domain tags (finance, health, ...).
+    decision_made   TEXT,
+    outcome         TEXT,
+    tags            TEXT,
     created_at      TEXT DEFAULT (datetime('now'))
 );
 
@@ -300,6 +307,32 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     page       TEXT,
     created_at TEXT DEFAULT (datetime('now'))
 );
+
+-- Categorization memory. Every confirmed user correction on a
+-- transaction's category lands here as a merchant pattern → category
+-- rule, so subsequent uploads auto-apply the same mapping instead of
+-- forcing the user to re-categorize.
+--
+-- `pattern` is the normalized merchant fragment (lowercase, digits +
+-- transaction-code prefixes stripped). `match_type` describes how
+-- `pattern` is tested against incoming descriptions; default is
+-- `contains` which fits Estonian Swedbank descriptions like
+-- "POS RIMI TARTU 5168..." (pattern "rimi tartu" matches via substring).
+-- `confidence` is reserved for future fuzzy rules — manual user
+-- confirmations always seed at 1.0. `times_applied` is bumped each
+-- time `apply_category_rules` lands a hit so we can later expose the
+-- most-effective rules in the UI.
+CREATE TABLE IF NOT EXISTS category_rules (
+    id             INTEGER PRIMARY KEY,
+    pattern        TEXT NOT NULL,
+    category       TEXT NOT NULL,
+    match_type     TEXT DEFAULT 'contains',   -- 'exact' | 'contains' | 'starts_with'
+    confidence     REAL DEFAULT 1.0,
+    times_applied  INTEGER DEFAULT 0,
+    source         TEXT DEFAULT 'user',       -- 'user' | 'system'
+    created_at     TEXT DEFAULT (datetime('now')),
+    updated_at     TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """
@@ -311,6 +344,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
 CREATE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(transaction_hash);
 CREATE INDEX IF NOT EXISTS idx_transactions_debit ON transactions(is_debit, is_internal_transfer);
+CREATE INDEX IF NOT EXISTS idx_category_rules_pattern ON category_rules(pattern);
 CREATE INDEX IF NOT EXISTS idx_project_logs_project ON project_logs(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_logs_date ON project_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_project_todos_project ON project_todos(project_id);
@@ -484,6 +518,21 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
                 ("is_active", "INTEGER DEFAULT 1"),
                 ("source", "TEXT DEFAULT 'manual'"),
                 ("updated_at", "TEXT DEFAULT (datetime('now'))"),
+            ],
+        )
+
+    # Decision Memory Layer — extends `dilemmas` with what was decided,
+    # what actually happened later, and free-form tags for slicing the
+    # advisor's questions by domain. `tags` is JSON (matches the
+    # convention used by `hypotheses.domains` / `observations.domains_involved`).
+    if "dilemmas" in tables:
+        _ensure_columns(
+            conn,
+            "dilemmas",
+            [
+                ("decision_made", "TEXT"),
+                ("outcome", "TEXT"),
+                ("tags", "TEXT"),
             ],
         )
 

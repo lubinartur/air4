@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Bell, Plus, Sparkles, Target } from "lucide-react";
+import { Plus, Sparkles, Target } from "lucide-react";
 import { cn } from "../lib/utils";
 import { t as ty } from "../lib/typography";
 import type { GoalItem } from "../lib/api";
@@ -58,7 +58,7 @@ export function Goals({ goals }: Props) {
   return (
     <div className="flex flex-col gap-8 pb-10">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-green-50 text-green-600 rounded-xl">
             <Target size={22} className="fill-green-100" />
@@ -178,7 +178,7 @@ export function Goals({ goals }: Props) {
 
           {/* Wishlist */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-            <h2 className={cn(ty.cardLabel, "mb-6")}>
+            <h2 className="text-lg font-extrabold text-gray-900 mb-6">
               Список желаний
             </h2>
             <div className="bg-gray-50/50 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
@@ -194,15 +194,31 @@ export function Goals({ goals }: Props) {
 
         {/* Right Column */}
         <div className="col-span-2 space-y-6">
-          {/* AIR4 Observation (hardcoded) */}
-          <div className="bg-[#1a1a2e] rounded-[20px] p-6 shadow-xl border-l-[6px] border-indigo-500">
-            <div className="flex gap-3 text-white">
-              <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
-                <Bell size={16} />
+          {/* AIR4 Observation — unified indigo-card variant shared
+              across pages. The inline amber highlight on «Цель по
+              книгам» is preserved for narrative emphasis. */}
+          <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+            <Target
+              size={100}
+              strokeWidth={1.5}
+              className="absolute -top-3 -right-3 text-white/10 pointer-events-none"
+            />
+            <div className="relative space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  aria-hidden="true"
+                  className="w-2 h-2 rounded-full bg-green-400 animate-pulse"
+                />
+                <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">
+                  AIR4 ADVISOR
+                </span>
+                <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                  Цели
+                </span>
               </div>
-              <p className="text-[15px] leading-relaxed font-medium">
+              <p className="text-[14px] font-medium text-white leading-relaxed pr-12">
                 «Отстаёте по 50% целей.{" "}
-                <span className="text-amber-400 font-bold">Цель по книгам</span>{" "}
+                <span className="text-amber-300 font-bold">Цель по книгам</span>{" "}
                 в текущем темпе — провал. 1 книга в 3 недели или признайте,
                 что это была цель для галочки.»
               </p>
@@ -211,7 +227,7 @@ export function Goals({ goals }: Props) {
 
           {/* Deadlines (hardcoded) */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-            <h2 className={cn(ty.cardLabel, "mb-6")}>
+            <h2 className="text-lg font-extrabold text-gray-900 mb-6">
               Дедлайны
             </h2>
             <div className="relative pl-6 space-y-8 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:bg-gray-100">
@@ -239,7 +255,7 @@ export function Goals({ goals }: Props) {
 
           {/* Weekly Focus (hardcoded) */}
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
-            <h2 className={cn(ty.cardLabel, "mb-6")}>
+            <h2 className="text-lg font-extrabold text-gray-900 mb-6">
               Фокус недели
             </h2>
             <p className="text-[14px] leading-relaxed text-gray-600 mb-6 font-medium">

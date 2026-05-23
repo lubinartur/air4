@@ -1213,10 +1213,16 @@ export function topCategory(
 }
 
 export function formatEuro(amount: number): string {
-  return `€${amount.toLocaleString("en-US", {
+  // Amount-first, symbol-after with a non-breaking space — matches the
+  // European convention ("15.01 €") and the design spec for the
+  // Finance page. NBSP keeps the number and € together if the parent
+  // container word-wraps. The grouping locale stays en-US (dot decimal,
+  // comma thousands) because the rest of the UI's number formatting
+  // assumes that style.
+  return `${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  })}\u00A0€`;
 }
 
 // Categories that have a curated localized label. Keep this list small —

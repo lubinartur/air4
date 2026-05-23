@@ -5,11 +5,11 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type KeyboardEvent,
 } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowLeft,
-  Bell,
   Briefcase,
   Check,
   Clock,
@@ -40,19 +40,6 @@ import {
 import { daysSince } from "../lib/format";
 
 const POMODORO_SECONDS = 1500; // 25 min
-
-const StatusDot = ({ color = "#ef4444" }: { color?: string }) => (
-  <div className="absolute top-3 right-3 w-4 h-4 flex items-center justify-center pointer-events-none">
-    <div
-      className="absolute w-4 h-4 rounded-full opacity-50 animate-ping"
-      style={{ backgroundColor: color }}
-    />
-    <div
-      className="relative w-2 h-2 rounded-full"
-      style={{ backgroundColor: color }}
-    />
-  </div>
-);
 
 type UiStatus = "ACTIVE" | "STALLED" | "COMPLETED" | "PAUSED" | "ARCHIVED";
 
@@ -467,8 +454,11 @@ export function Projects() {
 
     return (
       <div className="flex flex-col gap-6 pb-12 select-none font-sans">
-        {/* Detail Header */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* Detail Header — transparent (no white card chrome) so it
+            matches the list view header and the rest of the app's
+            page-header pattern. The right-hand "Всего времени" pill
+            still provides its own contained chrome. */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
             <button
               onClick={handleBackToOverview}
@@ -517,7 +507,7 @@ export function Projects() {
               <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
                 Всего времени
               </p>
-              <p className="text-sm font-black text-indigo-800 leading-none mt-0.5">
+              <p className="font-mono text-sm font-black text-indigo-800 leading-none mt-0.5">
                 {totalOutput}
               </p>
             </div>
@@ -544,7 +534,7 @@ export function Projects() {
               <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-6">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900">
+                    <h3 className="text-lg font-extrabold text-gray-900">
                       Активный фокус-таймер
                     </h3>
                     <p className="text-[11px] text-gray-400 mt-0.5">
@@ -625,7 +615,15 @@ export function Projects() {
                           Сохранить фокус-сессию
                         </h4>
                         <p className="text-[11px] text-gray-400 mt-1">
-                          Сервер зафиксирует длительность с начала сессии (пока — {Math.max(1, Math.round(secondsElapsedThisSession / 60))} мин).
+                          Сервер зафиксирует длительность с начала сессии (пока —{" "}
+                          <span className="font-mono">
+                            {Math.max(
+                              1,
+                              Math.round(secondsElapsedThisSession / 60)
+                            )}{" "}
+                            мин
+                          </span>
+                          ).
                         </p>
                       </div>
 
@@ -655,10 +653,10 @@ export function Projects() {
               {/* Todos */}
               <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-5">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">
+                  <h3 className="text-lg font-extrabold text-gray-900">
                     Milestone и чек-лист
                   </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
+                  <p className="text-[11px] text-gray-400 mt-0.5">
                     Определите цели разработки, чтобы прийти к нужному результату.
                   </p>
                 </div>
@@ -727,31 +725,42 @@ export function Projects() {
 
             {/* Right col-span-1 */}
             <div className="space-y-6">
-              {/* AIR4 Project Deck */}
-              <div className="bg-[#1a1a2e] rounded-[20px] p-6 shadow-sm border border-slate-800 text-white relative">
-                <StatusDot color="#ef4444" />
-                <div className="flex gap-3">
-                  <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white shadow-md">
-                    <Bell size={16} />
+              {/* AIR4 Project Deck — unified indigo-card variant
+                  shared across Sport, Projects, Goals, Finance,
+                  Health. Page-specific "ПРОЕКТ" pill differentiates
+                  from the list-view "ПРОЕКТЫ" block. */}
+              <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+                <Briefcase
+                  size={100}
+                  strokeWidth={1.5}
+                  className="absolute -top-3 -right-3 text-white/10 pointer-events-none"
+                />
+                <div className="relative space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      aria-hidden="true"
+                      className="w-2 h-2 rounded-full bg-green-400 animate-pulse"
+                    />
+                    <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">
+                      AIR4 ADVISOR
+                    </span>
+                    <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                      Проект
+                    </span>
                   </div>
-                  <div>
-                    <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                      Отчёт AIR4 по проекту
-                    </h4>
-                    <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
-                      “{dynamicInsight}”
-                    </p>
-                  </div>
+                  <p className="text-[14px] font-medium text-white leading-relaxed pr-12">
+                    «{dynamicInsight}»
+                  </p>
                 </div>
               </div>
 
               {/* Activity Log */}
               <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-5">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">
+                  <h3 className="text-lg font-extrabold text-gray-900">
                     Поток и журнал проекта
                   </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
+                  <p className="text-[11px] text-gray-400 mt-0.5">
                     Ведите журнал milestone'ов, сессий и обычных коммитов.
                   </p>
                 </div>
@@ -858,7 +867,7 @@ export function Projects() {
   return (
     <div className="flex flex-col gap-6 pb-12 select-none font-sans">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -890,7 +899,7 @@ export function Projects() {
           <div className="bg-white p-5 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-gray-900">Каталог проектов</h3>
+                <h3 className="text-lg font-extrabold text-gray-900">Каталог проектов</h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">
                   Управляйте целями и активной разработкой.
                 </p>
@@ -1012,14 +1021,40 @@ export function Projects() {
                 const isStalled = uiStatus === "STALLED";
                 const totalSeconds = (project.total_sessions_minutes ?? 0) * 60;
 
+                // Whole card is the affordance — the explicit
+                // "Открыть проект →" button is gone, replaced by
+                // role="button" + Enter/Space activation + the same
+                // hover treatment Overview's `CLICKABLE_CARD` uses
+                // (transparent border → indigo/30 + lift + soft
+                // shadow on hover). Named group `group/card` lets
+                // child elements (h3 indigo tint) react only to
+                // hover on this card, not unrelated parents.
+                const openProject = () => setSelectedId(project.id);
                 return (
                   <div
                     key={project.id}
-                    className="bg-white rounded-[20px] p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-all group"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Открыть проект: ${project.name}`}
+                    onClick={openProject}
+                    onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openProject();
+                      }
+                    }}
+                    className={cn(
+                      "group/card bg-white rounded-[20px] p-6 shadow-sm",
+                      "flex flex-col md:flex-row md:items-center justify-between gap-6",
+                      "cursor-pointer border border-transparent",
+                      "hover:border-[#6366F1]/30 hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)]",
+                      "hover:-translate-y-[1px] transition-all duration-150 ease-in-out",
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1]/40"
+                    )}
                   >
-                    <div className="flex-1 space-y-2">
+                    <div className="flex-1 space-y-2 min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <h3 className="text-base font-black text-gray-900 group-hover:text-indigo-600 transition-colors">
+                        <h3 className="text-base font-black text-gray-900 group-hover/card:text-indigo-600 transition-colors">
                           {project.name}
                         </h3>
 
@@ -1046,7 +1081,12 @@ export function Projects() {
                       </div>
 
                       {project.description && (
-                        <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                        // `line-clamp-2` caps every description at two
+                        // lines so cards line up vertically across the
+                        // grid. Truncated content gets a CSS ellipsis;
+                        // the full text is still accessible to screen
+                        // readers via the surrounding aria-label.
+                        <p className="text-xs text-gray-500 leading-relaxed font-medium line-clamp-2">
                           {project.description}
                         </p>
                       )}
@@ -1054,15 +1094,24 @@ export function Projects() {
                       <div className="flex items-center gap-3 text-[11px] font-bold text-gray-400">
                         <span className="flex items-center gap-1.5">
                           <Clock size={12} className="text-slate-400" />
-                          Последняя активность: {days >= 999
-                            ? "—"
-                            : `${days} ${
-                                days % 10 === 1 && days % 100 !== 11
+                          Последняя активность:{" "}
+                          {days >= 999 ? (
+                            "—"
+                          ) : (
+                            <>
+                              <span className="font-mono">
+                                {days}{" "}
+                                {days % 10 === 1 && days % 100 !== 11
                                   ? "день"
-                                  : days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 12 || days % 100 > 14)
+                                  : days % 10 >= 2 &&
+                                    days % 10 <= 4 &&
+                                    (days % 100 < 12 || days % 100 > 14)
                                   ? "дня"
-                                  : "дней"
-                              } назад`}
+                                  : "дней"}
+                              </span>{" "}
+                              назад
+                            </>
+                          )}
                         </span>
                         {totalSeconds > 0 && (
                           <span className="font-mono">
@@ -1095,13 +1144,6 @@ export function Projects() {
                           />
                         </div>
                       </div>
-
-                      <button
-                        onClick={() => setSelectedId(project.id)}
-                        className="w-full md:w-auto flex items-center justify-center gap-1 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 bg-indigo-50/50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-100/30 transition-all self-end"
-                      >
-                        Открыть проект →
-                      </button>
                     </div>
                   </div>
                 );
@@ -1112,36 +1154,45 @@ export function Projects() {
 
         {/* Right column */}
         <div className="space-y-6">
-          <div className="bg-[#1a1a2e] rounded-[20px] p-6 shadow-sm border border-slate-800 text-white relative">
-            <StatusDot color={stalledCount > 0 ? "#ef4444" : "#10b981"} />
-            <div className="flex gap-3">
-              <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white shadow-md">
-                <Bell size={16} />
+          {/* AIR4 advisor — unified indigo-card variant. */}
+          <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+            <Briefcase
+              size={100}
+              strokeWidth={1.5}
+              className="absolute -top-3 -right-3 text-white/10 pointer-events-none"
+            />
+            <div className="relative space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  aria-hidden="true"
+                  className="w-2 h-2 rounded-full bg-green-400 animate-pulse"
+                />
+                <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">
+                  AIR4 ADVISOR
+                </span>
+                <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                  Проекты
+                </span>
               </div>
-              <div>
-                <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                  Отчёт AIR4 по проектам
-                </h4>
-                <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
-                  {projects.length === 0
-                    ? `«Проектов пока нет. Создайте проект, чтобы начать отслеживать импульс и фокус-сессии.»`
-                    : stalledCount > 0
-                      ? `«${stalledCount} ${
-                          stalledCount % 10 === 1 && stalledCount % 100 !== 11
-                            ? "проект застрял"
-                            : stalledCount % 10 >= 2 && stalledCount % 10 <= 4 && (stalledCount % 100 < 12 || stalledCount % 100 > 14)
-                            ? "проекта застряли"
-                            : "проектов застряли"
-                        } на 14+ дней. Откройте один и запустите сессию.»`
-                      : `«Все проекты активны. Держите темп — откройте один и запустите фокус-блок.»`}
-                </p>
-              </div>
+              <p className="text-[14px] font-medium text-white leading-relaxed pr-12">
+                {projects.length === 0
+                  ? `«Проектов пока нет. Создайте проект, чтобы начать отслеживать импульс и фокус-сессии.»`
+                  : stalledCount > 0
+                    ? `«${stalledCount} ${
+                        stalledCount % 10 === 1 && stalledCount % 100 !== 11
+                          ? "проект застрял"
+                          : stalledCount % 10 >= 2 && stalledCount % 10 <= 4 && (stalledCount % 100 < 12 || stalledCount % 100 > 14)
+                          ? "проекта застряли"
+                          : "проектов застряли"
+                      } на 14+ дней. Откройте один и запустите сессию.»`
+                    : `«Все проекты активны. Держите темп — откройте один и запустите фокус-блок.»`}
+              </p>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800">
+              <h3 className="text-lg font-extrabold text-gray-900">
                 Активная сессия
               </h3>
             </div>
@@ -1155,14 +1206,12 @@ export function Projects() {
           </div>
 
           <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles size={16} className="text-[#6366f1]" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800">
-                Распределение фокуса
-              </h3>
-            </div>
+            <h3 className="text-lg font-extrabold text-gray-900 mb-2 flex items-center gap-2">
+              <Sparkles size={18} className="text-[#6366f1]" />
+              Распределение фокуса
+            </h3>
 
-            <p className="text-xs text-gray-400 mt-1 leading-relaxed mb-4">
+            <p className="text-[12px] text-gray-600 leading-relaxed mb-4">
               Относительная доля усилий по активным фокус-расписаниям.
             </p>
 

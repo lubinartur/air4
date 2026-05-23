@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Activity,
-  Bell,
   CalendarDays,
   ChevronRight,
   FileUp,
@@ -19,13 +18,6 @@ import {
   type HealthCheckupGroup,
   type HealthMarker,
 } from "../lib/api";
-
-const StatusDot = ({ color = "#ef4444" }: { color?: string }) => (
-  <div className="absolute top-3 right-3 w-4 h-4 flex items-center justify-center pointer-events-none">
-    <div className="absolute w-4 h-4 rounded-full opacity-50 animate-ping" style={{ backgroundColor: color }} />
-    <div className="relative w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-  </div>
-);
 
 type MarkerStatus = "HIGH" | "LOW" | "NORMAL";
 
@@ -361,7 +353,7 @@ export function Health() {
   return (
     <div className="flex flex-col gap-6 pb-12 select-none font-sans">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
@@ -453,7 +445,7 @@ export function Health() {
             <div className="bg-white p-5 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">
+                  <h3 className="text-lg font-extrabold text-gray-900">
                     Каталог анализов
                   </h3>
                   <p className="text-[11px] text-gray-400 mt-0.5">
@@ -540,9 +532,14 @@ export function Health() {
                     key={group.category}
                     className="bg-white rounded-[20px] p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                   >
+                    {/* Group header — matches Finance card titles
+                        (text-lg font-extrabold gray-900). Colored
+                        category dot is preserved as the lightweight
+                        visual hook this page leans on instead of the
+                        tinted icon-square pattern used elsewhere. */}
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h2 className="text-[13px] font-black text-gray-900 uppercase tracking-widest flex items-center gap-1.5">
+                        <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
                           <span
                             className={cn(
                               "w-2 h-2 rounded-full",
@@ -551,7 +548,7 @@ export function Health() {
                           />
                           {group.category}
                         </h2>
-                        <p className="text-xs text-gray-400 mt-1 font-medium">
+                        <p className="text-[11px] text-gray-400 mt-1">
                           {group.desc}
                         </p>
                       </div>
@@ -655,26 +652,37 @@ export function Health() {
             </div>
           </div>
 
-          {/* Right side */}
+          {/* Right side — opens with the unified AIR4 advisor card
+              (shared shape with Sport, Projects, Goals, Finance) and
+              then drops into the biomarker detail panel + hormone
+              card. Advisor copy is derived from the same biomarker
+              stats already computed in scope (`totalOutCount`,
+              `totalNormalCount`, `activeGroup.date`). */}
           <div className="space-y-6">
-            <div className="bg-[#1a1a2e] rounded-[20px] p-6 shadow-sm border border-slate-800 text-white relative">
-              {totalOutCount > 0 && <StatusDot color="#f59e0b" />}
-              <div className="flex gap-3">
-                <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white shadow-md">
-                  <Bell size={16} />
+            <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+              <Heart
+                size={100}
+                strokeWidth={1.5}
+                className="absolute -top-3 -right-3 text-white/10 pointer-events-none"
+              />
+              <div className="relative space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    aria-hidden="true"
+                    className="w-2 h-2 rounded-full bg-green-400 animate-pulse"
+                  />
+                  <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">
+                    AIR4 ADVISOR
+                  </span>
+                  <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                    Здоровье
+                  </span>
                 </div>
-                <div>
-                  <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                    Клинический сканер AIR4
-                  </h4>
-                  <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
-                    {totalOutCount === 0
-                      ? `«Все ${totalNormalCount} маркеров в норме — ни одного флага на ${activeGroup.date}.»`
-                      : `«${totalOutCount} из ${
-                          totalOutCount + totalNormalCount
-                        } маркеров вне нормы на ${activeGroup.date}. Кликните по каждому, чтобы посмотреть.»`}
-                  </p>
-                </div>
+                <p className="text-[14px] font-medium text-white leading-relaxed pr-12">
+                  {totalOutCount === 0
+                    ? `«Все ${totalNormalCount} маркеров в норме на ${activeGroup.date}. Ни одного флага — держите режим.»`
+                    : `«${totalOutCount} из ${totalOutCount + totalNormalCount} маркеров вне нормы на ${activeGroup.date}. Кликните по любому, чтобы открыть разбор и план.»`}
+                </p>
               </div>
             </div>
 
@@ -710,20 +718,26 @@ export function Health() {
                     </h3>
                   </div>
 
-                  <div className="bg-gray-50/50 p-4 rounded-xl mb-4 space-y-2">
-                    <div className="flex justify-between text-xs">
+                  {/* Label/value rows are flush with the card's
+                      p-6 padding — no nested gray box that would
+                      double the left inset. Each row is a flex split
+                      so the label hugs the card's left edge and the
+                      value snaps to the right edge, regardless of
+                      label length. */}
+                  <div className="mb-4 space-y-2">
+                    <div className="flex justify-between items-baseline text-xs">
                       <span className="text-gray-400">Ваше значение</span>
                       <span className="font-mono font-bold text-gray-800">
                         {formatNumber(selectedMarker.value)} {selectedMarker.unit}
                       </span>
                     </div>
-                    <div className="flex justify-between text-xs">
+                    <div className="flex justify-between items-baseline text-xs">
                       <span className="text-gray-400">Референс</span>
                       <span className="font-mono text-gray-600">
                         {selectedMarker.range}
                       </span>
                     </div>
-                    <div className="flex justify-between text-xs">
+                    <div className="flex justify-between items-baseline text-xs">
                       <span className="text-gray-400">Статус</span>
                       <span
                         className={cn(
@@ -773,14 +787,19 @@ export function Health() {
 
             {(testo || e2 || shbg) && (
               <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
+                {/* Title matches the Finance card-title family but
+                    one step smaller (`text-base`) because this card
+                    lives in the narrow right column and shares space
+                    with the biomarker detail panel — `text-lg` would
+                    feel oversized here. */}
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles size={16} className="text-violet-500" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800">
+                  <h3 className="text-base font-extrabold text-gray-900">
                     Ароматизация и свободные гормоны
                   </h3>
                 </div>
 
-                <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                <p className="text-[13px] text-gray-700 leading-relaxed mb-4">
                   {testo && (
                     <>
                       Ваш тестостерон —{" "}
@@ -837,11 +856,16 @@ export function Health() {
                   )}
                 </p>
 
-                <div className="space-y-3 text-[11px] text-gray-400">
+                {/* Bullet list — parent sets size + body color
+                    (text-[12px] text-gray-600). The label spans bump
+                    contrast to gray-800 and add font-semibold; size is
+                    re-declared on the spans so the typography intent
+                    reads explicitly at each label. */}
+                <div className="space-y-3 text-[12px] text-gray-600">
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1 shrink-0" />
                     <p>
-                      <span className="text-gray-600 font-semibold">
+                      <span className="text-[12px] font-semibold text-gray-800">
                         Ароматизация в эстрогены:
                       </span>{" "}
                       Периферическую ароматизацию можно отслеживать между визитами — сравните E2 в разных датах.
@@ -850,7 +874,7 @@ export function Health() {
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0" />
                     <p>
-                      <span className="text-gray-600 font-semibold">
+                      <span className="text-[12px] font-semibold text-gray-800">
                         Низкий гликопротеин-переносчик:
                       </span>{" "}
                       SHBG регулирует фракцию свободных биодоступных стероидов. Низкий SHBG усиливает действие и андрогенов, и эстрогенов.

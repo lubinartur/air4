@@ -89,7 +89,7 @@ export function Memory() {
   const grouped = useMemo(() => groupEventsByDate(filtered), [filtered]);
 
   const header = (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
           <Brain size={22} className="fill-blue-100" />
@@ -235,7 +235,9 @@ export function Memory() {
 
       {filter === "all" && total > events.length && (
         <p className="text-[12px] text-center text-[#9ca3af]">
-          Показаны последние {events.length} из {total} событий
+          Показаны последние{" "}
+          <span className="font-mono">{events.length}</span> из{" "}
+          <span className="font-mono">{total}</span> событий
         </p>
       )}
     </div>

@@ -47,7 +47,7 @@ function statusBadge(status: string): { label: string; className: string } {
 
 export function Dilemmas({ dilemmas }: Props) {
   const header = (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
           <Scale size={22} className="fill-violet-100" />
@@ -90,7 +90,7 @@ export function Dilemmas({ dilemmas }: Props) {
       {header}
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className={cn(ty.cardLabel, "mb-6")}>
+        <h2 className="text-lg font-extrabold text-gray-900 mb-6">
           Ваши дилеммы
         </h2>
         <ul className="space-y-4">

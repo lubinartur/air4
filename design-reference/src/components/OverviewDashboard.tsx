@@ -10,6 +10,7 @@ import {
   Briefcase,
   ChevronRight,
   Heart,
+  LayoutDashboard,
   Scale,
   Sparkles,
   Wallet,
@@ -540,7 +541,32 @@ export function OverviewDashboard({
   }
 
   return (
-    <div className="space-y-6 pb-12 font-sans bg-[#F5F5F7]">
+    // Wrapper switched from `space-y-6 pb-12` to `flex flex-col gap-8
+    // pb-10` to match Finance exactly. The 8-unit gap (vs 6) gives the
+    // dashboard slightly more breathing room and — more importantly —
+    // matches the gap Finance uses between its inline header and its
+    // first card, so flipping Overview ↔ Finance no longer makes the
+    // first row of content jump.
+    <div className="flex flex-col gap-8 pb-10 font-sans bg-[#F5F5F7]">
+      {/* -------------------- Page header (inline, mirrors Finance) -------------------- */}
+      {/* Identical structure to Finance's page header:
+          [tinted icon square] [h1 + uppercase subtitle]   [actions →]
+          Overview has no page-specific actions, so the right slot is
+          empty — `justify-between` still pushes the title block to the
+          left. Indigo badge (text-500 variant) matches the secondary-
+          card badges (Активность / Паттерны / Дилемма). */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-indigo-50 text-indigo-500 rounded-xl">
+            <LayoutDashboard size={22} className="fill-indigo-100" />
+          </div>
+          <div>
+            <h1 className={cn(t.pageTitle, "text-4xl")}>Обзор</h1>
+            <p className={cn(t.pageSub, "mt-0.5")}>Спутник мышления</p>
+          </div>
+        </div>
+      </div>
+
       {/* -------------------- AIR4 Advisor (full-width, sits above the KPIs) -------------------- */}
       {/* Bright indigo card that replaces the old dark "AIR4 Insight"
           panel. Borrows the AIRCheckIn visual language (indigo, white

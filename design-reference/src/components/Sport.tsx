@@ -8,7 +8,6 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import {
   Activity,
-  Bell,
   Clock,
   Dumbbell,
   Flame,
@@ -39,13 +38,6 @@ const MONTH_LABELS = [
   "янв", "фев", "мар", "апр", "май", "июн",
   "июл", "авг", "сен", "окт", "ноя", "дек",
 ];
-
-const StatusDot = ({ color = "#ef4444" }: { color?: string }) => (
-  <div className="absolute top-3 right-3 w-4 h-4 flex items-center justify-center pointer-events-none">
-    <div className="absolute w-4 h-4 rounded-full opacity-50 animate-ping" style={{ backgroundColor: color }} />
-    <div className="relative w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-  </div>
-);
 
 function formatVolume(value: number): string {
   if (value >= 1000) {
@@ -386,7 +378,7 @@ export function Sport() {
   return (
     <div className="flex flex-col gap-6 pb-12 select-none font-sans">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
@@ -529,8 +521,8 @@ export function Sport() {
             <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-sm font-extrabold text-gray-900">Динамика веса</h3>
-                  <p className="text-[10px] text-gray-400 mt-0.5">
+                  <h3 className="text-lg font-extrabold text-gray-900">Динамика веса</h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
                     Последние {weightLogs.length || 0}{" "}
                     {weightLogs.length % 10 === 1 && weightLogs.length % 100 !== 11
                       ? "измерение"
@@ -601,8 +593,8 @@ export function Sport() {
             <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-[13px] font-black text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <History size={16} className="text-indigo-600" />
+                  <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+                    <History size={18} className="text-indigo-600" />
                     Журнал тренировок
                   </h3>
                   <p className="text-[11px] text-gray-400 mt-1">
@@ -728,12 +720,8 @@ export function Sport() {
                       (w.notes && w.notes.trim()) ||
                       topExercise ||
                       formatWorkoutType(w.type);
-                    const durationText =
-                      w.duration != null ? `${w.duration} мин` : "—";
-                    const volumeText =
-                      w.total_volume != null && w.total_volume > 0
-                        ? ` • ${formatVolume(w.total_volume)}`
-                        : "";
+                    const hasVolume =
+                      w.total_volume != null && w.total_volume > 0;
                     return (
                       <button
                         key={w.id}
@@ -756,9 +744,27 @@ export function Sport() {
                             <p className="text-xs font-bold text-gray-800 truncate">
                               {logText}
                             </p>
-                            <span className="text-[10px] text-gray-400 font-mono mt-0.5 block">
-                              {formatWorkoutType(w.type)} • {durationText}
-                              {volumeText}
+                            {/* Meta line — type label stays in Inter
+                                (Cyrillic), but the numeric segments
+                                (duration, volume) get `font-mono` so
+                                their digits align in JetBrains Mono and
+                                read as data, not prose. */}
+                            <span className="text-[10px] text-gray-400 mt-0.5 block">
+                              {formatWorkoutType(w.type)}
+                              {" • "}
+                              <span className="font-mono">
+                                {w.duration != null
+                                  ? `${w.duration} мин`
+                                  : "—"}
+                              </span>
+                              {hasVolume && (
+                                <>
+                                  {" • "}
+                                  <span className="font-mono">
+                                    {formatVolume(w.total_volume as number)}
+                                  </span>
+                                </>
+                              )}
                             </span>
                           </div>
                         </div>
@@ -774,58 +780,89 @@ export function Sport() {
             </div>
           </div>
 
-          {/* Right Column — Status deck + insights (hardcoded copy per spec) */}
+          {/* Right Column — AIR4 advisor + status cards. AIR4 block
+              uses the unified indigo variant shared across Sport,
+              Projects, Goals, Finance, Health — same shape, same
+              chrome, page-specific copy + decorative icon. Mirrors
+              the Overview AIR4 Advisor card visual language in a
+              more compact (p-5, text-[14px]) right-column form. */}
           <div className="space-y-6">
-            <div className="bg-[#1a1a2e] rounded-[20px] p-6 shadow-sm border border-slate-800 text-white relative">
-              <StatusDot color={streakDays > 7 ? "#ef4444" : "#10b981"} />
-              <div className="flex gap-3">
-                <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white shadow-md">
-                  <Bell size={16} />
+            <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+              <Dumbbell
+                size={100}
+                strokeWidth={1.5}
+                className="absolute -top-3 -right-3 text-white/10 pointer-events-none"
+              />
+              <div className="relative space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    aria-hidden="true"
+                    className="w-2 h-2 rounded-full bg-green-400 animate-pulse"
+                  />
+                  <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">
+                    AIR4 ADVISOR
+                  </span>
+                  <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                    Спорт
+                  </span>
                 </div>
-                <div>
-                  <h4 className="text-[11px] font-black tracking-widest text-[#9ca3af] uppercase">
-                    Спортивный отчёт AIR4
-                  </h4>
-                  <p className="text-[13px] leading-relaxed font-bold mt-2 text-indigo-100">
-                    {workouts.length === 0
-                      ? `«Импортированных сессий пока нет. Импортируйте бэкап Coaich — я смогу отслеживать серии, усталость и прогрессию.»`
-                      : streakDays > 7
-                        ? `«${streakDays} дн с последней тренировки. Высокий уровень андрогенов без физического стимула может усиливать накопление жира.»`
-                        : streakDays > 2
-                          ? `«${streakDays} дн перерыва — короткий цикл отдыха. Держите кардио в зоне 2 регулярным, чтобы вязкость крови оставалась в норме.»`
-                          : `«Последняя сессия записана ${streakDays === 0 ? "сегодня" : `${streakDays} дн назад`}. Держите ритм — высокая механическая нагрузка плюс дисциплина гидратации.»`}
-                  </p>
-                </div>
+                <p className="text-[14px] font-medium text-white leading-relaxed pr-12">
+                  {workouts.length === 0
+                    ? `«Импортированных сессий пока нет. Импортируйте бэкап Coaich — я смогу отслеживать серии, усталость и прогрессию.»`
+                    : streakDays > 7
+                      ? `«${streakDays} дн с последней тренировки. Высокий уровень андрогенов без физического стимула может усиливать накопление жира.»`
+                      : streakDays > 2
+                        ? `«${streakDays} дн перерыва — короткий цикл отдыха. Держите кардио в зоне 2 регулярным, чтобы вязкость крови оставалась в норме.»`
+                        : `«Последняя сессия записана ${streakDays === 0 ? "сегодня" : `${streakDays} дн назад`}. Держите ритм — высокая механическая нагрузка плюс дисциплина гидратации.»`}
+                </p>
               </div>
             </div>
 
             <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800 mb-4 flex items-center gap-1.5">
-                <Clock size={14} className="text-[#6366f1]" />
-                Согласованность тренировок во времени
+              {/* Card title matches Finance card-title family.
+                  Clock icon retained as the visual hook for this
+                  card's "timing/consistency" theme. */}
+              <h3 className="text-lg font-extrabold text-gray-900 mb-4 flex items-center gap-2">
+                <Clock size={18} className="text-[#6366f1]" />
+                Согласованность тренировок
               </h3>
 
+              {/* Sub-items: title at text-[13px] semibold gray-800,
+                  body at text-[12px] gray-600. The outer `text-xs`
+                  was removed so each child sets its own size and the
+                  hierarchy doesn't collapse to 12px everywhere. */}
               <div className="space-y-4">
-                <div className="text-xs p-3.5 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-700">Удержание тестостерона</p>
-                  <p className="text-gray-400 mt-1 leading-relaxed">
+                <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <p className="text-[13px] font-semibold text-gray-800">
+                    Удержание тестостерона
+                  </p>
+                  <p className="text-[12px] text-gray-600 mt-1 leading-relaxed">
                     Супрафизиологические андрогены требуют регулярной гликолитической нагрузки. Высокие механические веса повышают плотность мышц и помогают избегать задержки жидкости.
                   </p>
                 </div>
 
-                <div className="text-xs p-3.5 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-700">Вязкость крови</p>
-                  <p className="text-gray-400 mt-1 leading-relaxed">
+                <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <p className="text-[13px] font-semibold text-gray-800">
+                    Вязкость крови
+                  </p>
+                  <p className="text-[12px] text-gray-600 mt-1 leading-relaxed">
                     При гематокрите 50,6% вязкость крови высокая. Гидратация (4 л/день) и аэробные сессии в зоне 2 (например, 40 минут при 135 уд/мин) — терапевтичны.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 text-center py-6 flex flex-col items-center justify-center">
-              <Flame size={28} className="text-orange-500 mb-2 animate-bounce" />
-              <h4 className="text-xs font-bold text-gray-800">Метаболический статус</h4>
-              <p className="text-[11px] text-gray-400 mt-1 leading-relaxed max-w-[200px]">
+            <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
+              {/* Left-aligned to match the «Согласованность» card
+                  above. The Flame icon is inline before the title
+                  (same inline-icon pattern as other right-column
+                  card titles) instead of floating above a centered
+                  block. */}
+              <h4 className="text-lg font-extrabold text-gray-900 mb-2 flex items-center gap-2">
+                <Flame size={18} className="text-orange-500" />
+                Метаболический статус
+              </h4>
+              <p className="text-[12px] text-gray-600 leading-relaxed">
                 Суточная норма калорий в тренировочной фазе — около 2850 ккал. Минимизируйте «утешительные» походы в рестораны в периоды застрявших проектов.
               </p>
             </div>

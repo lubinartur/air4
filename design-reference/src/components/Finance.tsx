@@ -9,7 +9,6 @@ import {
   Car,
   Zap,
   MoreHorizontal,
-  Bell,
   Activity,
   ChevronLeft,
   ChevronRight,
@@ -36,7 +35,6 @@ import {
   fetchSubscriptions,
   formatCategoryLabel,
   formatEuro,
-  getInsights,
   getSummary,
   getTransactions,
   getTransactionsRange,
@@ -47,7 +45,6 @@ import {
   type FinanceCycles,
   type FinanceObligation,
   type FinanceSubscription,
-  type Insight,
   type MonthlyFixed,
   type StatementUpload,
   type Summary,
@@ -105,7 +102,7 @@ const NEUTRAL_CATEGORIES = new Set<string>([
   "transfers",
 ]);
 
-// Hide neutral + aggregate buckets from «Расходы по категориям». The
+// Hide neutral + aggregate buckets from the «Структура трат» chart. The
 // `internal_transfers` row is re-injected separately below with an explicit
 // "не реальные траты" hint so users still see the volume.
 const HIDDEN_CATEGORIES = new Set<string>([
@@ -642,7 +639,7 @@ function CategoryReview({
                   <h2 className="text-[17px] font-black text-gray-900 leading-tight">
                     Проверка категорий
                   </h2>
-                  <p className="text-[12px] text-gray-400 mt-0.5">
+                  <p className="text-[12px] text-gray-600 mt-0.5">
                     {counts.total > 0
                       ? `${counts.total} транзакций · ${counts.needsReview} требуют внимания`
                       : "Просмотрите автокатегории и исправьте неверные"}
@@ -766,7 +763,7 @@ function CategoryReview({
                               isUnreviewed && "bg-amber-50/40"
                             )}
                           >
-                            <td className="py-3 pr-2 font-mono text-gray-400 whitespace-nowrap">
+                            <td className="py-3 pr-2 font-mono text-gray-600 whitespace-nowrap">
                               {formatTxDate(tx.date)}
                             </td>
                             <td
@@ -927,7 +924,6 @@ export function Finance({
 }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [insights, setInsights] = useState<Insight[]>([]);
   const [uploads, setUploads] = useState<StatementUpload[]>([]);
   const [subscriptions, setSubscriptions] = useState<FinanceSubscription[]>([]);
   const [obligations, setObligations] = useState<FinanceObligation[]>([]);
@@ -942,7 +938,7 @@ export function Finance({
   const cycleEnd = cycleStart ? cycleEndFromStart(cycleStart) : null;
 
   /** Load everything that isn't cycle-scoped (transactions list, uploads,
-   *  insights, recurring items) + the cycle metadata. */
+   *  recurring items) + the cycle metadata. */
   const loadStaticData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -950,7 +946,6 @@ export function Finance({
     const [
       cyclesRes,
       txRes,
-      insightsRes,
       uploadsRes,
       subsRes,
       obsRes,
@@ -958,7 +953,6 @@ export function Finance({
     ] = await Promise.allSettled([
       fetchFinanceCycles(),
       getTransactions(10),
-      getInsights(),
       getUploads(),
       fetchSubscriptions(),
       fetchObligations(),
@@ -984,13 +978,6 @@ export function Finance({
     } else {
       setTransactions([]);
       failed.push("transactions");
-    }
-
-    if (insightsRes.status === "fulfilled") {
-      setInsights(insightsRes.value);
-    } else {
-      setInsights([]);
-      failed.push("insights");
     }
 
     if (uploadsRes.status === "fulfilled") {
@@ -1161,7 +1148,6 @@ export function Finance({
   const spent = summary?.total_spent ?? 0;
   const otherIncoming = summary?.other_incoming ?? null;
   const freeCapital = income - spent;
-  const primaryInsight = insights[0] ?? null;
 
   /** Merge subscriptions + obligations into a single chronological list of
    *  next payments. Items without a usable day-of-month are skipped. */
@@ -1207,13 +1193,20 @@ export function Finance({
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      {/* Page header sits directly on the gray page background so
+          switching from Overview → Finance doesn't feel like swapping
+          a transparent banner for a heavy white card. Title is bumped
+          to text-4xl to match the h1 the global <Header /> renders on
+          Overview ("Обзор"); the gap before the next card is provided
+          by the parent flex-col gap-8 wrapper, so no margin is set
+          here. */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-green-50 text-green-600 rounded-xl">
             <Wallet size={22} className="fill-green-100" />
           </div>
           <div>
-            <h1 className={t.pageTitle}>
+            <h1 className={cn(t.pageTitle, "text-4xl")}>
               Финансовый обзор
             </h1>
             <p className={cn(t.pageSub, "mt-0.5")}>
@@ -1265,7 +1258,9 @@ export function Finance({
           <div className="col-span-3 space-y-6">
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-center justify-between gap-4 mb-6">
-                <h2 className={t.cardLabel}>Срез месяца</h2>
+                <h2 className="text-lg font-extrabold text-gray-900">
+                  Срез месяца
+                </h2>
                 {cycleStart && cycleEnd && (
                   <div className="flex items-center gap-2">
                     <button
@@ -1310,7 +1305,7 @@ export function Finance({
                           ({otherIncoming.count})
                         </span>
                       </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">
+                      <p className="text-[10px] text-gray-600 mt-0.5">
                         Переводы, возвраты — не учитываются в свободном капитале
                       </p>
                     </div>
@@ -1344,8 +1339,8 @@ export function Finance({
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
               {categories.length > 0 && <StatusDot color="#ef4444" />}
               <div className="flex items-start justify-between gap-3 mb-6">
-                <h2 className={cn(t.cardLabel, "!mb-0")}>
-                  Расходы по категориям
+                <h2 className="text-lg font-extrabold text-gray-900">
+                  Структура трат
                 </h2>
                 <button
                   type="button"
@@ -1371,7 +1366,7 @@ export function Finance({
                           )}
                         >
                           <cat.icon
-                            size={14}
+                            size={16}
                             className={cn(
                               cat.highlight ? "text-amber-500" : "text-gray-400"
                             )}
@@ -1379,7 +1374,7 @@ export function Finance({
                           {cat.name}
                           <span className="text-[10px] text-[#9ca3af]">({cat.count})</span>
                           {cat.isInternal && (
-                            <span className="text-[10px] text-gray-400 font-normal normal-case tracking-normal">
+                            <span className="text-[10px] text-gray-600 font-normal normal-case tracking-normal">
                               не реальные траты
                             </span>
                           )}
@@ -1388,7 +1383,7 @@ export function Finance({
                           <span className="text-gray-900 font-bold">
                             {formatEuro(cat.amount)}
                           </span>
-                          <span className="text-gray-400 font-mono text-[11px] w-8 text-right">
+                          <span className="text-gray-600 font-mono text-[11px] w-8 text-right">
                             {cat.percent}%
                           </span>
                         </div>
@@ -1408,8 +1403,8 @@ export function Finance({
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className={cn(t.cardLabel, "mb-6")}>
-                Недавние транзакции
+              <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+                Транзакции
               </h2>
               {transactions.length === 0 ? (
                 <p className="text-[14px] text-[#9ca3af]">Транзакций не найдено.</p>
@@ -1433,7 +1428,7 @@ export function Finance({
                             key={t.id}
                             className={cn("group", i % 2 === 0 ? "bg-gray-50/30" : "bg-white")}
                           >
-                            <td className="py-3 font-mono text-gray-400">
+                            <td className="py-3 font-mono text-gray-600">
                               {formatTxDate(t.date)}
                             </td>
                             <td className="py-3 font-bold text-gray-900 max-w-[200px] truncate">
@@ -1441,7 +1436,7 @@ export function Finance({
                             </td>
                             <td
                               className={cn(
-                                "py-3 font-mono font-bold text-right",
+                                "py-3 font-bold text-right",
                                 isIncome ? "text-green-600" : "text-gray-900"
                               )}
                             >
@@ -1449,14 +1444,14 @@ export function Finance({
                               {formatEuro(Math.abs(signed))}
                             </td>
                             <td className="py-3 pl-8">
-                              <span
-                                className={cn(
-                                  "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter",
-                                  isIncome
-                                    ? "bg-green-50 text-green-600"
-                                    : "bg-gray-100 text-gray-500"
-                                )}
-                              >
+                              {/* Soft sentence-case pill — same vocabulary
+                                  as the Overview footer pills. We drop
+                                  the prior income/expense color split
+                                  because the signed amount column already
+                                  encodes that signal; the pill goes back
+                                  to a single neutral gray so the eye
+                                  reads the table by rows, not by stripes. */}
+                              <span className="bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-[11px] font-medium">
                                 {formatCategoryLabel(t.category || "other")}
                               </span>
                             </td>
@@ -1470,35 +1465,70 @@ export function Finance({
             </div>
           </div>
 
+          {/* Right column opens with the unified AIR4 advisor card
+              (shared shape with Sport, Projects, Goals, Health) and
+              then drops into money-mechanics: «Предстоящие платежи»,
+              «Подписки», «Кредиты». The advisor copy is derived from
+              the same Finance state already in scope (income, spent,
+              freeCapital, fixed costs) — no extra API call needed. */}
           <div className="col-span-2 space-y-6">
-            <div className="bg-[#1a1a2e] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] border-l-[4px] border-indigo-500 min-h-[120px]">
-              <div className="flex gap-3 text-white">
-                <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
-                  <Bell size={16} />
+            <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+              <Wallet
+                size={100}
+                strokeWidth={1.5}
+                className="absolute -top-3 -right-3 text-white/10 pointer-events-none"
+              />
+              <div className="relative space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    aria-hidden="true"
+                    className="w-2 h-2 rounded-full bg-green-400 animate-pulse"
+                  />
+                  <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">
+                    AIR4 ADVISOR
+                  </span>
+                  <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                    Финансы
+                  </span>
                 </div>
-                {primaryInsight ? (
-                  <div>
-                    <p className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider mb-1">
-                      {primaryInsight.title}
-                    </p>
-                    <p className="text-[15px] leading-relaxed font-medium text-white/90">
-                      {primaryInsight.description}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-[14px] leading-relaxed text-white/50">
-                    Озарений пока нет. Продолжайте использовать AIR4 — паттерны появятся здесь.
-                  </p>
-                )}
+                {/* Tiered copy — pick the most actionable signal:
+                    1. Negative free capital → spent > income, urgent
+                    2. Fixed-cost burn ratio > 60% of income → squeeze
+                    3. Healthy positive → keep momentum                 */}
+                <p className="text-[14px] font-medium text-white leading-relaxed pr-12">
+                  {income <= 0
+                    ? `«Доход за цикл ещё не зафиксирован. Загрузите выписку, чтобы я мог посчитать свободный капитал.»`
+                    : freeCapital < 0
+                      ? `«Свободный капитал в минусе: потрачено ${formatEuro(spent)} при доходе ${formatEuro(income)}. Подрезайте переменные траты — фиксированные ${monthlyFixed ? formatEuro(monthlyFixed.fixed_total) : "—"}/мес уже залочены.»`
+                      : monthlyFixed && monthlyFixed.fixed_total / income > 0.6
+                        ? `«Постоянные расходы съедают ${Math.round((monthlyFixed.fixed_total / income) * 100)}% дохода (${formatEuro(monthlyFixed.fixed_total)} из ${formatEuro(income)}). Сократите хотя бы одну подписку или ускорьте погашение кредита.»`
+                        : `«Свободный капитал за цикл — ${formatEuro(freeCapital)}. Резерв на ${monthlyFixed && monthlyFixed.fixed_total > 0 ? Math.floor(freeCapital / monthlyFixed.fixed_total) : "—"} мес постоянных расходов.»`}
+                </p>
               </div>
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <div className="flex items-baseline justify-between mb-4">
-                <h2 className={t.cardLabel}>Предстоящие платежи</h2>
+              <div className="flex items-baseline justify-between gap-3 mb-4">
+                <h2 className="text-lg font-extrabold text-gray-900">
+                  Предстоящие платежи
+                </h2>
                 {upcomingPayments.length > 0 && (
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    Ближайшие {upcomingPayments.length}
+                  // Sum of the next-due amounts shown in the card body.
+                  // No /мес suffix — these are discrete one-time future
+                  // payments (next instalment per row), not recurring
+                  // monthly totals. Hides automatically when every row
+                  // has a null amount (sum === 0 in that edge case).
+                  // `font-mono` keeps the figure aligned with the
+                  // other header totals (Подписки, Кредиты) and the
+                  // Monthly Snapshot hero numbers, so the eye reads
+                  // every Finance total in the same monospaced rhythm.
+                  <span className="font-mono text-lg font-extrabold text-[#6366F1] shrink-0">
+                    {formatEuro(
+                      upcomingPayments.reduce(
+                        (sum, p) => sum + (p.amount ?? 0),
+                        0,
+                      ),
+                    )}
                   </span>
                 )}
               </div>
@@ -1531,12 +1561,12 @@ export function Finance({
                           <p className="text-[13px] font-bold text-gray-900 truncate">
                             {p.name}
                           </p>
-                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                          <p className="text-[10px] text-gray-600 font-mono mt-0.5">
                             {formatRelativeDate(p.date)}
                           </p>
                         </div>
                       </div>
-                      <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
+                      <span className="text-[13px] font-bold text-gray-900 shrink-0">
                         {p.amount != null ? formatEuro(p.amount) : "—"}
                       </span>
                     </li>
@@ -1546,10 +1576,17 @@ export function Finance({
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <div className="flex items-baseline justify-between mb-4">
-                <h2 className={t.cardLabel}>Подписки</h2>
+              <div className="flex items-baseline justify-between gap-3 mb-4">
+                <h2 className="text-lg font-extrabold text-gray-900">
+                  Подписки · в месяц
+                </h2>
                 {subscriptions.length > 0 && monthlyFixed && (
-                  <span className="text-[11px] font-mono font-bold text-indigo-600">
+                  // Same size + weight as the card title so the eye reads
+                  // "Подписки · в месяц … 229.58 €/мес" as one balanced
+                  // header line; indigo color anchors the sum visually.
+                  // `font-mono` aligns the digits with the other Finance
+                  // totals (Кредиты, Предстоящие платежи, Срез месяца).
+                  <span className="font-mono text-lg font-extrabold text-[#6366F1] shrink-0">
                     {formatEuro(monthlyFixed.subscriptions_total)}/мес
                   </span>
                 )}
@@ -1568,13 +1605,13 @@ export function Finance({
                           {s.name}
                         </p>
                         {s.billing_day != null && (
-                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                          <p className="text-[10px] text-gray-600 font-mono mt-0.5">
                             {s.billing_day}-е число
                           </p>
                         )}
                       </div>
-                      <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
-                        {s.amount != null ? `${formatEuro(s.amount)}/мес` : "—"}
+                      <span className="text-[13px] font-bold text-gray-900 shrink-0">
+                        {s.amount != null ? formatEuro(s.amount) : "—"}
                       </span>
                     </li>
                   ))}
@@ -1583,10 +1620,15 @@ export function Finance({
             </div>
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <div className="flex items-baseline justify-between mb-4">
-                <h2 className={t.cardLabel}>Кредиты и обязательства</h2>
+              <div className="flex items-baseline justify-between gap-3 mb-4">
+                <h2 className="text-lg font-extrabold text-gray-900">
+                  Кредиты и обязательства
+                </h2>
                 {obligations.length > 0 && monthlyFixed && (
-                  <span className="text-[11px] font-mono font-bold text-indigo-600">
+                  // `font-mono` matches the other Finance header totals
+                  // so all monetary totals share the same monospaced
+                  // baseline regardless of card.
+                  <span className="font-mono text-lg font-extrabold text-[#6366F1] shrink-0">
                     {formatEuro(monthlyFixed.obligations_total)}/мес
                   </span>
                 )}
@@ -1594,7 +1636,12 @@ export function Finance({
               {obligations.length === 0 ? (
                 <ChatEmpty label="Кредитов нет" />
               ) : (
-                <ul className="space-y-5">
+                // Each loan is now a self-contained mini-card on the
+                // page's gray-50 surface so the rows read as standalone
+                // units instead of a striped list. `space-y-3` gives a
+                // 12px gap between cards (matches the spec's `mb-3` on
+                // each card without piling margin + gap together).
+                <ul className="space-y-3">
                   {obligations.map((o) => {
                     const total = o.total_amount;
                     const remaining = o.remaining_amount;
@@ -1610,24 +1657,44 @@ export function Finance({
                       ? Math.min(100, Math.round((paid / (total as number)) * 100))
                       : 0;
                     const tone = progressTone(percentPaid);
+                    // No-decimal Euro for the compact info line — keeps
+                    // "3,654 € / 15,000 €" readable without cluttering
+                    // with cents. Mirrors `formatEuro`'s "{amount} €"
+                    // layout with a non-breaking space.
+                    const fmtShort = (n: number) =>
+                      `${n.toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}\u00A0€`;
+                    // Final-payment year only ("2031-03-15" → "2031").
+                    // Falls back to the raw string for non-ISO inputs.
+                    const dueYear = o.due_date
+                      ? o.due_date.slice(0, 4)
+                      : null;
                     return (
                       <li
                         key={o.id}
-                        className="space-y-2 first:pt-0 last:pb-0"
+                        className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2"
                       >
+                        {/* Row 1 — name + monthly payment. Both dark
+                            gray-900 so the row reads as one balanced
+                            line; only the card-header total stays
+                            indigo to anchor the section visually. */}
                         <div className="flex items-baseline justify-between gap-3">
                           <p className="text-[13px] font-bold text-gray-900 truncate">
                             {o.name}
                           </p>
-                          <span className="font-mono text-[13px] font-bold text-gray-900 shrink-0">
+                          <span className="text-[13px] font-bold text-gray-900 shrink-0">
                             {o.monthly_payment != null
-                              ? `${formatEuro(o.monthly_payment)}/мес`
+                              ? formatEuro(o.monthly_payment)
                               : "—"}
                           </span>
                         </div>
                         {hasProgress ? (
                           <>
-                            <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden">
+                            {/* Row 2 — progress bar against gray-200
+                                track (visible on the card's gray-50
+                                surface). */}
+                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${percentPaid}%` }}
@@ -1635,40 +1702,50 @@ export function Finance({
                                 className={cn("h-full rounded-full", tone.bar)}
                               />
                             </div>
-                            <div className="flex items-center justify-between text-[10px] font-mono text-gray-400">
-                              <span>
-                                выплачено{" "}
-                                <span className={cn("font-bold", tone.text)}>
-                                  {formatEuro(paid)}
-                                </span>{" "}
-                                / {formatEuro(total as number)}
+                            {/* Row 3 — ultra-compact single line. Drops
+                                the "выплачено / осталось / срок"
+                                labels in favour of pure numbers, and
+                                pulls the % pill onto the same row so
+                                the card terminates in one footer
+                                rather than two. */}
+                            <div className="flex items-center justify-between gap-3 text-[12px] text-gray-600">
+                              <span className="truncate">
+                                {fmtShort(paid)} / {fmtShort(total as number)}
+                                {o.interest_rate != null &&
+                                  ` · ${o.interest_rate.toFixed(1)}%`}
+                                {dueYear && ` · до ${dueYear}`}
                               </span>
                               <span
                                 className={cn(
-                                  "px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider",
+                                  "shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider",
                                   tone.badge
                                 )}
                               >
                                 {percentPaid}% выплачено
                               </span>
                             </div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400 font-mono">
-                              <span>осталось {formatEuro(remaining as number)}</span>
-                              {o.interest_rate != null && (
-                                <span>{o.interest_rate.toFixed(1)}%</span>
-                              )}
-                              {o.due_date && <span>срок {o.due_date}</span>}
-                            </div>
                           </>
                         ) : (
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-400 font-mono">
-                            {remaining != null && (
-                              <span>осталось {formatEuro(remaining)}</span>
-                            )}
+                          // No progress data — same compact one-liner
+                          // with whatever fields exist; conditional
+                          // bullets so we never render a leading or
+                          // duplicate "·".
+                          <div className="text-[12px] text-gray-600 truncate">
+                            {remaining != null && fmtShort(remaining)}
                             {o.interest_rate != null && (
-                              <span>{o.interest_rate.toFixed(1)}%</span>
+                              <>
+                                {remaining != null && " · "}
+                                {o.interest_rate.toFixed(1)}%
+                              </>
                             )}
-                            {o.due_date && <span>срок {o.due_date}</span>}
+                            {dueYear && (
+                              <>
+                                {(remaining != null ||
+                                  o.interest_rate != null) &&
+                                  " · "}
+                                до {dueYear}
+                              </>
+                            )}
                           </div>
                         )}
                       </li>
@@ -1682,8 +1759,8 @@ export function Finance({
       )}
 
       <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className={cn(t.cardLabel, "mb-6")}>
-          Загруженные выписки
+        <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+          Выписки
         </h2>
         {loading && uploads.length === 0 ? (
           <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
@@ -1734,9 +1811,9 @@ export function Finance({
         cycleStart={cycleStart}
         cycleEnd={cycleEnd}
         onCategoryChanged={() => {
-          // Refresh the cycle summary so the «Расходы по категориям» chart
-          // reflects the new categorization, and reload the «Недавние
-          // транзакции» preview so the badges match.
+          // Refresh the cycle summary so the «Структура трат» chart
+          // reflects the new categorization, and reload the «Транзакции»
+          // preview so the badges match.
           if (cycleStart && cycleEnd) {
             void getSummary(cycleStart, cycleEnd)
               .then((data) => setSummary(data))

@@ -18,7 +18,7 @@ export function Settings() {
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-gray-100 text-gray-600 rounded-xl">
             <SettingsIcon size={22} className="fill-gray-200" />

@@ -25,6 +25,41 @@ _EMPTY = SummaryOut(
 # Exclude non-spending rows from totals and category breakdown.
 _EXTERNAL_ONLY = "COALESCE(is_internal_transfer, 0) = 0"
 
+# "Neutral" categories — real money movement, but neither income nor expense.
+# Debt repayments and inter-personal transfers shift cash around without
+# representing consumption; counting them as spending inflates `total_spent`
+# and distorts the «свободный капитал» figure.
+#
+# Note: `loan_payment` is intentionally NOT neutral. Mortgage / consumer-loan
+# instalments are part of the user's monthly burn and must count toward
+# `total_spent` so the "what I really live on" figure stays realistic. The
+# obligation-balance bookkeeping for those payments lives in the transactions
+# router (auto-decrement of `obligations.remaining_amount`).
+#
+# The `internal_transfer` member is the logical name for the
+# `is_internal_transfer` boolean column (own-IBAN ↔ own-IBAN moves) and is
+# already filtered via `_EXTERNAL_ONLY`. The two `category`-column values
+# below are filtered explicitly through `_SPENDING_CATEGORY` so an external
+# repayment / friend transfer is also excluded from `total_spent`.
+NEUTRAL_CATEGORIES: frozenset[str] = frozenset(
+    {"repayment", "internal_transfer", "transfers"}
+)
+
+# Categories representable as a string value in the `category` column. The
+# `internal_transfer` neutral kind lives in its own boolean column and is
+# intentionally excluded from this tuple.
+_NEUTRAL_CATEGORY_NAMES: tuple[str, ...] = tuple(
+    sorted(NEUTRAL_CATEGORIES - {"internal_transfer"})
+)
+
+# SQL fragment that keeps NULL categories (legacy uncategorized rows count as
+# spending) but rejects the explicit neutral ones.
+_SPENDING_CATEGORY = (
+    "(category IS NULL OR category NOT IN ("
+    + ",".join("?" * len(_NEUTRAL_CATEGORY_NAMES))
+    + "))"
+)
+
 # Salary-cycle anchor: the 10th of each month is "payday".
 # The current cycle always runs from a 10th through the 9th of the next month.
 _CYCLE_ANCHOR_DAY = 10
@@ -151,6 +186,9 @@ def load_summary(
       AND date <= ?
     """
 
+    # `total_spent` is the user's actual consumption — neutral movements
+    # (debt repayment, transfers in/out) are excluded so the figure matches
+    # the «настоящие расходы» framing in the UI.
     spent_row = fetch_one(
         conn,
         f"""
@@ -159,8 +197,9 @@ def load_summary(
         WHERE is_debit = 1
           AND {period_where}
           AND {_EXTERNAL_ONLY}
+          AND {_SPENDING_CATEGORY}
         """,
-        base_params,
+        [*base_params, *_NEUTRAL_CATEGORY_NAMES],
     )
 
     # Income = only rows matching a configured income_sources keyword.

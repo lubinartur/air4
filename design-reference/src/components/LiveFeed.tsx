@@ -7,15 +7,21 @@
  * type pill or a signed amount plus an exact local time.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import {
   Activity,
   ArrowDownRight,
   ArrowUpRight,
   Briefcase,
   Calendar,
+  ChevronRight,
   CreditCard,
-  History,
   RefreshCw,
   Sparkles,
   Terminal,
@@ -24,6 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { fetchFeed, type FeedItem } from "../lib/api";
+import { t } from "../lib/typography";
 import { cn } from "../lib/utils";
 
 const DIGEST_LIMIT = 8;
@@ -46,7 +53,6 @@ function categoryOf(item: FeedItem): string {
 }
 
 type TypeStyle = {
-  accent: string; // background for the vertical accent bar
   iconWrap: string; // background for the icon square
   iconColor: string; // foreground for the icon glyph
   pillBg: string; // background for the right-side label pill
@@ -56,7 +62,6 @@ type TypeStyle = {
 };
 
 const FALLBACK: TypeStyle = {
-  accent: "bg-gray-300",
   iconWrap: "bg-gray-100",
   iconColor: "text-gray-600",
   pillBg: "bg-gray-100",
@@ -70,7 +75,6 @@ function styleFor(item: FeedItem): TypeStyle {
     const incoming = item.icon === "trending-up";
     return incoming
       ? {
-          accent: "bg-green-500",
           iconWrap: "bg-green-50",
           iconColor: "text-green-600",
           pillBg: "",
@@ -79,7 +83,6 @@ function styleFor(item: FeedItem): TypeStyle {
           Icon: ArrowUpRight,
         }
       : {
-          accent: "bg-red-500",
           iconWrap: "bg-red-50",
           iconColor: "text-red-500",
           pillBg: "",
@@ -90,7 +93,6 @@ function styleFor(item: FeedItem): TypeStyle {
   }
   if (item.type === "subscription") {
     return {
-      accent: "bg-orange-500",
       iconWrap: "bg-orange-50",
       iconColor: "text-orange-600",
       pillBg: "bg-orange-50",
@@ -101,7 +103,6 @@ function styleFor(item: FeedItem): TypeStyle {
   }
   if (item.type === "upload") {
     return {
-      accent: "bg-blue-500",
       iconWrap: "bg-blue-50",
       iconColor: "text-blue-500",
       pillBg: "bg-blue-50",
@@ -112,7 +113,6 @@ function styleFor(item: FeedItem): TypeStyle {
   }
   if (item.type === "project_log") {
     return {
-      accent: "bg-purple-500",
       iconWrap: "bg-purple-50",
       iconColor: "text-purple-600",
       pillBg: "bg-purple-50",
@@ -123,7 +123,6 @@ function styleFor(item: FeedItem): TypeStyle {
   }
   if (item.type === "observation") {
     return {
-      accent: "bg-[#6366F1]",
       iconWrap: "bg-indigo-50",
       iconColor: "text-[#6366F1]",
       pillBg: "bg-indigo-50",
@@ -137,7 +136,6 @@ function styleFor(item: FeedItem): TypeStyle {
   const hint = (item.icon ?? "").toLowerCase();
   if (hint === "activity") {
     return {
-      accent: "bg-green-500",
       iconWrap: "bg-green-50",
       iconColor: "text-green-600",
       pillBg: "bg-green-50",
@@ -148,7 +146,6 @@ function styleFor(item: FeedItem): TypeStyle {
   }
   if (hint === "briefcase") {
     return {
-      accent: "bg-amber-500",
       iconWrap: "bg-amber-50",
       iconColor: "text-amber-600",
       pillBg: "bg-amber-50",
@@ -159,7 +156,6 @@ function styleFor(item: FeedItem): TypeStyle {
   }
   if (hint === "credit-card") {
     return {
-      accent: "bg-orange-500",
       iconWrap: "bg-orange-50",
       iconColor: "text-orange-600",
       pillBg: "bg-orange-50",
@@ -191,32 +187,10 @@ function formatExactTime(iso: string): string {
   });
 }
 
-function dateBucketLabel(iso: string): { key: string; label: string } {
-  const ts = parseStamp(iso);
-  if (ts === null) return { key: "unknown", label: "РАНЕЕ" };
-  const d = new Date(ts);
-  const dayStart = new Date(
-    d.getFullYear(),
-    d.getMonth(),
-    d.getDate()
-  ).getTime();
-  const now = new Date();
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  ).getTime();
-  const dayMs = 86_400_000;
-  const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-  if (dayStart === todayStart) return { key, label: "СЕГОДНЯ" };
-  if (dayStart === todayStart - dayMs) return { key, label: "ВЧЕРА" };
-  return {
-    key,
-    label: d
-      .toLocaleDateString("ru-RU", { month: "short", day: "numeric" })
-      .toUpperCase(),
-  };
-}
+// NOTE: `dateBucketLabel` (СЕГОДНЯ / ВЧЕРА / dated headers) was removed
+// alongside the chronological "full" feed view. If the Memory page or any
+// other surface needs grouped-by-day rendering, lift that helper into
+// `../lib/format` so callers don't reinvent it.
 
 // Backend titles for transactions read "Spent €45 at Rimi" / "Received
 // €3835.00". The redesign moves the amount into the right-meta column,
@@ -243,13 +217,7 @@ function FeedRow({ item }: { item: FeedItem }) {
   const { Icon } = style;
   const isTxn = item.type === "transaction";
   return (
-    <li className="relative pl-4">
-      <span
-        className={cn(
-          "absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full",
-          style.accent
-        )}
-      />
+    <li>
       <div className="flex items-start gap-3">
         <span
           className={cn(
@@ -301,11 +269,47 @@ function FeedRow({ item }: { item: FeedItem }) {
   );
 }
 
-export function LiveFeed() {
+/** Optional click handler for the entire LiveFeed card. When supplied (used
+ *  from the Overview dashboard to navigate to Memory), the outer container
+ *  becomes a `role="button"` div, gets the standard clickable-card hover
+ *  treatment, and every internal interactive element (view-toggle button)
+ *  stops propagation so it can keep doing its in-card job.
+ *
+ *  `digestLimit` lets the host decide how many rows to keep — narrow column
+ *  layouts (e.g. the 1/3-width Overview slot) want ~3, wider ones can use
+ *  the default. Capped at DIGEST_LIMIT so callers can't accidentally
+ *  render a list longer than the deduplicated category count.
+ */
+type LiveFeedProps = {
+  onCardClick?: () => void;
+  digestLimit?: number;
+};
+
+export function LiveFeed({
+  onCardClick,
+  digestLimit = DIGEST_LIMIT,
+}: LiveFeedProps = {}) {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"digest" | "full">("digest");
+
+  const cardClickable = typeof onCardClick === "function";
+  const handleCardClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (!onCardClick) return;
+    // Don't navigate when the click came from a nested interactive element.
+    // The card has no view-toggle anymore — the full feed lives on the
+    // Memory page (where `onCardClick` navigates to) — but this guard is
+    // cheap insurance for any future inner button.
+    if ((e.target as HTMLElement).closest("button")) return;
+    onCardClick();
+  };
+  const handleCardKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!onCardClick) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onCardClick();
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -332,6 +336,13 @@ export function LiveFeed() {
   // Digest = walk items in recency order, keep first sighting per category,
   // capped at DIGEST_LIMIT. The list is already (type, title)-deduped by
   // the backend so we only need to collapse cross-category repetition here.
+  // The "full" chronological view used to live behind a toggle but was
+  // removed when the whole card became click-to-navigate; the Memory page
+  // is now the canonical place to see every event.
+  const effectiveLimit = Math.min(
+    Math.max(1, Math.floor(digestLimit)),
+    DIGEST_LIMIT,
+  );
   const digestItems = useMemo(() => {
     const seen = new Set<string>();
     const out: FeedItem[] = [];
@@ -340,46 +351,46 @@ export function LiveFeed() {
       if (seen.has(cat)) continue;
       seen.add(cat);
       out.push(it);
-      if (out.length >= DIGEST_LIMIT) break;
+      if (out.length >= effectiveLimit) break;
     }
     return out;
-  }, [items]);
-
-  const visible = view === "digest" ? digestItems : items;
-
-  // Date groups are only meaningful in the chronological full view —
-  // digest mode is a flat "current state" snapshot.
-  const groups = useMemo(() => {
-    if (view === "digest") return null;
-    const out: Array<{ key: string; label: string; items: FeedItem[] }> = [];
-    let cur: { key: string; label: string; items: FeedItem[] } | null = null;
-    for (const it of visible) {
-      const bucket = dateBucketLabel(it.created_at);
-      if (!cur || cur.key !== bucket.key) {
-        cur = { key: bucket.key, label: bucket.label, items: [] };
-        out.push(cur);
-      }
-      cur.items.push(it);
-    }
-    return out;
-  }, [view, visible]);
+  }, [items, effectiveLimit]);
 
   return (
-    <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] md:col-span-2 transition-all duration-300 hover:shadow-md">
-      {/* Header */}
+    <div
+      role={cardClickable ? "button" : undefined}
+      tabIndex={cardClickable ? 0 : undefined}
+      aria-label={cardClickable ? "Открыть страницу памяти" : undefined}
+      onClick={cardClickable ? handleCardClick : undefined}
+      onKeyDown={cardClickable ? handleCardKey : undefined}
+      className={cn(
+        "bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)]",
+        cardClickable
+          ? "group/card cursor-pointer border border-transparent hover:border-[#6366F1]/30 hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)] hover:-translate-y-[1px] transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1]/40"
+          : "transition-all duration-300 hover:shadow-md"
+      )}
+    >
+      {/* Header — blue Activity badge mirrors the green Wallet / blue
+          Briefcase badges on the other Overview cards so each card has
+          its own colored marker in the same w-6 h-6 rounded-lg slot.
+          `min-w-0` lets the title truncate cleanly before the chevron
+          if a future locale string runs long. */}
       <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <History size={13} className="text-gray-400" strokeWidth={2.5} />
-          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-            Лента активности
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="shrink-0 w-6 h-6 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center">
+            <Activity size={14} className="fill-blue-100" />
+          </div>
+          <span className="text-lg font-extrabold text-gray-900">
+            Активность
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#6366F1] animate-pulse" />
-          <span className="text-[10px] font-black text-[#6366F1] uppercase tracking-wider">
-            Реальное время
-          </span>
-        </div>
+        {cardClickable && (
+          <ChevronRight
+            size={14}
+            strokeWidth={2.5}
+            className="text-gray-300 group-hover/card:text-[#6366F1] transition-colors shrink-0"
+          />
+        )}
       </div>
 
       {/* Body */}
@@ -395,71 +406,32 @@ export function LiveFeed() {
         </div>
       ) : (
         <>
-          {view === "digest" ? (
-            <ul className="space-y-2.5">
-              {visible.map((it) => (
-                <FeedRow
-                  key={`d-${it.type}-${it.created_at}-${it.title}`}
-                  item={it}
-                />
-              ))}
-            </ul>
-          ) : (
-            <div className="space-y-6">
-              {(groups ?? []).map((group) => (
-                <div key={group.key}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                      {group.label}
-                    </span>
-                    <div className="flex-1 h-px bg-gray-100" />
-                  </div>
+          <ul className="space-y-2.5">
+            {digestItems.map((it) => (
+              <FeedRow
+                key={`d-${it.type}-${it.created_at}-${it.title}`}
+                item={it}
+              />
+            ))}
+          </ul>
 
-                  <ul className="space-y-2.5">
-                    {group.items.map((it) => (
-                      <FeedRow
-                        key={`f-${it.type}-${it.created_at}-${it.title}`}
-                        item={it}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {items.length > digestItems.length && (
-            <div className="pt-4 mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() =>
-                  setView((prev) => (prev === "digest" ? "full" : "digest"))
-                }
-                className="text-[10px] font-black text-[#6366F1] uppercase tracking-wider hover:text-indigo-800"
-              >
-                {view === "digest"
-                  ? `Показать всё (${items.length})`
-                  : "Свернуть до дайджеста"}
-              </button>
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="flex items-center justify-between pt-4 mt-5 border-t border-gray-100">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-mono">
-              События синхронизированы ({items.length}{" "}
+          {/* Footer — soft pill chips matching the other Overview card
+              footers (Finance / Projects / Patterns). The status pill
+              keeps an inline green pulse so "поток подключён" still reads
+              as a live signal, not a static label. */}
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <span className={t.footerPill}>
+              {items.length}{" "}
               {items.length % 10 === 1 && items.length % 100 !== 11
                 ? "запись"
                 : items.length % 10 >= 2 && items.length % 10 <= 4 && (items.length % 100 < 12 || items.length % 100 > 14)
                 ? "записи"
-                : "записей"})
+                : "записей"}
             </span>
-            <div className="flex items-center gap-1.5">
+            <span className={cn(t.footerPill, "inline-flex items-center gap-1.5")}>
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] font-black text-[#6366F1] uppercase tracking-wider">
-                Поток подключён
-              </span>
-            </div>
+              Поток подключён
+            </span>
           </div>
         </>
       )}

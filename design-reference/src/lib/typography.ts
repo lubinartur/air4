@@ -31,6 +31,12 @@ export const t = {
   // Status pills
   badge: "text-[9px] font-black uppercase tracking-wider",
 
+  // Soft chip used at the bottom of Overview cards. Sentence case (NOT
+  // uppercase), no border on the wrapper — chip itself is the affordance.
+  // Compose multiple pills inside `flex items-center gap-2`.
+  footerPill:
+    "bg-gray-100 text-gray-500 text-[11px] font-medium px-2 py-0.5 rounded-full",
+
   // Navigation/action links
   link: "text-[10px] font-black text-indigo-600 uppercase tracking-wider",
 } as const;

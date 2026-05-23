@@ -27,6 +27,7 @@ from database import execute, fetch_all, fetch_one
 from services.fact_extractor import (
     _matched_known_service,
     canonical_subscription_name,
+    is_blacklisted_subscription_name,
     is_subscription_key,
 )
 from services.finance_facts import parse_amount_from_text
@@ -166,6 +167,12 @@ def migrate_facts_to_subscriptions(
 
     def _try_insert(name: str, amount: float | None) -> str:
         if not name or name == "Unnamed":
+            return "ineligible"
+        # Reject system/meta descriptions ("Manages Subscriptions And Loans",
+        # "Tracks Subscriptions And Obligations", "Recurring Subscriptions"…)
+        # that get title-cased from aggregate fact keys with no real brand.
+        if is_blacklisted_subscription_name(name):
+            logger.info("Subscription migration: skipping blacklisted name %r", name)
             return "ineligible"
         name_lc = name.lower()
         if name_lc in inserted_names or _row_exists(conn, name):

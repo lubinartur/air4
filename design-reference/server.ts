@@ -73,12 +73,24 @@ function registerApiRoutes(): void {
 
   app.get("/api/transactions", async (req, res) => {
     try {
-      const url = new URL(`${BACKEND_URL}/api/transactions`);
-      if (req.query.limit) url.searchParams.set("limit", String(req.query.limit));
-      if (req.query.skip) url.searchParams.set("skip", String(req.query.skip));
-      const response = await fetch(url.toString());
-      const data = await response.json();
-      res.status(response.status).json(data);
+      await proxyJson(res, backendUrl("/api/transactions", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.put("/api/transactions/:transactionId/category", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/transactions/${encodeURIComponent(req.params.transactionId)}/category`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req.body ?? {}),
+        }
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Proxy failed";
       res.status(500).json({ error: message });

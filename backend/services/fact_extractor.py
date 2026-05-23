@@ -90,6 +90,11 @@ _SUBSCRIPTION_KEY_EXCLUDE = re.compile(
     r"strategy|management|approach|style|preference"
     r"|work|employment|project"
     r"|multiple_subscriptions|other_subscriptions|has_subscriptions"
+    # Aggregate / meta keys that describe behaviour, not a single service.
+    # Without these the title-cased key leaks in as a fake service name
+    # (e.g. `manages_subscriptions_and_loans` → "Manages Subscriptions And Loans").
+    r"|^manages_|^tracks_|^handles_|^maintains_|^monitors_|^reviews_|^oversees_"
+    r"|recurring_subscriptions|subscriptions_and_"
     r")",
     re.IGNORECASE,
 )
@@ -356,6 +361,83 @@ _BRAND_DISPLAY: dict[str, str] = {
 }
 
 
+# Subscription-name blacklist. These patterns catch system/meta descriptions
+# that get mistaken for real service names when a fact key is title-cased
+# (e.g. `manages_subscriptions_and_loans` → "Manages Subscriptions And Loans").
+# Used by both live chat extraction (`_upsert_subscription_from_fact`) and the
+# one-time migration (`subscription_migration.migrate_facts_to_subscriptions`).
+#
+# A name is rejected if any of these match:
+#   1. The leading word is a meta-verb (manages/tracks/handles/uses/...)
+#      followed by "subscription(s)", "loan(s)", "obligation(s)", "expense(s)",
+#      etc. — these are aggregate descriptors, not service names.
+#   2. The bare word "Subscription"/"Subscriptions"/"Recurring" stands as the
+#      whole subject without naming any actual brand.
+#   3. The name is longer than the cap below — real service names are short.
+_SUBSCRIPTION_NAME_MAX_LEN = 40
+
+_BLACKLIST_LEADING_VERB = re.compile(
+    r"^\s*(manages?|tracks?|handles?|uses?|owns?|maintains?|monitors?|"
+    r"reviews?|oversees?|controls?)\b",
+    re.IGNORECASE,
+)
+
+_BLACKLIST_META_NOUN = re.compile(
+    r"\b(subscription|subscriptions|loan|loans|obligation|obligations|"
+    r"expense|expenses|payment|payments|service|services|tool|tools|plan|"
+    r"plans|account|accounts)\b",
+    re.IGNORECASE,
+)
+
+_BLACKLIST_BARE_META = re.compile(
+    r"^\s*(recurring(\s+subscriptions?)?|subscription(s)?|other\s+"
+    r"subscriptions?|multiple\s+subscriptions?|various\s+subscriptions?)\s*$",
+    re.IGNORECASE,
+)
+
+
+def is_blacklisted_subscription_name(name: str) -> bool:
+    """Reject system/meta descriptions that should never become subscriptions.
+
+    Real services are short and named after a brand (Netflix, Spotify,
+    ChatGPT, ...). Anything that reads like a description ("Manages
+    Subscriptions And Loans", "Tracks Subscriptions And Obligations",
+    "Recurring Subscriptions") is rejected.
+    """
+    if not name:
+        return True
+
+    cleaned = name.strip()
+    if not cleaned or cleaned.lower() == "unnamed":
+        return True
+
+    if len(cleaned) > _SUBSCRIPTION_NAME_MAX_LEN:
+        return True
+
+    if _BLACKLIST_BARE_META.match(cleaned):
+        return True
+
+    # Names that start with a meta-verb (Manages/Tracks/Handles/...) AND
+    # contain a meta-noun are descriptions, not service names.
+    if _BLACKLIST_LEADING_VERB.search(cleaned) and _BLACKLIST_META_NOUN.search(
+        cleaned
+    ):
+        return True
+
+    # Catch system descriptions that don't start with a verb but read as
+    # multi-word phrases joined with "and" (e.g. "Subscriptions And Loans",
+    # "Loans And Obligations") — these are never single-service names.
+    if re.search(r"\band\b", cleaned, re.IGNORECASE) and _BLACKLIST_META_NOUN.search(
+        cleaned
+    ):
+        # An exception: real brands sometimes contain "and" (rare). Allow
+        # short ones (≤ 25 chars) to pass; long ones are descriptions.
+        if len(cleaned) > 25:
+            return True
+
+    return False
+
+
 def canonical_subscription_name(key: str) -> str:
     """Collapse fact-key variants down to a single stable subscription name.
 
@@ -413,6 +495,11 @@ def _upsert_subscription_from_fact(db: Any, fact: dict[str, Any]) -> None:
     if amount is None or amount <= 0:
         return
     name = canonical_subscription_name(key)
+    # Reject system/meta descriptions ("Manages Subscriptions And Loans" etc.)
+    # — they leak in when a key has no known brand and the title-cased key
+    # is used as the fallback name.
+    if is_blacklisted_subscription_name(name):
+        return
     existing = fetch_one(
         db,
         "SELECT id, source, amount FROM subscriptions WHERE LOWER(name) = LOWER(?)",

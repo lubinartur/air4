@@ -90,8 +90,26 @@ export type Transaction = {
   amount: number;
   currency: string;
   category?: string | null;
+  category_confirmed?: boolean;
   is_debit: boolean;
 };
+
+export const TRANSACTION_CATEGORIES = [
+  "food_groceries",
+  "food_restaurants",
+  "transport",
+  "entertainment",
+  "health",
+  "subscriptions",
+  "shopping",
+  "transfers",
+  "loan_payment",
+  "utilities",
+  "salary",
+  "other",
+] as const;
+
+export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number];
 
 export type TransactionsPage = {
   total: number;
@@ -789,6 +807,51 @@ export async function getTransactions(limit = 50): Promise<TransactionsPage> {
   return apiFetch<TransactionsPage>(`/api/transactions?limit=${limit}`);
 }
 
+export type GetTransactionsParams = {
+  limit?: number;
+  skip?: number;
+  category?: string;
+  start?: string;
+  end?: string;
+};
+
+export async function getTransactionsRange(
+  params: GetTransactionsParams = {}
+): Promise<TransactionsPage> {
+  const search = new URLSearchParams();
+  if (params.limit != null) search.set("limit", String(params.limit));
+  if (params.skip != null) search.set("skip", String(params.skip));
+  if (params.category) search.set("category", params.category);
+  if (params.start) search.set("start", params.start);
+  if (params.end) search.set("end", params.end);
+  const qs = search.toString();
+  return apiFetch<TransactionsPage>(
+    `/api/transactions${qs ? `?${qs}` : ""}`
+  );
+}
+
+/** PUT a category for a transaction.
+ *  Accepts both canonical `TransactionCategory` values and arbitrary
+ *  custom slugs created from the review screen — the backend validator
+ *  enforces format only ([a-z0-9_-], 1–64 chars). */
+export async function updateTransactionCategory(
+  transactionId: number,
+  category: TransactionCategory | string
+): Promise<Transaction> {
+  const slug = String(category).trim().toLowerCase();
+  if (!slug) {
+    throw new Error("Category slug is required");
+  }
+  return apiFetch<Transaction>(
+    `/api/transactions/${transactionId}/category`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: slug }),
+    }
+  );
+}
+
 export type Insight = {
   type: string;
   title: string;
@@ -1156,6 +1219,20 @@ export function formatEuro(amount: number): string {
   })}`;
 }
 
+// Categories that have a curated localized label. Keep this list small —
+// most categories use the auto-generated "snake_case → Title Case" fallback
+// so custom user categories (e.g. "pet_care" → "Pet Care") still render
+// reasonably without needing a per-key override.
+const CATEGORY_LABEL_OVERRIDES: Record<string, string> = {
+  loan_payment: "Выплата кредита",
+};
+
 export function formatCategoryLabel(key: string): string {
-  return key.replace(/_/g, " ");
+  const override = CATEGORY_LABEL_OVERRIDES[key];
+  if (override !== undefined) return override;
+  // snake_case → "Title Case". The regex Title-cases the first letter of
+  // every word; Unicode (Cyrillic / accented) characters fall through
+  // unchanged since they don't match `\w` — overrides above are the
+  // right place for those labels.
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

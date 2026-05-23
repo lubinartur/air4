@@ -14,6 +14,7 @@ CATEGORIES: list[str] = [
     "subscriptions",
     "shopping",
     "transfers",
+    "loan_payment",
     "utilities",
     "salary",
     "other",
@@ -24,10 +25,16 @@ _SYSTEM = (
     "Common Estonian merchants: Rimi, Maxima, Prisma = food_groceries; "
     "Bolt, Taxify, Uber = transport; Wolt, Bolt Food = food_restaurants; "
     "Telia, Elisa, Tele2 = subscriptions; Enefit = utilities.\n"
+    "Category guidance:\n"
+    "- loan_payment = payments toward loans, mortgages, credit — "
+    "основной долг и проценты (principal and interest).\n"
+    "- transfers = generic person-to-person bank transfers / Ülekanne that "
+    "are NOT loan instalments.\n"
     "Estonian finance terms:\n"
-    "- Laenu põhiosa = loan repayment → transfers\n"
-    "- Kogunenud intress = interest → transfers\n"
-    "- Ülekanne / Ulekanne = bank transfer → transfers\n"
+    "- Laenu põhiosa = loan principal → loan_payment\n"
+    "- Kogunenud intress / intress = loan interest → loan_payment\n"
+    "- Hüpoteek / eluasemelaen = mortgage → loan_payment\n"
+    "- Ülekanne / Ulekanne (no loan context) = bank transfer → transfers\n"
     "- Kindlustusmakse = insurance → health or utilities\n"
     "- Kommunaalkulud = utilities → utilities\n"
     "- Salary / palk / töötasu = salary\n"

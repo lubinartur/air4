@@ -74,7 +74,15 @@ export function OverviewCardEmpty({ type, onAction, compact }: Props) {
       {c.button && onAction && (
         <button
           type="button"
-          onClick={onAction}
+          onClick={(e) => {
+            // The empty-state CTA typically points to a different page than
+            // its host card (e.g. Finance card → CSVUpload, Projects card →
+            // chat). When the host card is itself clickable we must stop
+            // propagation so the card's onClick doesn't override the user's
+            // explicit choice and bounce them to the wrong page.
+            e.stopPropagation();
+            onAction();
+          }}
           className="mt-5 flex items-center gap-2 bg-[#6366f1] text-white px-4 py-2 rounded-[10px] font-bold text-[12px] shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all uppercase tracking-wider"
         >
           {type === "finance" ? <Upload size={14} /> : <Plus size={14} />}

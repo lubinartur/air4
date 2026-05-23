@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   TrendingUp,
   TrendingDown,
@@ -14,10 +14,15 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  Check,
+  Search,
+  Tag,
   Trash2,
   Loader2,
+  Landmark,
   Sparkles,
   Wallet,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -34,8 +39,11 @@ import {
   getInsights,
   getSummary,
   getTransactions,
+  getTransactionsRange,
   getUploads,
   hasFinanceData,
+  TRANSACTION_CATEGORIES,
+  updateTransactionCategory,
   type FinanceCycles,
   type FinanceObligation,
   type FinanceSubscription,
@@ -44,6 +52,7 @@ import {
   type StatementUpload,
   type Summary,
   type Transaction,
+  type TransactionCategory,
 } from "../lib/api";
 
 const StatusDot = ({ color = "#ef4444" }: { color?: string }) => (
@@ -64,6 +73,11 @@ const CATEGORY_ICONS: Record<string, { icon: LucideIcon; color: string }> = {
   health: { icon: Activity, color: "bg-teal-500" },
   shopping: { icon: CreditCard, color: "bg-indigo-500" },
   transfers: { icon: MoreHorizontal, color: "bg-gray-400" },
+  // `loan_payment` is real spending (mortgage / consumer loan instalments),
+  // distinct from neutral `repayment`/`transfers`. Indigo matches the
+  // "Кредиты и обязательства" sidebar accent so the chart row visually
+  // ties back to the obligation it decrements.
+  loan_payment: { icon: Landmark, color: "bg-indigo-500" },
   utilities: { icon: Zap, color: "bg-sky-500" },
   entertainment: { icon: Activity, color: "bg-purple-500" },
   other: { icon: MoreHorizontal, color: "bg-gray-300" },
@@ -77,6 +91,29 @@ function categoryMeta(key: string) {
     }
   );
 }
+
+// "Neutral" categories — real money movement, but neither income nor expense
+// (debt repayments, transfers in/out). The backend excludes them from
+// `total_spent` (see `NEUTRAL_CATEGORIES` in `services/summary_loader.py`),
+// and the UI hides them from the spending chart so the breakdown reflects
+// real lifestyle consumption. The CategoryReview dropdown still exposes them
+// — visibly muted — so the user can recategorize misclassified rows.
+const NEUTRAL_CATEGORIES = new Set<string>([
+  "repayment",
+  "internal_transfer",
+  "internal_transfers",
+  "transfers",
+]);
+
+// Hide neutral + aggregate buckets from «Расходы по категориям». The
+// `internal_transfers` row is re-injected separately below with an explicit
+// "не реальные траты" hint so users still see the volume.
+const HIDDEN_CATEGORIES = new Set<string>([
+  "repayment",
+  "internal_transfer",
+  "internal_transfers",
+  "transfers",
+]);
 
 function formatTxDate(iso: string): string {
   const d = new Date(iso.includes("T") ? iso : `${iso}T12:00:00`);
@@ -211,6 +248,676 @@ function progressTone(percentPaid: number): {
   };
 }
 
+const CUSTOM_CATEGORIES_STORAGE_KEY = "air4.customCategories.v1";
+const NEW_CATEGORY_SENTINEL = "__new__";
+
+/** Read the user's custom-category list from localStorage. Defensive: bad
+ *  payloads are wiped silently so a poisoned key doesn't break the page. */
+function loadCustomCategories(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_CATEGORIES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((v) => (typeof v === "string" ? v : ""))
+      .filter((v) => /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/.test(v));
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomCategories(list: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      CUSTOM_CATEGORIES_STORAGE_KEY,
+      JSON.stringify(list)
+    );
+  } catch {
+    /* quota / privacy mode — ignore */
+  }
+}
+
+/** Convert any user input ("Pet Care", "Подарки", "tax & fees") into a slug
+ *  the backend validator accepts. Cyrillic and other non-ascii letters are
+ *  dropped, so users entering Russian get a hint to try latin. */
+function slugifyCategory(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
+}
+
+/** Categorization review modal: lists every transaction in the active cycle
+ *  so the user can fix mis-classified rows. PUT /api/transactions/{id}/category
+ *  flips `category_confirmed` so the auto-categorizer never reverts the row.
+ *  Custom categories are persisted in localStorage and merged into both the
+ *  filter and per-row dropdowns.
+ */
+function CategoryReview({
+  open,
+  onClose,
+  cycleStart,
+  cycleEnd,
+  onCategoryChanged,
+}: {
+  open: boolean;
+  onClose: () => void;
+  cycleStart: string | null;
+  cycleEnd: string | null;
+  onCategoryChanged?: () => void;
+}) {
+  const [items, setItems] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Set of transaction ids currently saving — allows multiple rows in flight
+  // simultaneously instead of serializing through a single `savingId`.
+  const [savingIds, setSavingIds] = useState<ReadonlySet<number>>(
+    () => new Set()
+  );
+  const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
+  // Track whether anything was actually saved during this open session. We
+  // only call `onCategoryChanged` once on close (and only if dirty) instead
+  // of after every PUT — the parent's summary refetch was causing a render
+  // storm in `Finance` that froze the UI mid-edit.
+  const dirtyRef = useRef(false);
+
+  // Per-row debounce timers so a fast cycle through the dropdown only fires
+  // one PUT for the final value. Optimistic local update happens immediately.
+  const debounceRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+
+  // Custom categories: a user-extensible list kept in localStorage. Merged
+  // into both filter & per-row dropdowns. `creatingFor` tracks the row that
+  // is currently in "type a new category name" mode.
+  const [customCategories, setCustomCategories] = useState<string[]>(() =>
+    loadCustomCategories()
+  );
+  const [creatingFor, setCreatingFor] = useState<number | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const draftInputRef = useRef<HTMLInputElement | null>(null);
+
+  // All categories the user can pick from = canonical list + their custom
+  // additions, with the canonical "other" pinned to the bottom of the
+  // canonical block. Dedup so duplicates from old saves can't double up.
+  const allCategories = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const cat of TRANSACTION_CATEGORIES) {
+      if (!seen.has(cat)) {
+        seen.add(cat);
+        merged.push(cat);
+      }
+    }
+    for (const cat of customCategories) {
+      if (!seen.has(cat)) {
+        seen.add(cat);
+        merged.push(cat);
+      }
+    }
+    return merged;
+  }, [customCategories]);
+
+  const reload = useCallback(async () => {
+    if (!cycleStart || !cycleEnd) {
+      setItems([]);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const page = await getTransactionsRange({
+        start: cycleStart,
+        end: cycleEnd,
+        limit: 500,
+      });
+      setItems(page.items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось загрузить транзакции");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [cycleStart, cycleEnd]);
+
+  // Fetch when the modal opens, refetch when the cycle changes while open.
+  useEffect(() => {
+    if (!open) return;
+    void reload();
+  }, [open, reload]);
+
+  // Reset transient UI state every time the modal closes so re-opening is
+  // a clean slate (filters preserved, but row-level edits are not).
+  useEffect(() => {
+    if (open) return;
+    setCreatingFor(null);
+    setDraftName("");
+    setError(null);
+    // Clear any pending debounced saves — items state is already optimistic,
+    // and the parent will refetch summary on close-if-dirty.
+    for (const handle of debounceRef.current.values()) clearTimeout(handle);
+    debounceRef.current.clear();
+  }, [open]);
+
+  // Auto-focus the inline input when entering "create new category" mode.
+  useEffect(() => {
+    if (creatingFor != null) {
+      draftInputRef.current?.focus();
+    }
+  }, [creatingFor]);
+
+  // Cleanup debounce timers if the component unmounts while open.
+  useEffect(() => {
+    const map = debounceRef.current;
+    return () => {
+      for (const handle of map.values()) clearTimeout(handle);
+      map.clear();
+    };
+  }, []);
+
+  const persistCustomCategory = useCallback((slug: string) => {
+    setCustomCategories((prev) => {
+      if (prev.includes(slug)) return prev;
+      const next = [...prev, slug];
+      saveCustomCategories(next);
+      return next;
+    });
+  }, []);
+
+  /** Send the PUT for `transaction → next`. Items state is already optimistic
+   *  by the time we get here (see `handleSelectChange`). On error we revert
+   *  the row to its pre-edit state and surface the error. */
+  const sendCategoryUpdate = useCallback(
+    async (transaction: Transaction, next: string, previous: Transaction) => {
+      setSavingIds((prev) => {
+        const ns = new Set(prev);
+        ns.add(transaction.id);
+        return ns;
+      });
+      try {
+        const updated = await updateTransactionCategory(transaction.id, next);
+        setItems((prev) =>
+          prev.map((row) =>
+            row.id === transaction.id ? { ...row, ...updated } : row
+          )
+        );
+        dirtyRef.current = true;
+      } catch (e) {
+        // Roll back the optimistic update so the dropdown reflects reality.
+        setItems((prev) =>
+          prev.map((row) => (row.id === transaction.id ? previous : row))
+        );
+        setError(
+          e instanceof Error ? e.message : "Не удалось сохранить категорию"
+        );
+      } finally {
+        setSavingIds((prev) => {
+          const ns = new Set(prev);
+          ns.delete(transaction.id);
+          return ns;
+        });
+      }
+    },
+    []
+  );
+
+  /** Apply optimistic local update, then schedule a debounced PUT (200ms).
+   *  If the user changes the same row again before the timer fires, we
+   *  reset and only send the final value. */
+  const scheduleSave = useCallback(
+    (transaction: Transaction, next: string) => {
+      const slug = next.trim().toLowerCase();
+      if (!slug || slug === NEW_CATEGORY_SENTINEL) return;
+      if (slug === transaction.category) {
+        // No-op: avoid PUT-spam when the user re-selects the same value.
+        // The "confirmed" badge already handles the explicit-confirm case
+        // for transactions that aren't yet confirmed.
+        if (transaction.category_confirmed) return;
+      }
+
+      // Snapshot the original row for rollback on error.
+      const previous = transaction;
+
+      // Optimistic update — UI feels instant.
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === transaction.id
+            ? { ...row, category: slug, category_confirmed: true }
+            : row
+        )
+      );
+
+      // Reset any pending timer for this row, then schedule the actual PUT.
+      const map = debounceRef.current;
+      const existing = map.get(transaction.id);
+      if (existing) clearTimeout(existing);
+      const handle = setTimeout(() => {
+        map.delete(transaction.id);
+        void sendCategoryUpdate(transaction, slug, previous);
+      }, 200);
+      map.set(transaction.id, handle);
+    },
+    [sendCategoryUpdate]
+  );
+
+  const handleCommitDraft = useCallback(
+    async (transaction: Transaction) => {
+      const slug = slugifyCategory(draftName);
+      if (!slug) {
+        setError(
+          "Введите название латиницей (a–z, цифры, подчёркивания)."
+        );
+        return;
+      }
+      persistCustomCategory(slug);
+      setCreatingFor(null);
+      setDraftName("");
+      // Drafts are explicit, fire immediately (no debounce).
+      const previous = transaction;
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === transaction.id
+            ? { ...row, category: slug, category_confirmed: true }
+            : row
+        )
+      );
+      await sendCategoryUpdate(transaction, slug, previous);
+    },
+    [draftName, persistCustomCategory, sendCategoryUpdate]
+  );
+
+  const handleSelectChange = useCallback(
+    (transaction: Transaction, value: string) => {
+      if (value === NEW_CATEGORY_SENTINEL) {
+        setCreatingFor(transaction.id);
+        setDraftName("");
+        setError(null);
+        return;
+      }
+      scheduleSave(transaction, value);
+    },
+    [scheduleSave]
+  );
+
+  /** Wrapper around the parent-supplied `onClose` that flushes any pending
+   *  debounced saves, then notifies the parent (once, if anything changed)
+   *  to refetch summary/transactions. Keeps the per-PUT path off of
+   *  `Finance`'s render path so changes feel instant. */
+  const handleClose = useCallback(() => {
+    // Flush pending debounced saves so we don't lose them. We don't await —
+    // the local state already reflects the optimistic value, and the parent
+    // will still get its refresh signal.
+    for (const [id, handle] of debounceRef.current) {
+      clearTimeout(handle);
+      const tx = items.find((row) => row.id === id);
+      if (tx && tx.category) {
+        void sendCategoryUpdate(tx, tx.category, tx);
+      }
+    }
+    debounceRef.current.clear();
+
+    if (dirtyRef.current) {
+      onCategoryChanged?.();
+      dirtyRef.current = false;
+    }
+    onClose();
+  }, [items, onCategoryChanged, onClose, sendCategoryUpdate]);
+
+  // Close on Escape — wired after `handleClose` is defined.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, handleClose]);
+
+  const counts = useMemo(() => {
+    let total = 0;
+    let needsReview = 0;
+    for (const tx of items) {
+      total += 1;
+      if (
+        !tx.category_confirmed &&
+        (!tx.category || tx.category === "other")
+      ) {
+        needsReview += 1;
+      }
+    }
+    return { total, needsReview };
+  }, [items]);
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((tx) => {
+      if (filter === "needs_review") {
+        if (tx.category_confirmed) return false;
+        const cat = tx.category ?? "";
+        if (cat && cat !== "other") return false;
+      } else if (filter !== "all") {
+        if ((tx.category ?? "") !== filter) return false;
+      }
+      if (q) {
+        const desc = (tx.description ?? "").toLowerCase();
+        if (!desc.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [items, filter, search]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={handleClose}
+          role="presentation"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+            className="relative bg-white rounded-[24px] shadow-2xl w-full max-w-5xl max-h-[88vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <Tag size={16} />
+                </div>
+                <div>
+                  <h2 className="text-[17px] font-black text-gray-900 leading-tight">
+                    Проверка категорий
+                  </h2>
+                  <p className="text-[12px] text-gray-400 mt-0.5">
+                    {counts.total > 0
+                      ? `${counts.total} транзакций · ${counts.needsReview} требуют внимания`
+                      : "Просмотрите автокатегории и исправьте неверные"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="Закрыть"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Toolbar */}
+            <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap gap-3 items-center">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Поиск по контрагенту..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-gray-800"
+                />
+              </div>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-gray-800"
+              >
+                <option value="all">Все категории</option>
+                <option value="needs_review">Требуют внимания (other)</option>
+                <option disabled>──────────</option>
+                {allCategories.map((cat) => {
+                  const isNeutral = NEUTRAL_CATEGORIES.has(cat);
+                  return (
+                    <option
+                      key={cat}
+                      value={cat}
+                      title={isNeutral ? "Не считается расходом" : undefined}
+                      className={isNeutral ? "text-gray-400" : undefined}
+                    >
+                      {formatCategoryLabel(cat)}
+                      {isNeutral ? " · нейтральная" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                type="button"
+                onClick={() => void reload()}
+                disabled={loading}
+                className="px-3 py-2 text-[12px] font-bold uppercase tracking-wider text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {loading ? "Загрузка..." : "Обновить"}
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {error && (
+                <p className="text-[12px] text-rose-600 font-medium mb-3">
+                  {error}
+                </p>
+              )}
+
+              {loading && items.length === 0 ? (
+                <p className="text-[14px] text-[#9ca3af] py-12 text-center">
+                  Загрузка транзакций...
+                </p>
+              ) : visible.length === 0 ? (
+                <p className="text-[14px] text-[#9ca3af] py-12 text-center">
+                  {items.length === 0
+                    ? "Транзакций в этом цикле нет."
+                    : "По текущему фильтру ничего не найдено."}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-white z-10">
+                      <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        <th className="pb-3 pr-2">Дата</th>
+                        <th className="pb-3 pr-2">Контрагент</th>
+                        <th className="pb-3 pr-2 text-right">Сумма</th>
+                        <th className="pb-3 pr-2">Категория</th>
+                        <th className="pb-3 w-8" aria-label="Подтверждено" />
+                      </tr>
+                    </thead>
+                    <tbody className="text-[13px]">
+                      {visible.map((tx, i) => {
+                        const isIncome = !tx.is_debit;
+                        const signed = isIncome ? tx.amount : -tx.amount;
+                        const currentCategory = tx.category ?? "other";
+                        const meta = categoryMeta(currentCategory);
+                        const Icon = meta.icon;
+                        const isSaving = savingIds.has(tx.id);
+                        const confirmed = !!tx.category_confirmed;
+                        const isUnreviewed =
+                          !confirmed && (!tx.category || tx.category === "other");
+                        const isCreating = creatingFor === tx.id;
+                        // Ensure the current category (e.g. legacy or custom)
+                        // is rendered in the dropdown even if it's missing
+                        // from `allCategories`.
+                        const dropdownOptions = allCategories.includes(
+                          currentCategory
+                        )
+                          ? allCategories
+                          : [...allCategories, currentCategory];
+                        return (
+                          <tr
+                            key={tx.id}
+                            className={cn(
+                              "group border-t border-gray-50",
+                              i % 2 === 0 ? "bg-gray-50/30" : "bg-white",
+                              isUnreviewed && "bg-amber-50/40"
+                            )}
+                          >
+                            <td className="py-3 pr-2 font-mono text-gray-400 whitespace-nowrap">
+                              {formatTxDate(tx.date)}
+                            </td>
+                            <td
+                              className="py-3 pr-2 font-bold text-gray-900 max-w-[280px] truncate"
+                              title={tx.description ?? ""}
+                            >
+                              {tx.description || "—"}
+                            </td>
+                            <td
+                              className={cn(
+                                "py-3 pr-2 font-mono font-bold text-right whitespace-nowrap",
+                                isIncome ? "text-green-600" : "text-gray-900"
+                              )}
+                            >
+                              {signed > 0 ? "+" : ""}
+                              {formatEuro(Math.abs(signed))}
+                            </td>
+                            <td className="py-3 pr-2">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={cn(
+                                    "w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0",
+                                    meta.color
+                                  )}
+                                >
+                                  <Icon size={11} />
+                                </div>
+                                {isCreating ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      ref={draftInputRef}
+                                      type="text"
+                                      placeholder="например, pet_care"
+                                      value={draftName}
+                                      onChange={(e) =>
+                                        setDraftName(e.target.value)
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          void handleCommitDraft(tx);
+                                        } else if (e.key === "Escape") {
+                                          e.preventDefault();
+                                          setCreatingFor(null);
+                                          setDraftName("");
+                                        }
+                                      }}
+                                      disabled={isSaving}
+                                      className="w-[160px] px-2 py-1 bg-white border border-indigo-300 rounded text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-800 disabled:opacity-50"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleCommitDraft(tx)}
+                                      disabled={isSaving || !draftName.trim()}
+                                      title="Сохранить (Enter)"
+                                      className="w-6 h-6 rounded text-emerald-600 hover:bg-emerald-50 disabled:opacity-40 flex items-center justify-center"
+                                    >
+                                      <Check size={14} strokeWidth={3} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setCreatingFor(null);
+                                        setDraftName("");
+                                      }}
+                                      title="Отмена (Esc)"
+                                      className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 flex items-center justify-center"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <select
+                                    value={currentCategory}
+                                    onChange={(e) =>
+                                      handleSelectChange(tx, e.target.value)
+                                    }
+                                    disabled={isSaving}
+                                    title={
+                                      NEUTRAL_CATEGORIES.has(currentCategory)
+                                        ? "Не считается расходом"
+                                        : undefined
+                                    }
+                                    className={cn(
+                                      "bg-transparent border border-gray-200 rounded px-2 py-1 text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 cursor-pointer hover:border-gray-300 transition-colors",
+                                      NEUTRAL_CATEGORIES.has(currentCategory)
+                                        ? "text-gray-400 italic"
+                                        : "text-gray-700"
+                                    )}
+                                  >
+                                    {dropdownOptions.map((cat) => {
+                                      const isNeutral =
+                                        NEUTRAL_CATEGORIES.has(cat);
+                                      return (
+                                        <option
+                                          key={cat}
+                                          value={cat}
+                                          title={
+                                            isNeutral
+                                              ? "Не считается расходом"
+                                              : undefined
+                                          }
+                                          className={
+                                            isNeutral
+                                              ? "text-gray-400"
+                                              : undefined
+                                          }
+                                        >
+                                          {formatCategoryLabel(cat)}
+                                          {isNeutral ? " · нейтральная" : ""}
+                                        </option>
+                                      );
+                                    })}
+                                    <option disabled>──────────</option>
+                                    <option value={NEW_CATEGORY_SENTINEL}>
+                                      + Новая категория
+                                    </option>
+                                  </select>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 w-8 text-center">
+                              {isSaving ? (
+                                <Loader2
+                                  size={14}
+                                  className="text-gray-400 animate-spin inline-block"
+                                />
+                              ) : confirmed ? (
+                                <span
+                                  title="Категория подтверждена"
+                                  className="inline-flex w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 items-center justify-center"
+                                >
+                                  <Check size={12} strokeWidth={3} />
+                                </span>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function Finance({
   onPageChange,
   refreshTick = 0,
@@ -230,6 +937,7 @@ export function Finance({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const cycleEnd = cycleStart ? cycleEndFromStart(cycleStart) : null;
 
@@ -411,9 +1119,9 @@ export function Finance({
 
   const categories = useMemo(() => {
     if (!summary?.by_category) return [];
-    const entries = Object.entries(summary.by_category).sort(
-      (a, b) => b[1].amount - a[1].amount
-    );
+    const entries = Object.entries(summary.by_category)
+      .filter(([key]) => !HIDDEN_CATEGORIES.has(key))
+      .sort((a, b) => b[1].amount - a[1].amount);
     const max = entries[0]?.[1].amount ?? 1;
     const rows = entries.map(([key, val]) => {
       const meta = categoryMeta(key);
@@ -635,9 +1343,20 @@ export function Finance({
 
             <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
               {categories.length > 0 && <StatusDot color="#ef4444" />}
-              <h2 className={cn(t.cardLabel, "mb-6")}>
-                Расходы по категориям
-              </h2>
+              <div className="flex items-start justify-between gap-3 mb-6">
+                <h2 className={cn(t.cardLabel, "!mb-0")}>
+                  Расходы по категориям
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setReviewOpen(true)}
+                  className="shrink-0 mr-7 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-2.5 py-1 rounded-md transition-colors"
+                  title="Открыть проверку категорий"
+                >
+                  <Tag size={11} />
+                  Проверить категории
+                </button>
+              </div>
               {categories.length === 0 ? (
                 <p className="text-[14px] text-[#9ca3af]">Категорий расходов пока нет.</p>
               ) : (
@@ -1008,6 +1727,26 @@ export function Finance({
           </ul>
         )}
       </div>
+
+      <CategoryReview
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        cycleStart={cycleStart}
+        cycleEnd={cycleEnd}
+        onCategoryChanged={() => {
+          // Refresh the cycle summary so the «Расходы по категориям» chart
+          // reflects the new categorization, and reload the «Недавние
+          // транзакции» preview so the badges match.
+          if (cycleStart && cycleEnd) {
+            void getSummary(cycleStart, cycleEnd)
+              .then((data) => setSummary(data))
+              .catch(() => {});
+          }
+          void getTransactions(10)
+            .then((page) => setTransactions(page.items))
+            .catch(() => {});
+        }}
+      />
     </div>
   );
 }

@@ -28,6 +28,17 @@ export type Summary = {
   burn_rate_days?: number;
 };
 
+export type ResolvedGoal = {
+  /** Stable identifier — either `user_facts.key` for chat-derived
+   *  goals or `profile:<idx>` for goals saved on the user profile. */
+  key: string;
+  /** Display title. `null` when the underlying goal row was deleted
+   *  but the project still references the key; FE shows a degraded
+   *  pill with the raw key in that case. */
+  title?: string | null;
+  source?: "profile" | "facts" | null;
+};
+
 export type Project = {
   id: number;
   name: string;
@@ -38,6 +49,12 @@ export type Project = {
   created_at?: string | null;
   updated_at?: string | null;
   total_sessions_minutes?: number;
+  /** Raw identifiers persisted on the project. Always set (server
+   *  returns `[]` when none linked). */
+  goal_keys?: string[];
+  /** Same identifiers joined with display titles. Same length/order
+   *  as `goal_keys`. */
+  goals?: ResolvedGoal[];
 };
 
 export type ProjectLog = {
@@ -1043,7 +1060,21 @@ export async function fetchProject(id: number): Promise<ProjectDetail> {
     logs: data.logs ?? [],
     total_sessions_minutes: data.total_sessions_minutes ?? 0,
     active_session: data.active_session ?? null,
+    goal_keys: data.goal_keys ?? [],
+    goals: data.goals ?? [],
   };
+}
+
+/** Replace a project's linked goal keys. Pass an empty array to
+ *  clear every link. Returns the freshly resolved project so the
+ *  caller can render new pills without a second fetch. */
+export async function updateProjectGoals(
+  id: number,
+  goalKeys: string[]
+): Promise<Project> {
+  return jsonPut<Project>(`/api/projects/${id}/goals`, {
+    goal_keys: goalKeys,
+  });
 }
 
 async function jsonPost<T>(path: string, body: unknown): Promise<T> {

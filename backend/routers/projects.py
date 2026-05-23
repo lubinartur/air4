@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import json
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 
 from database import execute, fetch_all, fetch_one, get_db
+from routers.profile import _parse_goals
 from schemas import (
     ActiveSessionOut,
     ProjectDetailOut,
+    ProjectGoalsIn,
     ProjectIn,
     ProjectLogIn,
     ProjectLogOut,
@@ -15,9 +19,12 @@ from schemas import (
     ProjectTodoIn,
     ProjectTodoOut,
     ProjectTodosListOut,
+    ResolvedGoal,
     SessionStartOut,
     SessionStopIn,
 )
+
+logger = logging.getLogger("projects")
 
 
 ALLOWED_PROJECT_STATUSES = {"active", "paused", "stalled", "completed", "archived"}
@@ -52,7 +59,8 @@ def _project_row(conn, project_id: int) -> dict:
     row = fetch_one(
         conn,
         """
-        SELECT id, name, description, status, priority, started_at, created_at, updated_at
+        SELECT id, name, description, status, priority, started_at,
+               goal_keys, created_at, updated_at
         FROM projects
         WHERE id = ?
         """,
@@ -111,6 +119,103 @@ def _touch_project(conn, project_id: int) -> None:
     )
 
 
+def _parse_goal_keys(raw: object) -> list[str]:
+    """Decode the `goal_keys` JSON column. NULL → [], malformed → []
+    (logged), and falsy/empty strings inside the array are dropped so
+    a fact-extractor bug can't smuggle empty pills into the UI."""
+    if not raw:
+        return []
+    try:
+        decoded = json.loads(str(raw))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        logger.warning("projects: malformed goal_keys JSON: %r", raw)
+        return []
+    if not isinstance(decoded, list):
+        return []
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in decoded:
+        s = str(item or "").strip()
+        if not s or s in seen:
+            continue
+        cleaned.append(s)
+        seen.add(s)
+    return cleaned
+
+
+def _build_goal_index(conn) -> dict[str, ResolvedGoal]:
+    """Build `{goal_key → ResolvedGoal}` covering both sources used by
+    `/api/goals`. Called once per request so list_projects doesn't
+    re-query for every row."""
+    index: dict[str, ResolvedGoal] = {}
+
+    # Profile goals: keyed by `profile:<idx>` matching goals router.
+    profile_row = fetch_one(conn, "SELECT goals FROM user_profile WHERE id = 1")
+    profile_titles = _parse_goals(
+        profile_row.get("goals") if profile_row else None
+    )
+    for idx, title in enumerate(profile_titles, start=1):
+        key = f"profile:{idx}"
+        index[key] = ResolvedGoal(key=key, title=title, source="profile")
+
+    # Fact-derived goals: keyed by `user_facts.key`. Same WHERE filter
+    # as /api/goals so the two stay aligned; last-write-wins by id DESC
+    # means the most recent value of a fact key is the one we resolve.
+    fact_rows = fetch_all(
+        conn,
+        """
+        SELECT key, value
+        FROM user_facts
+        WHERE LOWER(key) LIKE '%goal%'
+           OR LOWER(key) LIKE '%target%'
+           OR LOWER(key) LIKE '%wish%'
+        ORDER BY datetime(updated_at) DESC, id DESC
+        """,
+    )
+    for row in fact_rows:
+        key = str(row.get("key") or "").strip()
+        if not key or key in index:
+            continue
+        title = str(row.get("value") or "").strip() or None
+        index[key] = ResolvedGoal(key=key, title=title, source="facts")
+    return index
+
+
+def _resolve_goals(
+    goal_keys: list[str], goal_index: dict[str, ResolvedGoal]
+) -> list[ResolvedGoal]:
+    """Same length + order as `goal_keys`. Orphans (key with no entry
+    in the index) come back with `title=None` so the FE can show a
+    "deleted goal" pill instead of silently hiding the link."""
+    resolved: list[ResolvedGoal] = []
+    for key in goal_keys:
+        hit = goal_index.get(key)
+        if hit is None:
+            resolved.append(ResolvedGoal(key=key, title=None, source=None))
+        else:
+            resolved.append(hit)
+    return resolved
+
+
+def _project_row_to_out(
+    row: dict, *, goal_index: dict[str, ResolvedGoal]
+) -> ProjectOut:
+    goal_keys = _parse_goal_keys(row.get("goal_keys"))
+    return ProjectOut(
+        id=int(row["id"]),
+        name=str(row["name"]),
+        description=row.get("description"),
+        status=row.get("status") or "active",
+        priority=int(row.get("priority") or 2),
+        started_at=row.get("started_at"),
+        created_at=row.get("created_at"),
+        updated_at=row.get("updated_at"),
+        total_sessions_minutes=int(row.get("total_sessions_minutes") or 0),
+        goal_keys=goal_keys,
+        goals=_resolve_goals(goal_keys, goal_index),
+    )
+
+
 @router.post("/projects", response_model=ProjectOut, status_code=201)
 def create_project(body: ProjectIn) -> ProjectOut:
     name = body.name.strip()
@@ -141,16 +246,18 @@ def create_project(body: ProjectIn) -> ProjectOut:
         row = fetch_one(
             conn,
             """
-            SELECT id, name, description, status, priority, started_at, created_at, updated_at
+            SELECT id, name, description, status, priority, started_at,
+                   goal_keys, created_at, updated_at
             FROM projects
             WHERE id = ?
             """,
             (project_id,),
         )
+        if row is None:
+            raise HTTPException(status_code=500, detail="failed to persist project")
+        goal_index = _build_goal_index(conn)
 
-    if row is None:
-        raise HTTPException(status_code=500, detail="failed to persist project")
-    return ProjectOut(**row)
+    return _project_row_to_out(row, goal_index=goal_index)
 
 
 @router.get("/projects", response_model=list[ProjectOut])
@@ -165,7 +272,7 @@ def list_projects() -> list[ProjectOut]:
             """
             SELECT
               p.id, p.name, p.description, p.status, p.priority,
-              p.started_at, p.created_at, p.updated_at,
+              p.started_at, p.goal_keys, p.created_at, p.updated_at,
               COALESCE(s.total_sessions_minutes, 0) AS total_sessions_minutes
             FROM projects p
             LEFT JOIN (
@@ -187,7 +294,8 @@ def list_projects() -> list[ProjectOut]:
               p.id DESC
             """,
         )
-    return [ProjectOut(**r) for r in rows]
+        goal_index = _build_goal_index(conn)
+    return [_project_row_to_out(r, goal_index=goal_index) for r in rows]
 
 
 @router.get("/projects/{project_id}", response_model=ProjectDetailOut)
@@ -197,9 +305,20 @@ def get_project(project_id: int) -> ProjectDetailOut:
         logs = _logs_for_project(conn, project_id)
         active = _detect_active_session(logs)
         total_minutes = _total_minutes(conn, project_id)
+        goal_index = _build_goal_index(conn)
 
+    goal_keys = _parse_goal_keys(project.get("goal_keys"))
     return ProjectDetailOut(
-        **project,
+        id=int(project["id"]),
+        name=str(project["name"]),
+        description=project.get("description"),
+        status=project.get("status") or "active",
+        priority=int(project.get("priority") or 2),
+        started_at=project.get("started_at"),
+        created_at=project.get("created_at"),
+        updated_at=project.get("updated_at"),
+        goal_keys=goal_keys,
+        goals=_resolve_goals(goal_keys, goal_index),
         logs=[ProjectLogOut(**log) for log in logs],
         total_sessions_minutes=total_minutes,
         active_session=(
@@ -208,6 +327,71 @@ def get_project(project_id: int) -> ProjectDetailOut:
             else None
         ),
     )
+
+
+@router.put("/projects/{project_id}/goals", response_model=ProjectOut)
+def update_project_goals(
+    project_id: int, payload: ProjectGoalsIn
+) -> ProjectOut:
+    """Replace the project's goal links with the provided list.
+
+    Accepts both `user_facts.key` strings (e.g. `"financial_goal"`)
+    and `profile:<idx>` identifiers from `/api/goals`. We deduplicate
+    and drop blanks but otherwise persist whatever the caller sends —
+    the resolver below tolerates orphans so a fact key that later
+    gets renamed doesn't 500 every project list fetch.
+    """
+    # Deduplicate while preserving order so the pills render in the
+    # order the user selected them. set() would lose that.
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for key in payload.goal_keys:
+        s = str(key or "").strip()
+        if not s or s in seen:
+            continue
+        cleaned.append(s)
+        seen.add(s)
+
+    with get_db() as conn:
+        _project_row(conn, project_id)  # raise 404 if missing
+        execute(
+            conn,
+            """
+            UPDATE projects
+               SET goal_keys = ?,
+                   updated_at = datetime('now')
+             WHERE id = ?
+            """,
+            (json.dumps(cleaned, ensure_ascii=False), project_id),
+        )
+        row = fetch_one(
+            conn,
+            """
+            SELECT
+              p.id, p.name, p.description, p.status, p.priority,
+              p.started_at, p.goal_keys, p.created_at, p.updated_at,
+              COALESCE(s.total_sessions_minutes, 0) AS total_sessions_minutes
+            FROM projects p
+            LEFT JOIN (
+              SELECT project_id, SUM(duration_minutes) AS total_sessions_minutes
+              FROM project_logs
+              WHERE log_type = 'session'
+              GROUP BY project_id
+            ) s ON s.project_id = p.id
+            WHERE p.id = ?
+            """,
+            (project_id,),
+        )
+        if row is None:
+            raise HTTPException(status_code=500, detail="failed to read project")
+        goal_index = _build_goal_index(conn)
+
+    logger.info(
+        "projects: updated goal_keys for project_id=%d → %s",
+        project_id,
+        cleaned,
+    )
+    return _project_row_to_out(row, goal_index=goal_index)
 
 
 @router.post("/projects/{project_id}/logs", response_model=ProjectLogOut)

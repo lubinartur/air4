@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Plus, Sparkles, Target } from "lucide-react";
+import { Briefcase, Plus, Sparkles, Target } from "lucide-react";
 import { cn } from "../lib/utils";
 import { t as ty } from "../lib/typography";
-import type { GoalItem } from "../lib/api";
+import { fetchProjects, type GoalItem, type Project } from "../lib/api";
+import type { Page } from "../types";
 
 type Props = {
   goals: GoalItem[];
+  /** Lets project pills jump to the Projects page. Optional so the
+   *  page works in storybook-style harnesses that don't carry the
+   *  page-router state. */
+  onNavigate?: (page: Page) => void;
 };
 
 type GoalTemplate = {
@@ -32,8 +37,13 @@ function goalInfo(goal: GoalItem): string {
   return goal.source === "profile" ? "из профиля" : `источник: ${goal.source}`;
 }
 
-export function Goals({ goals }: Props) {
+export function Goals({ goals, onNavigate }: Props) {
   const [showAddHint, setShowAddHint] = useState(false);
+  // Projects are fetched lazily on mount because the global App
+  // state already holds them but doesn't currently pipe them to
+  // Goals. Loading directly keeps this change scoped and avoids
+  // touching `App.tsx` for a derived view.
+  const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     if (!showAddHint) return;
@@ -41,18 +51,52 @@ export function Goals({ goals }: Props) {
     return () => window.clearTimeout(t);
   }, [showAddHint]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetchProjects()
+      .then((data) => {
+        if (!cancelled) setProjects(data);
+      })
+      .catch(() => {
+        if (!cancelled) setProjects([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Reverse-index: `goal_key → projects linking to it`. Built once
+  // per change to either projects or goals so each card can look up
+  // its linked projects in O(1) below.
+  const projectsByGoalKey = useMemo(() => {
+    const map = new Map<string, Project[]>();
+    for (const project of projects) {
+      for (const key of project.goal_keys ?? []) {
+        if (!key) continue;
+        const bucket = map.get(key);
+        if (bucket) bucket.push(project);
+        else map.set(key, [project]);
+      }
+    }
+    return map;
+  }, [projects]);
+
   const activeGoals = useMemo(
     () =>
       goals.map((goal, i) => {
         const tpl = GOAL_TEMPLATES[i % GOAL_TEMPLATES.length];
+        const goalKey = goal.key ?? "";
         return {
-          key: `${goal.source}-${goal.id}-${goal.key ?? ""}`,
+          key: `${goal.source}-${goal.id}-${goalKey}`,
           title: goal.title,
           info: goalInfo(goal),
+          linkedProjects: goalKey
+            ? projectsByGoalKey.get(goalKey) ?? []
+            : [],
           ...tpl,
         };
       }),
-    [goals]
+    [goals, projectsByGoalKey]
   );
 
   return (
@@ -146,9 +190,50 @@ export function Goals({ goals }: Props) {
                         </span>
                       )}
                     </div>
-                    <p className="text-[12px] text-gray-400 font-medium mb-6 uppercase tracking-wide">
+                    <p className="text-[12px] text-gray-400 font-medium mb-3 uppercase tracking-wide">
                       {g.info}
                     </p>
+                    {/* Linked projects block — collapses entirely
+                        when no projects reference this goal so the
+                        card height stays consistent for unlinked
+                        goals. */}
+                    {g.linkedProjects.length > 0 && (
+                      <div className="mb-5 space-y-1.5">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                          <Briefcase size={10} />
+                          Активные проекты
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {g.linkedProjects.map((project) => (
+                            <button
+                              key={project.id}
+                              type="button"
+                              onClick={() => onNavigate?.("Projects")}
+                              title={`Перейти к проектам · ${project.name}`}
+                              className={cn(
+                                "inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full",
+                                "bg-indigo-50 border border-indigo-100 text-indigo-700",
+                                "hover:bg-indigo-100 hover:border-indigo-200 transition-colors"
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "w-1.5 h-1.5 rounded-full shrink-0",
+                                  project.status === "active"
+                                    ? "bg-indigo-500"
+                                    : project.status === "stalled"
+                                      ? "bg-red-400"
+                                      : "bg-gray-300"
+                                )}
+                              />
+                              <span className="truncate max-w-[140px]">
+                                {project.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <div className="h-1 w-full bg-gray-50 rounded-full overflow-hidden">
                         <motion.div

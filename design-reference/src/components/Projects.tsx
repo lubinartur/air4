@@ -32,12 +32,16 @@ import {
   startSession,
   stopSession,
   toggleTodo,
+  updateProjectGoals,
+  type GoalItem,
   type Project,
   type ProjectDetail,
   type ProjectLog,
   type ProjectTodo,
 } from "../lib/api";
 import { daysSince } from "../lib/format";
+import { ProjectGoalLinks } from "./ProjectGoalLinks";
+import type { Page } from "../types";
 
 const POMODORO_SECONDS = 1500; // 25 min
 
@@ -97,7 +101,25 @@ function logTypeLabel(type: string): "SESSION" | "MILESTONE" | "UPDATE" {
   return "UPDATE";
 }
 
-export function Projects() {
+interface ProjectsProps {
+  /** Goals catalog from `/api/goals`. Used to populate the
+   *  "Связать с целью" dropdown on the detail panel and as the
+   *  source of titles when a project links by `profile:<idx>`. */
+  goals: GoalItem[];
+  /** Lets the user jump from a goal pill to the Goals page. */
+  onNavigate?: (page: Page) => void;
+  /** Refresh callback for the goals list — called after a successful
+   *  link/unlink so the parent's cached goals can pick up any new
+   *  rows. Optional because the goals catalog mostly grows via chat,
+   *  but reserved for future flows that create goals inline. */
+  onGoalsRefresh?: () => void | Promise<void>;
+}
+
+export function Projects({
+  goals,
+  onNavigate,
+  onGoalsRefresh: _onGoalsRefresh,
+}: ProjectsProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -424,6 +446,52 @@ export function Projects() {
     setSelectedId(null);
   }, []);
 
+  // Goal pill → Goals page. Wrapped so the closure stays stable for
+  // the ProjectGoalLinks memo-friendly props it'll get inside the
+  // map below.
+  const handleGoalPillClick = useCallback(
+    (_goalKey: string) => {
+      onNavigate?.("Goals");
+    },
+    [onNavigate]
+  );
+
+  // PUT new goal_keys → optimistic state update + reconcile from
+  // server response. Reused by both the detail panel and the list
+  // rows so the local cache and the detail view never diverge.
+  const handleUpdateProjectGoals = useCallback(
+    async (projectId: number, nextKeys: string[]) => {
+      try {
+        const updated = await updateProjectGoals(projectId, nextKeys);
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === projectId
+              ? {
+                  ...p,
+                  goal_keys: updated.goal_keys ?? [],
+                  goals: updated.goals ?? [],
+                  updated_at: updated.updated_at ?? p.updated_at,
+                }
+              : p
+          )
+        );
+        setDetail((prev) =>
+          prev && prev.id === projectId
+            ? {
+                ...prev,
+                goal_keys: updated.goal_keys ?? [],
+                goals: updated.goals ?? [],
+                updated_at: updated.updated_at ?? prev.updated_at,
+              }
+            : prev
+        );
+      } catch (err) {
+        console.error("[Projects] updateProjectGoals failed", err);
+      }
+    },
+    []
+  );
+
   // ============== DETAIL VIEW ==============
 
   if (selectedId != null) {
@@ -498,6 +566,26 @@ export function Projects() {
               <p className={cn(t.pageSub, "mt-0.5")}>
                 Детали проекта и структурированные микро-спринты
               </p>
+              {/* Goal links live directly under the page subtitle so
+                  the connect dropdown isn't cramped by the timer card
+                  below. ProjectGoalLinks renders nothing when there
+                  are zero goals and the picker is hidden, so an empty
+                  state shows the dashed "+ Связать с целью" button by
+                  itself. */}
+              {detail && (
+                <div className="mt-2.5">
+                  <ProjectGoalLinks
+                    goals={detail.goals ?? []}
+                    goalKeys={detail.goal_keys ?? []}
+                    catalog={goals}
+                    variant="expanded"
+                    onGoalClick={handleGoalPillClick}
+                    onUpdate={(nextKeys) =>
+                      handleUpdateProjectGoals(detail.id, nextKeys)
+                    }
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1089,6 +1177,24 @@ export function Projects() {
                         <p className="text-xs text-gray-500 leading-relaxed font-medium line-clamp-2">
                           {project.description}
                         </p>
+                      )}
+
+                      {/* Compact goal pills under the description.
+                          Hidden entirely when no goals are linked so
+                          the card stays the same height as before for
+                          unlinked projects — the connect flow lives
+                          on the detail panel to keep the catalog
+                          short on the list row. */}
+                      {(project.goals?.length ?? 0) > 0 && (
+                        <ProjectGoalLinks
+                          goals={project.goals ?? []}
+                          goalKeys={project.goal_keys ?? []}
+                          catalog={goals}
+                          variant="compact"
+                          showPicker={false}
+                          onGoalClick={handleGoalPillClick}
+                          className="pt-0.5"
+                        />
                       )}
 
                       <div className="flex items-center gap-3 text-[11px] font-bold text-gray-400">

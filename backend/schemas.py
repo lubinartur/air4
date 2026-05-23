@@ -136,6 +136,18 @@ class FinanceCyclesOut(BaseModel):
     earliest_with_data: CycleRange | None = None
 
 
+class ResolvedGoal(BaseModel):
+    """A goal_key joined with its display title from `user_facts` or
+    `user_profile.goals`. `title` is None for orphaned keys (the goal
+    was deleted but the project still references it) so the FE can
+    fall back to showing the raw key as a degraded pill instead of
+    silently dropping the link."""
+
+    key: str
+    title: str | None = None
+    source: str | None = None
+
+
 class ProjectOut(BaseModel):
     id: int
     name: str
@@ -146,6 +158,12 @@ class ProjectOut(BaseModel):
     created_at: str | None = None
     updated_at: str | None = None
     total_sessions_minutes: int = 0
+    # Raw goal identifiers persisted with the project. Empty list
+    # when none linked (NULL in DB → []).
+    goal_keys: list[str] = Field(default_factory=list)
+    # Same identifiers, joined with their display titles. Always the
+    # same length and order as `goal_keys` for FE convenience.
+    goals: list[ResolvedGoal] = Field(default_factory=list)
 
 
 class ProjectIn(BaseModel):
@@ -153,6 +171,14 @@ class ProjectIn(BaseModel):
     description: str | None = None
     status: str = "active"
     priority: int = 2
+
+
+class ProjectGoalsIn(BaseModel):
+    """Payload for `PUT /api/projects/{id}/goals`. Strings can be
+    any goal identifier returned by `/api/goals` — `user_facts.key`
+    for chat-derived goals or `profile:<idx>` for profile goals."""
+
+    goal_keys: list[str] = Field(default_factory=list)
 
 
 class ProjectLogOut(BaseModel):

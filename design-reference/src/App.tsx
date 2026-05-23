@@ -346,13 +346,20 @@ export default function App() {
                   refreshTick={financeRefreshTick}
                 />
               ) : currentPage === "Projects" ? (
-                <Projects />
+                <Projects
+                  goals={goals}
+                  onNavigate={setCurrentPage}
+                  onGoalsRefresh={loadGoals}
+                />
               ) : currentPage === "Health" ? (
                 <Health />
               ) : currentPage === "Sport" ? (
                 <Sport />
               ) : currentPage === "Goals" ? (
-                <Goals goals={goals} />
+                <Goals
+                  goals={goals}
+                  onNavigate={setCurrentPage}
+                />
               ) : currentPage === "Dilemmas" ? (
                 <Dilemmas dilemmas={dilemmas} onRefresh={loadDilemmas} />
               ) : currentPage === "Patterns" ? (

@@ -93,7 +93,19 @@ def list_goals() -> GoalsListOut:
         norm = _normalise_title(title)
         if _is_duplicate(norm, kept_norms):
             continue
-        goals.append(GoalItemOut(id=idx, title=title, source="profile"))
+        # `profile:<idx>` is a stable, opaque key the projects
+        # endpoint can persist in `goal_keys` and round-trip back
+        # through `/api/goals`. Without it, only fact-derived goals
+        # could be linked to projects (they already carry a real
+        # `user_facts.key`).
+        goals.append(
+            GoalItemOut(
+                id=idx,
+                title=title,
+                source="profile",
+                key=f"profile:{idx}",
+            )
+        )
         kept_norms.append(norm)
 
     for row in fact_rows:

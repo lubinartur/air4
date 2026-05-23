@@ -130,6 +130,12 @@ CREATE TABLE IF NOT EXISTS projects (
     status      TEXT DEFAULT 'active',
     priority    INTEGER DEFAULT 2,
     started_at  TEXT,
+    -- JSON array of goal identifiers (`user_facts.key` for chat-derived
+    -- goals, `profile:<idx>` for goals saved directly on user_profile).
+    -- Plain TEXT so unknown / orphaned keys are still preserved on
+    -- read without forcing a foreign-key constraint that can break
+    -- upgrades when the underlying fact row is renamed.
+    goal_keys   TEXT,
     created_at  TEXT DEFAULT (datetime('now')),
     updated_at  TEXT DEFAULT (datetime('now'))
 );
@@ -480,7 +486,17 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         )
 
     if "projects" in tables:
-        _ensure_columns(conn, "projects", [("priority", "INTEGER DEFAULT 2")])
+        _ensure_columns(
+            conn,
+            "projects",
+            [
+                ("priority", "INTEGER DEFAULT 2"),
+                # Goal links — see SCHEMA_SQL comment for the
+                # identifier convention. NULL means "no goals linked",
+                # an empty JSON array `[]` means "explicitly unlinked".
+                ("goal_keys", "TEXT"),
+            ],
+        )
 
     if "project_logs" in tables:
         _ensure_columns(

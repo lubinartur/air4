@@ -972,25 +972,49 @@ export function OverviewDashboard({
                       }
                       className="group/proj cursor-pointer rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-[#6366F1]/40 flex items-center gap-4 text-[11px] font-bold text-gray-600"
                     >
-                      <div className="w-32 shrink-0 flex items-center gap-1.5 min-w-0">
-                        <span
-                          className={cn(
-                            t.rowTitle,
-                            "truncate group-hover/proj:text-[#6366F1] transition-colors"
-                          )}
-                        >
-                          {p.name}
-                        </span>
-                        <span
-                          className={cn(
-                            "text-[8px] font-black px-1 py-0.5 rounded uppercase tracking-wider shrink-0",
-                            p.status === "active"
-                              ? "bg-indigo-50 text-[#6366F1]"
-                              : "bg-gray-100 text-gray-500"
-                          )}
-                        >
-                          {PROJECT_STATUS_LABEL[p.status] ?? p.status.toUpperCase()}
-                        </span>
+                      <div className="w-32 shrink-0 flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className={cn(
+                              t.rowTitle,
+                              "truncate group-hover/proj:text-[#6366F1] transition-colors"
+                            )}
+                          >
+                            {p.name}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-[8px] font-black px-1 py-0.5 rounded uppercase tracking-wider shrink-0",
+                              p.status === "active"
+                                ? "bg-indigo-50 text-[#6366F1]"
+                                : "bg-gray-100 text-gray-500"
+                            )}
+                          >
+                            {PROJECT_STATUS_LABEL[p.status] ?? p.status.toUpperCase()}
+                          </span>
+                        </div>
+                        {/* Tiny goal pill under the project name —
+                            shows the first linked goal so the row
+                            stays compact. Hidden when the project
+                            isn't linked to any (real) goal so most
+                            rows keep their original 1-line height. */}
+                        {p.goals?.[0]?.title && (
+                          <span
+                            className="text-[9px] font-semibold text-gray-400 truncate leading-tight"
+                            title={
+                              (p.goals?.length ?? 0) > 1
+                                ? p.goals!
+                                    .map((g) => g.title || `[${g.key}]`)
+                                    .join(" · ")
+                                : (p.goals![0].title ?? "")
+                            }
+                          >
+                            ↳ {p.goals[0].title}
+                            {(p.goals?.length ?? 0) > 1
+                              ? ` +${(p.goals?.length ?? 0) - 1}`
+                              : ""}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">

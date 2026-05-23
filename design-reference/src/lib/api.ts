@@ -21,6 +21,11 @@ export type Summary = {
   by_category: Record<string, CategorySummary>;
   internal_transfers?: InternalTransferSummary;
   other_incoming?: OtherIncomingSummary;
+  days_elapsed?: number;
+  days_remaining?: number;
+  daily_spend_rate?: number;
+  forecast_end_of_cycle?: number;
+  burn_rate_days?: number;
 };
 
 export type Project = {

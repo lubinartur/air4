@@ -145,6 +145,18 @@ function formatCycleEdge(iso: string | null | undefined): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+/** Russian plural for "день / дня / дней". Burn-rate copy is the only
+ *  consumer right now, but the rules are general so the helper sits
+ *  alongside formatCycleEdge instead of inlined. */
+function pluralizeDays(n: number): string {
+  const abs = Math.abs(n);
+  const mod10 = abs % 10;
+  const mod100 = abs % 100;
+  if (mod10 === 1 && mod100 !== 11) return "день";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "дня";
+  return "дней";
+}
+
 /** Salary cycle starts on the 10th. Given a cycle-start ISO, return the
  *  start of the previous cycle (subtract 1 month, handle Jan → Dec). */
 function prevCycleStart(startIso: string): string {
@@ -1149,6 +1161,15 @@ export function Finance({
   const spent = summary?.total_spent ?? 0;
   const otherIncoming = summary?.other_incoming ?? null;
   const freeCapital = income - spent;
+  const dailySpendRate = summary?.daily_spend_rate ?? 0;
+  const forecastEndOfCycle = summary?.forecast_end_of_cycle ?? freeCapital;
+  const burnRateDays = summary?.burn_rate_days ?? 0;
+  const daysRemaining = summary?.days_remaining ?? 0;
+  // Projection is only meaningful when there's an active cycle with
+  // real spending behind it — otherwise (future cycle, fresh cycle
+  // with €0 spent, malformed dates) we'd show "Прогноз: €X to today"
+  // which adds noise instead of signal.
+  const hasProjection = dailySpendRate > 0 && daysRemaining > 0;
 
   /** Merge subscriptions + obligations into a single chronological list of
    *  next payments. Items without a usable day-of-month are skipped. */
@@ -1332,6 +1353,31 @@ export function Finance({
                     <p className="text-[10px] text-[#9ca3af] mt-1">
                       Постоянные расходы: {formatEuro(monthlyFixed.fixed_total)}/мес
                     </p>
+                  )}
+                  {hasProjection && (
+                    <>
+                      <p className="text-[12px] text-gray-500 mt-2">
+                        Прогноз:{" "}
+                        <span
+                          className={cn(
+                            "font-mono font-semibold",
+                            forecastEndOfCycle >= 0 ? "text-green-600" : "text-red-500"
+                          )}
+                        >
+                          {formatEuro(forecastEndOfCycle)}
+                        </span>
+                        {cycleEnd && ` к ${formatCycleEdge(cycleEnd)}`}
+                      </p>
+                      {freeCapital > 0 && burnRateDays > 0 && (
+                        <p className="text-[12px] text-gray-500 mt-1">
+                          Хватит на{" "}
+                          <span className="font-mono font-semibold text-gray-700">
+                            {burnRateDays}
+                          </span>{" "}
+                          {pluralizeDays(burnRateDays)} при текущем темпе
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

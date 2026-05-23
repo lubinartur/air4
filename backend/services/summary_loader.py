@@ -20,7 +20,95 @@ _EMPTY = SummaryOut(
     by_category={},
     internal_transfers=InternalTransferSummary(amount=0.0, count=0),
     other_incoming=OtherIncomingSummary(amount=0.0, count=0),
+    days_elapsed=0,
+    days_remaining=0,
+    daily_spend_rate=0.0,
+    forecast_end_of_cycle=0.0,
+    burn_rate_days=0,
 )
+
+
+def _cycle_projection(
+    *,
+    period_start: str,
+    period_end: str,
+    total_spent: float,
+    total_income: float,
+    today: date | None = None,
+) -> dict[str, float | int]:
+    """Project where the user lands at end-of-cycle at the current pace.
+
+    Returns a dict with `days_elapsed`, `days_remaining`,
+    `daily_spend_rate`, `forecast_end_of_cycle`, `burn_rate_days`.
+
+    Three cycle states are handled distinctly so the UI never sees a
+    misleading projection:
+
+    1. **Active cycle** (start ≤ today ≤ end): real-time projection —
+       `daily_rate = spent / elapsed`, `forecast = free_capital -
+       daily_rate * remaining`, `burn = free_capital / daily_rate`.
+    2. **Past cycle** (today > end): cycle is closed, so
+       `days_remaining = 0`, forecast collapses to current
+       free_capital, burn is meaningless (set 0).
+    3. **Future cycle** (today < start): no spending yet, so
+       daily_rate = 0 and forecast = free_capital (zero by definition).
+
+    `days_elapsed = max(1, …)` in the active case prevents div-by-zero
+    on day 1; we'd otherwise blow up the very first time the user
+    opens Finance on the 10th.
+    """
+    today = today or date.today()
+    try:
+        start_d = date.fromisoformat(period_start)
+        end_d = date.fromisoformat(period_end)
+    except ValueError:
+        return {
+            "days_elapsed": 0,
+            "days_remaining": 0,
+            "daily_spend_rate": 0.0,
+            "forecast_end_of_cycle": 0.0,
+            "burn_rate_days": 0,
+        }
+
+    free_capital = round(total_income - total_spent, 2)
+
+    if today < start_d:
+        return {
+            "days_elapsed": 0,
+            "days_remaining": (end_d - start_d).days + 1,
+            "daily_spend_rate": 0.0,
+            "forecast_end_of_cycle": free_capital,
+            "burn_rate_days": 0,
+        }
+
+    if today > end_d:
+        cycle_len = (end_d - start_d).days + 1
+        return {
+            "days_elapsed": cycle_len,
+            "days_remaining": 0,
+            "daily_spend_rate": round(total_spent / max(cycle_len, 1), 2),
+            "forecast_end_of_cycle": free_capital,
+            "burn_rate_days": 0,
+        }
+
+    # Active cycle: today is in [start, end].
+    days_elapsed = max(1, (today - start_d).days + 1)
+    days_remaining = max(0, (end_d - today).days)
+    daily_rate = round(total_spent / days_elapsed, 2) if total_spent > 0 else 0.0
+    forecast = round(free_capital - daily_rate * days_remaining, 2)
+
+    if daily_rate > 0 and free_capital > 0:
+        burn = int(free_capital // daily_rate)
+    else:
+        burn = 0
+
+    return {
+        "days_elapsed": days_elapsed,
+        "days_remaining": days_remaining,
+        "daily_spend_rate": daily_rate,
+        "forecast_end_of_cycle": forecast,
+        "burn_rate_days": burn,
+    }
 
 # Exclude non-spending rows from totals and category breakdown.
 _EXTERNAL_ONLY = "COALESCE(is_internal_transfer, 0) = 0"
@@ -319,12 +407,28 @@ def load_summary(
         count=int((other_incoming_row or {}).get("count") or 0),
     )
 
+    total_spent_val = round(float((spent_row or {}).get("total") or 0.0), 2)
+    total_income_val = round(
+        float((income_row or {}).get("total_income") or 0.0), 2
+    )
+    projection = _cycle_projection(
+        period_start=period_start,
+        period_end=period_end,
+        total_spent=total_spent_val,
+        total_income=total_income_val,
+    )
+
     return SummaryOut(
         period_start=period_start,
         period_end=period_end,
-        total_spent=round(float((spent_row or {}).get("total") or 0.0), 2),
-        total_income=round(float((income_row or {}).get("total_income") or 0.0), 2),
+        total_spent=total_spent_val,
+        total_income=total_income_val,
         by_category=by_category,
         internal_transfers=internal,
         other_incoming=other_incoming,
+        days_elapsed=int(projection["days_elapsed"]),
+        days_remaining=int(projection["days_remaining"]),
+        daily_spend_rate=float(projection["daily_spend_rate"]),
+        forecast_end_of_cycle=float(projection["forecast_end_of_cycle"]),
+        burn_rate_days=int(projection["burn_rate_days"]),
     )

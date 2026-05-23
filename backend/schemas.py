@@ -96,6 +96,14 @@ class SummaryOut(BaseModel):
         amount=0.0, count=0
     )
     other_incoming: OtherIncomingSummary = OtherIncomingSummary(amount=0.0, count=0)
+    # Cycle projection — derived in summary_loader. Defaults are
+    # neutral (0 / 0.0) so historical or empty cycles don't surface a
+    # bogus forecast in the UI.
+    days_elapsed: int = 0
+    days_remaining: int = 0
+    daily_spend_rate: float = 0.0
+    forecast_end_of_cycle: float = 0.0
+    burn_rate_days: int = 0
 
 
 class CycleRange(BaseModel):

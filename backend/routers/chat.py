@@ -26,8 +26,10 @@ from services.prompts import (
     get_subscriptions_context,
     get_workouts_context,
     history_to_messages,
+    search_relevant_events,
     strip_internal_xml_tags,
 )
+from services.obligation_from_chat import apply_obligation_confirmations
 from services.subscription_updater import (
     apply_recurring_corrections,
     format_confirmation,
@@ -60,14 +62,27 @@ def _load_context(
         LIMIT 10
         """,
     )
+    # Recent events surfaced as the default memory block.
+    #
+    # • limit 15 (was 5) — top 5 was too small once the archive crossed
+    #   a few extraction batches; with 770+ events even today's row
+    #   could drop out of the prompt depending on extraction timing.
+    # • date >= today - 30 days — fresh enough for "what's been
+    #   happening" memory without flooding the prompt. Older specific
+    #   events still reachable through `search_relevant_events`.
+    # • Sort by `date DESC` (event date) then `created_at DESC` so an
+    #   event the user logged about yesterday outranks one extracted
+    #   first about something a week ago.
     events = fetch_all(
         conn,
         """
         SELECT date, title, description, domain, category, importance
         FROM events
         WHERE COALESCE(archived, 0) = 0
-        ORDER BY datetime(created_at) DESC, id DESC
-        LIMIT 5
+          AND date IS NOT NULL
+          AND date >= date('now', '-30 days')
+        ORDER BY date DESC, datetime(created_at) DESC, id DESC
+        LIMIT 15
         """,
     )
     workouts_context = get_workouts_context(conn)
@@ -188,6 +203,31 @@ def _apply_corrections_safely(message: str) -> list[dict[str, Any]]:
         return []
 
 
+def _apply_obligation_confirmations_safely(assistant_text: str) -> list[dict[str, Any]]:
+    """When AIR4 says it added an obligation, persist it for real."""
+    text = (assistant_text or "").strip()
+    logger.info(
+        "chat: apply_obligation_confirmations called len=%d preview=%r",
+        len(text),
+        text[:200],
+    )
+    if not text:
+        logger.info("chat: empty assistant_text, skipping obligation parse")
+        return []
+    try:
+        with get_db() as conn:
+            result = apply_obligation_confirmations(conn, text)
+        logger.info(
+            "chat: apply_obligation_confirmations returned %d update(s): %s",
+            len(result),
+            [(u.get("type"), u.get("id"), u.get("name"), u.get("action")) for u in result],
+        )
+        return result
+    except Exception:
+        logger.exception("Obligation confirmation step failed")
+        return []
+
+
 def _persist_exchange(
     user_message: str, assistant_message: str, page: str | None
 ) -> None:
@@ -240,6 +280,17 @@ async def chat_endpoint(
             subscriptions_context,
         ) = _load_context(conn)
         llm_history = _build_llm_history(body.history, conn)
+        # Semantic-ish recall: search the whole archive for events that
+        # match keywords in the current user turn. Catches references
+        # to older events that fell out of the 30-day recent window
+        # (e.g. "помнишь про фотку для ид карты — отметь что сделал").
+        relevant_events = search_relevant_events(conn, message, limit=5)
+        logger.info(
+            "chat: loaded %d recent events + %d relevant matches for message=%r",
+            len(events),
+            len(relevant_events),
+            message[:80],
+        )
 
     system = build_system_context(
         summary=summary,
@@ -250,6 +301,7 @@ async def chat_endpoint(
         health_checkups_context=health_checkups_context,
         subscriptions_context=subscriptions_context,
         current_page=body.current_page,
+        relevant_events=relevant_events,
     )
     messages: list[dict[str, str]] = list(llm_history)
     messages.append({"role": "user", "content": message})
@@ -314,7 +366,8 @@ async def chat_endpoint(
             full_text = strip_internal_xml_tags("".join(chunks))
 
             updates = _apply_corrections_safely(message)
-            confirmation = format_confirmation(updates)
+            obligation_updates = _apply_obligation_confirmations_safely(full_text)
+            confirmation = format_confirmation(updates + obligation_updates)
             if confirmation:
                 yield f"data: {json.dumps({'type': 'delta', 'text': confirmation}, ensure_ascii=False)}\n\n"
 
@@ -324,7 +377,10 @@ async def chat_endpoint(
             fact_recurring = await _run_post_chat_extractors(
                 user_messages, api_key
             )
-            all_updates = _merge_recurring_updates(updates, fact_recurring)
+            all_updates = _merge_recurring_updates(
+                updates,
+                _merge_recurring_updates(obligation_updates, fact_recurring),
+            )
 
             yield f"data: {_meta_payload(all_updates)}\n\n"
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
@@ -343,11 +399,17 @@ async def chat_endpoint(
     response_text = strip_internal_xml_tags(response_text)
 
     updates = _apply_corrections_safely(message)
-    response_text = response_text + format_confirmation(updates)
+    obligation_updates = _apply_obligation_confirmations_safely(response_text)
+    response_text = response_text + format_confirmation(
+        updates + obligation_updates
+    )
 
     _persist_exchange(message, response_text, body.current_page)
     fact_recurring = await _run_post_chat_extractors(user_messages, api_key)
-    all_updates = _merge_recurring_updates(updates, fact_recurring)
+    all_updates = _merge_recurring_updates(
+        updates,
+        _merge_recurring_updates(obligation_updates, fact_recurring),
+    )
 
     return ChatOut(
         response=response_text,

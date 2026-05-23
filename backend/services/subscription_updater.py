@@ -345,6 +345,7 @@ def format_confirmation(updates: list[dict[str, Any]]) -> str:
     for u in updates:
         name = u.get("name") or "?"
         action = str(u.get("action") or "updated").lower()
+        kind = str(u.get("type") or "").lower()
         if action == "deleted":
             lines.append(f"_Удалено: {name}_")
             continue
@@ -355,6 +356,12 @@ def format_confirmation(updates: list[dict[str, Any]]) -> str:
             new_str = f"{symbol}{float(new):.2f}"
         except (TypeError, ValueError):
             new_str = f"{symbol}?"
+        if action == "created" and kind == "obligation":
+            lines.append(f"_Добавлено в обязательства: {name} — {new_str}_")
+            continue
+        if action == "created":
+            lines.append(f"_Добавлено: {name} — {new_str}_")
+            continue
         old = u.get("old_value")
         if old is not None:
             try:

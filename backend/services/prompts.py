@@ -49,7 +49,13 @@ CHARACTER_SYSTEM = """Ты — AIR4. Не ассистент. Не dashboard. Н
 ПАМЯТЬ:
 Используй всё что знаешь о человеке.
 Ссылайся на прошлые разговоры естественно — как человек который помнит.
-Тон становится плотнее по мере накопления контекста."""
+Тон становится плотнее по мере накопления контекста.
+
+ПЕРЕД ТЕМ КАК СКАЗАТЬ "Я НЕ ПОМНЮ":
+Внимательно перечитай блоки СОБЫТИЯ и НАЙДЕНО В ПАМЯТИ ниже.
+Если ничего точного не находишь, скажи "не вижу этого в памяти, напомни" —
+не утверждай, что ничего не происходило. Пользователь видит свои события
+в разделе Память и легко тебя поймает на промахе."""
 
 # Paired blocks: <tag>...</tag>
 _INTERNAL_XML_BLOCKS = re.compile(
@@ -353,6 +359,133 @@ def _format_events(events: list[dict[str, Any]]) -> str:
     return "Недавние события:\n" + "\n".join(lines)
 
 
+def _format_relevant_events(events: list[dict[str, Any]]) -> str:
+    """Format semantic-search matches as a distinct memory block.
+
+    Kept separate from the recency block so the LLM knows these rows
+    came from a keyword lookup against the WHOLE archive — they may be
+    older than the 30-day recent window and shouldn't be dropped just
+    because the date is stale.
+    """
+    if not events:
+        return ""
+    lines: list[str] = []
+    for e in events:
+        date_s = e.get("date") or ""
+        title = e.get("title") or ""
+        desc = e.get("description") or ""
+        domain = e.get("domain") or ""
+        tail = f" — {desc}" if desc else ""
+        lines.append(f"- {date_s} [{domain}] {title}{tail}")
+    return "НАЙДЕНО В ПАМЯТИ (релевантно теме разговора):\n" + "\n".join(lines)
+
+
+# Words that contribute zero signal for keyword matching. Includes
+# common Russian conversational fillers ("помнишь", "что", "как"),
+# function words, and English stop words. Cheap and good enough for
+# the LIKE-based recall — we can swap in proper embeddings later.
+_KEYWORD_STOPWORDS: set[str] = {
+    # russian connectives / fillers
+    "что", "как", "это", "был", "была", "было", "были", "есть", "тут", "там",
+    "ещё", "еще", "уже", "очень", "просто", "тоже", "если", "когда", "пока",
+    "сейчас", "сегодня", "вчера", "завтра", "потом", "после", "раньше",
+    "так", "вот", "ну", "да", "нет", "или", "ли", "же", "бы", "чтобы",
+    "чтоб", "тебя", "тебе", "меня", "мне", "мной", "тобой", "себя",
+    "помнишь", "помню", "помнить", "напомни", "знаешь", "знаю", "знать",
+    "скажи", "скажу", "говорил", "говорила", "сказал", "сказала", "думаю",
+    "вижу", "видел", "видела", "слышал", "слышала", "почему", "зачем",
+    "когда", "где", "куда", "откуда", "сколько", "какой", "какая", "какие",
+    "наш", "наша", "наше", "наши", "мой", "моя", "моё", "мои", "твой",
+    "твоя", "твоё", "твои", "свой", "своя", "своё", "свои",
+    "про", "для", "над", "под", "при", "без", "через",
+    # english stop words
+    "the", "and", "for", "with", "from", "this", "that", "have", "has", "had",
+    "you", "your", "yours", "are", "was", "were", "been", "being", "what",
+    "when", "where", "why", "how", "did", "does", "doing", "remember",
+    "tell", "know", "think", "show", "find", "still", "yet", "also",
+}
+
+
+def _extract_keywords(text: str) -> list[str]:
+    """Pluck meaningful tokens for a LIKE-based events lookup.
+
+    Heuristics: lowercase, alphanum + Cyrillic + dashes, drop tokens
+    shorter than 4 chars, drop stop words, dedupe in document order,
+    cap at 6 tokens. The cap keeps the resulting SQL OR chain short
+    enough that the query plan stays a single full scan of `events`
+    (table is tiny so this is fine).
+    """
+    if not text or not text.strip():
+        return []
+    tokens = re.findall(r"[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё0-9\-]{2,}", text.lower())
+    seen: set[str] = set()
+    out: list[str] = []
+    for tok in tokens:
+        if len(tok) < 4:
+            continue
+        if tok in _KEYWORD_STOPWORDS:
+            continue
+        if tok in seen:
+            continue
+        seen.add(tok)
+        out.append(tok)
+        if len(out) >= 6:
+            break
+    return out
+
+
+def search_relevant_events(
+    db: Any, query: str, *, limit: int = 5
+) -> list[dict[str, Any]]:
+    """Find events whose title or description matches the user's message.
+
+    Returns ``[]`` when no usable keywords can be extracted. Matches
+    are scored by hit count (more keywords matched → ranks higher),
+    ties broken by recency. Searches the WHOLE non-archived archive
+    so older events the recency block missed can still surface when
+    the conversation calls them up by name.
+    """
+    from database import fetch_all  # local import to avoid circular
+
+    keywords = _extract_keywords(query)
+    if not keywords:
+        return []
+
+    like_clauses: list[str] = []
+    params: list[Any] = []
+    for kw in keywords:
+        like = f"%{kw}%"
+        like_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ?)")
+        params.extend([like, like])
+
+    where = " OR ".join(like_clauses)
+
+    score_parts: list[str] = []
+    for _ in keywords:
+        score_parts.append(
+            "(CASE WHEN LOWER(title) LIKE ? OR LOWER(description) LIKE ? THEN 1 ELSE 0 END)"
+        )
+    score_params: list[Any] = []
+    for kw in keywords:
+        like = f"%{kw}%"
+        score_params.extend([like, like])
+
+    sql = f"""
+        SELECT id, date, title, description, domain, category,
+               ({' + '.join(score_parts)}) AS score
+        FROM events
+        WHERE COALESCE(archived, 0) = 0
+          AND ({where})
+        ORDER BY score DESC, datetime(created_at) DESC, id DESC
+        LIMIT ?
+    """
+    try:
+        rows = fetch_all(db, sql, tuple(score_params + params + [int(limit)]))
+    except Exception:
+        return []
+    return rows
+
+
 def _format_by_category(by_category: dict[str, Any]) -> str:
     if not by_category:
         return "нет данных"
@@ -406,6 +539,7 @@ def build_system_context(
     health_checkups_context: str = "",
     subscriptions_context: str = "",
     current_page: str | None = None,
+    relevant_events: list[dict[str, Any]] | None = None,
 ) -> str:
     parts = [
         CHARACTER_SYSTEM,
@@ -416,8 +550,11 @@ def build_system_context(
         "",
         _format_facts(facts).replace("Факты о пользователе:", "ФАКТЫ:", 1),
         "",
-        _format_events(events).replace("Недавние события:", "СОБЫТИЯ:", 1),
+        _format_events(events).replace("Недавние события:", "СОБЫТИЯ (последние 30 дней):", 1),
     ]
+    relevant_block = _format_relevant_events(relevant_events or [])
+    if relevant_block:
+        parts.extend(["", relevant_block])
     subs_text = (subscriptions_context or "").strip()
     if subs_text:
         parts.extend(["", subs_text])

@@ -8,6 +8,18 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Configure logging BEFORE any app loggers are touched.
+# Uvicorn installs handlers for the `uvicorn.*` namespace only; everything
+# else (e.g. `chat`, `fact_extractor`, `services.obligation_from_chat`)
+# bubbles up to the root logger, which has no handler by default → all
+# `logger.info` calls are silently dropped. Default level is controlled
+# by the AIR4_LOG_LEVEL env var so production can dial it back to WARNING.
+logging.basicConfig(
+    level=os.environ.get("AIR4_LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    force=True,
+)
+
 from database import get_db, init_db
 from routers import (
     category_rules,

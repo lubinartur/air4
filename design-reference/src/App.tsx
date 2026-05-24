@@ -30,6 +30,7 @@ import {
   fetchGoals,
   fetchHypotheses,
   fetchProfile,
+  fetchCrossSphereInsights,
   generateObservations,
   pickDisplayObservation,
   type ChatResponseMeta,
@@ -42,6 +43,7 @@ import {
   type GoalItem,
   type Hypothesis,
   type UserFact,
+  type CrossSphereInsight,
 } from "./lib/api";
 
 export default function App() {
@@ -55,6 +57,9 @@ export default function App() {
   const [goals, setGoals] = useState<GoalItem[]>([]);
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([]);
   const [facts, setFacts] = useState<UserFact[]>([]);
+  const [crossSphereInsights, setCrossSphereInsights] = useState<
+    CrossSphereInsight[]
+  >([]);
   const [observationsRefreshing, setObservationsRefreshing] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
@@ -98,17 +103,35 @@ export default function App() {
     }
   }, []);
 
+  // Cross-sphere insights live in their own state slice because the
+  // backend regenerates them on a slower cadence (24h scheduler tick
+  // and post-observations/generate). Refreshed together with
+  // observations so the Patterns card stays consistent after a
+  // manual "обновить" click.
+  const loadCrossSphereInsights = useCallback(async () => {
+    try {
+      setCrossSphereInsights(await fetchCrossSphereInsights());
+    } catch {
+      setCrossSphereInsights([]);
+    }
+  }, []);
+
   const refreshObservations = useCallback(async () => {
     setObservationsRefreshing(true);
     try {
       await generateObservations();
       await loadObservations(false);
+      // `/observations/generate` also triggers cross-sphere on the
+      // backend, but the new rows aren't returned in the response —
+      // refetch so the Patterns card picks them up in the same tick.
+      await loadCrossSphereInsights();
     } catch {
       await loadObservations(false);
     } finally {
       setObservationsRefreshing(false);
     }
-  }, [loadObservations]);
+  }, [loadObservations, loadCrossSphereInsights]);
+
 
   const loadSummary = useCallback(async () => {
     try {
@@ -161,6 +184,28 @@ export default function App() {
       setFacts([]);
     }
   }, []);
+
+  // Patterns page "Обновить паттерны" button — triggers a full
+  // re-analysis on the backend (LLM observations + rule-based
+  // cross-sphere) and reloads everything the Patterns page renders:
+  // hypotheses, observations, and cross-sphere insights. Kept as
+  // its own callback (instead of reusing refreshObservations) so
+  // hypotheses are part of the same refresh tick — they're owned
+  // by the hypotheses engine, not the observations one, but the
+  // user expects "Обновить" to refresh the whole page state.
+  const refreshPatterns = useCallback(async () => {
+    try {
+      await generateObservations();
+    } catch {
+      /* non-fatal — proceed with the reloads so the page still
+       *  reflects whatever the backend already had. */
+    }
+    await Promise.allSettled([
+      loadObservations(false),
+      loadCrossSphereInsights(),
+      loadHypotheses(),
+    ]);
+  }, [loadObservations, loadCrossSphereInsights, loadHypotheses]);
 
   // Refreshed after every chat message. Deliberately excludes the finance
   // summary: chat cannot mutate `transactions` (the only thing summary
@@ -215,6 +260,7 @@ export default function App() {
     void loadDilemmas();
     void loadHypotheses();
     void loadFacts();
+    void loadCrossSphereInsights();
     void fetchWorkouts()
       .then(setWorkouts)
       .catch(() => setWorkouts([]));
@@ -226,6 +272,7 @@ export default function App() {
     loadDilemmas,
     loadHypotheses,
     loadFacts,
+    loadCrossSphereInsights,
   ]);
 
   useEffect(() => {
@@ -266,13 +313,21 @@ export default function App() {
         await loadObservations(true);
       }
 
+      // After observations/generate (called via `loadObservations(true)`)
+      // the backend also refreshes cross-sphere insights — refetch
+      // here so the Patterns card picks up any new correlations on
+      // the same Overview visit.
+      if (!cancelled) {
+        await loadCrossSphereInsights();
+      }
+
       if (!cancelled) setOverviewLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [currentPage, loadObservations]);
+  }, [currentPage, loadObservations, loadCrossSphereInsights]);
 
   const openDilemma = dilemmas.find((d) => d.status === "open") ?? null;
   const activeProjects = projects.filter((p) => p.status === "active");
@@ -330,6 +385,7 @@ export default function App() {
                   summary={summary}
                   projects={projects}
                   observations={observations}
+                  crossSphereInsights={crossSphereInsights}
                   insight={displayObservation}
                   bodyMetrics={bodyMetrics}
                   workouts={workouts}
@@ -363,7 +419,11 @@ export default function App() {
               ) : currentPage === "Dilemmas" ? (
                 <Dilemmas dilemmas={dilemmas} onRefresh={loadDilemmas} />
               ) : currentPage === "Patterns" ? (
-                <Patterns hypotheses={hypotheses} />
+                <Patterns
+                  hypotheses={hypotheses}
+                  crossSphereInsights={crossSphereInsights}
+                  onRefresh={refreshPatterns}
+                />
               ) : currentPage === "Memory" ? (
                 <Memory />
               ) : currentPage === "Settings" ? (

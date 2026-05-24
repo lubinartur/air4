@@ -22,6 +22,8 @@ import {
   hasFinanceData,
   latestBodyWeight,
   type BodyMetric,
+  type CrossSphere,
+  type CrossSphereInsight,
   type Dilemma,
   type Observation,
   type Project,
@@ -40,6 +42,10 @@ type Props = {
   summary: Summary | null;
   projects: Project[];
   observations: Observation[];
+  /** Cross-sphere insights served by /api/cross-sphere. Rendered at
+   *  the top of the Patterns card so the cross-sphere correlations
+   *  outrank the single-domain LLM observations below them. */
+  crossSphereInsights?: CrossSphereInsight[];
   insight: Observation | null;
   bodyMetrics: BodyMetric[];
   workouts: Workout[];
@@ -50,6 +56,57 @@ type Props = {
   onPageChange: (page: Page) => void;
   onOpenChatWithMessage: (text: string) => void;
 };
+
+/** Two-tone palette per sphere — kept in one place so any future
+ *  sphere addition only touches this map. Unknown spheres fall
+ *  back to the neutral gray entry. */
+const SPHERE_BADGE: Record<CrossSphere | "default", {
+  label: string;
+  className: string;
+}> = {
+  finance: {
+    label: "ФИНАНСЫ",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  },
+  health: {
+    label: "ЗДОРОВЬЕ",
+    className: "bg-rose-50 text-rose-700 border-rose-100",
+  },
+  projects: {
+    label: "ПРОЕКТЫ",
+    className: "bg-indigo-50 text-indigo-700 border-indigo-100",
+  },
+  life: {
+    label: "ЖИЗНЬ",
+    className: "bg-amber-50 text-amber-700 border-amber-100",
+  },
+  default: {
+    label: "—",
+    className: "bg-gray-50 text-gray-500 border-gray-100",
+  },
+};
+
+function sphereBadge(sphere: string) {
+  const key = (sphere || "").toLowerCase() as CrossSphere;
+  return SPHERE_BADGE[key] ?? SPHERE_BADGE.default;
+}
+
+/** Confidence tone — matches the three-tier system the backend uses
+ *  for the description prefix. Renders as a subtle right-aligned
+ *  indicator so the user sees signal strength without it dominating
+ *  the row. */
+function confidenceTier(confidence: number): {
+  label: string;
+  dotClass: string;
+} {
+  if (confidence < 0.6) {
+    return { label: "слабый сигнал", dotClass: "bg-gray-300" };
+  }
+  if (confidence < 0.8) {
+    return { label: "паттерн", dotClass: "bg-amber-400" };
+  }
+  return { label: "уверенно", dotClass: "bg-emerald-500" };
+}
 
 const CATEGORY_COLORS = ["bg-red-500", "bg-green-500", "bg-orange-500", "bg-blue-500"];
 
@@ -293,6 +350,7 @@ export function OverviewDashboard({
   summary,
   projects,
   observations,
+  crossSphereInsights = [],
   insight,
   bodyMetrics,
   workouts,
@@ -1101,7 +1159,7 @@ export function OverviewDashboard({
               <CardChevron />
             </div>
 
-            {observations.length === 0 ? (
+            {observations.length === 0 && crossSphereInsights.length === 0 ? (
               <OverviewCardEmpty type="patterns" compact />
             ) : (
               // Two-line rows mirror the Activity feed rhythm: bold dark
@@ -1113,7 +1171,70 @@ export function OverviewDashboard({
               // icon square instead) and the chevron stays so the row
               // reads as click-navigable.
               <div className="space-y-2.5 pt-1">
-                {observations.slice(0, 2).map((obs) => (
+                {/* Cross-sphere insights surface first because they're
+                    the higher-signal correlation the analyzer just
+                    confirmed. Each row carries two colored domain
+                    badges (sphere1 + sphere2) so the user instantly
+                    sees which areas of life are connected. Capped at
+                    2 so the card stays the same height as the
+                    Activity/Dilemma sibling cards. */}
+                {crossSphereInsights.slice(0, 2).map((ins) => {
+                  const tier = confidenceTier(ins.confidence);
+                  const b1 = sphereBadge(ins.sphere1);
+                  const b2 = sphereBadge(ins.sphere2);
+                  return (
+                    <button
+                      key={`cs-${ins.id}`}
+                      type="button"
+                      onClick={stop(() => onPageChange("Patterns"))}
+                      className="w-full text-left pl-3 border-l-2 border-l-amber-400 py-1.5 flex items-start justify-between gap-2 group/cs hover:bg-amber-50/30 rounded-r-md transition-colors"
+                      title={ins.description}
+                    >
+                      <div className="flex-1 min-w-0 pt-0.5 space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={cn(
+                              "text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border",
+                              b1.className
+                            )}
+                          >
+                            {b1.label}
+                          </span>
+                          <span className="text-[10px] text-gray-300 font-bold">×</span>
+                          <span
+                            className={cn(
+                              "text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border",
+                              b2.className
+                            )}
+                          >
+                            {b2.label}
+                          </span>
+                          <span
+                            className="flex items-center gap-1 ml-auto"
+                            title={`Уверенность ${Math.round(ins.confidence * 100)}% — ${tier.label}`}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={cn(
+                                "inline-block w-1.5 h-1.5 rounded-full",
+                                tier.dotClass
+                              )}
+                            />
+                          </span>
+                        </div>
+                        <p className="text-[13px] font-semibold text-gray-800 leading-snug group-hover/cs:text-amber-700 transition-colors">
+                          {truncate(ins.title, 48)}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className="text-gray-300 group-hover/cs:text-amber-500 transition-colors shrink-0 mt-1"
+                      />
+                    </button>
+                  );
+                })}
+
+                {observations.slice(0, Math.max(0, 2 - crossSphereInsights.length)).map((obs) => (
                   // Inner-row click goes to Patterns (same destination as
                   // the card itself), but we stop propagation anyway so the
                   // event handler runs exactly once and future per-row
@@ -1145,21 +1266,40 @@ export function OverviewDashboard({
             )}
           </div>
 
-          {observations.length > 0 && (
+          {(observations.length > 0 || crossSphereInsights.length > 0) && (
             <div className="mt-4 flex items-center gap-2 flex-wrap">
-              <span
-                className={cn(
-                  t.footerPill,
-                  "bg-orange-50 text-orange-600 font-semibold"
-                )}
-              >
-                {observations.length}{" "}
-                {observations.length % 10 === 1 && observations.length % 100 !== 11
-                  ? "аномалия"
-                  : observations.length % 10 >= 2 && observations.length % 10 <= 4 && (observations.length % 100 < 12 || observations.length % 100 > 14)
-                  ? "аномалии"
-                  : "аномалий"}
-              </span>
+              {crossSphereInsights.length > 0 && (
+                <span
+                  className={cn(
+                    t.footerPill,
+                    "bg-amber-50 text-amber-700 font-semibold whitespace-nowrap"
+                  )}
+                  title="Связи между сферами, найденные анализатором"
+                >
+                  {crossSphereInsights.length}{" "}
+                  {crossSphereInsights.length % 10 === 1 && crossSphereInsights.length % 100 !== 11
+                    ? "связь"
+                    : crossSphereInsights.length % 10 >= 2 && crossSphereInsights.length % 10 <= 4 && (crossSphereInsights.length % 100 < 12 || crossSphereInsights.length % 100 > 14)
+                    ? "связи"
+                    : "связей"}{" "}
+                  между сферами
+                </span>
+              )}
+              {observations.length > 0 && (
+                <span
+                  className={cn(
+                    t.footerPill,
+                    "bg-orange-50 text-orange-600 font-semibold"
+                  )}
+                >
+                  {observations.length}{" "}
+                  {observations.length % 10 === 1 && observations.length % 100 !== 11
+                    ? "аномалия"
+                    : observations.length % 10 >= 2 && observations.length % 10 <= 4 && (observations.length % 100 < 12 || observations.length % 100 > 14)
+                    ? "аномалии"
+                    : "аномалий"}
+                </span>
+              )}
               <span className={cn(t.footerPill, "whitespace-nowrap")}>
                 AI оценка согласована
               </span>

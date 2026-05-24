@@ -349,6 +349,36 @@ class ObservationGenerateOut(BaseModel):
     observations: list[ObservationOut] = Field(default_factory=list)
 
 
+class CrossSphereInsightOut(BaseModel):
+    """A correlation between two life spheres surfaced by the analyzer.
+
+    `sphere1`/`sphere2` map 1:1 to the FE domain palette
+    (finance/health/projects/life), which is why we keep them as raw
+    strings instead of an enum — adding a new sphere should not
+    require a schema migration.
+
+    `evidence` is the raw rule-layer payload (week counts, averages,
+    affected project list, …). The FE doesn't render it today but
+    keeps it around so future "Объяснить" / "Открыть факт" affordances
+    don't need another request.
+    """
+
+    id: int
+    sphere1: str
+    sphere2: str
+    title: str
+    description: str
+    confidence: float = 0.5
+    evidence: dict[str, Any] | None = None
+    is_active: bool = True
+    expires_at: str | None = None
+    created_at: str | None = None
+
+
+class CrossSphereInsightsOut(BaseModel):
+    insights: list[CrossSphereInsightOut] = Field(default_factory=list)
+
+
 class PaginatedTransactionsOut(BaseModel):
     total: int
     skip: int

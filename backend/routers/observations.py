@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import logging
 import os
 
 from fastapi import APIRouter
 
 from database import fetch_all, get_db
 from schemas import ObservationGenerateOut, ObservationOut
+from services.cross_sphere_analyzer import run_cross_sphere_analysis
 from services.observation_engine import generate_observations
 
 router = APIRouter()
+
+logger = logging.getLogger("observations")
 
 
 @router.get("/observations", response_model=list[ObservationOut])
@@ -31,6 +35,21 @@ async def generate_observations_endpoint() -> ObservationGenerateOut:
     api_key = os.getenv("ANTHROPIC_API_KEY", "") or ""
     with get_db() as conn:
         saved = await generate_observations(conn, api_key)
+        # Cross-sphere is intentionally rule-only (no LLM cost), so
+        # we run it on every observation refresh as well as the daily
+        # scheduler tick. Failures are non-fatal — observations still
+        # return even if the analyzer trips.
+        try:
+            cs_report = run_cross_sphere_analysis(conn)
+            logger.info(
+                "cross-sphere from /observations/generate: saved=%d "
+                "candidates=%d retired=%d",
+                cs_report.get("saved", 0),
+                cs_report.get("candidates", 0),
+                cs_report.get("retired", 0),
+            )
+        except Exception:
+            logger.exception("cross-sphere analyzer failed during observations/generate")
     observations = [
         ObservationOut(
             id=int(r["id"]),

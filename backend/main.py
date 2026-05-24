@@ -24,6 +24,7 @@ from database import get_db, init_db
 from routers import (
     category_rules,
     chat,
+    cross_sphere,
     dilemmas,
     events,
     feed,
@@ -40,6 +41,7 @@ from routers import (
     transactions,
     upload,
 )
+from services.cross_sphere_analyzer import run_cross_sphere_analysis
 from services.observation_engine import generate_observations
 
 load_dotenv()
@@ -67,6 +69,7 @@ app.include_router(category_rules.router, prefix="/api", tags=["finance"])
 app.include_router(projects.router, prefix="/api", tags=["projects"])
 app.include_router(dilemmas.router, prefix="/api", tags=["dilemmas"])
 app.include_router(observations.router, prefix="/api", tags=["observations"])
+app.include_router(cross_sphere.router, prefix="/api", tags=["cross-sphere"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(profile.router, prefix="/api", tags=["profile"])
@@ -98,9 +101,18 @@ async def _run_observation_scheduler() -> None:
                 api_key = os.getenv("ANTHROPIC_API_KEY", "") or ""
                 with get_db() as conn:
                     saved = await generate_observations(conn, api_key)
+                    # Cross-sphere runs in the same DB transaction
+                    # window so a single 24h tick refreshes both the
+                    # LLM observations and the rule-derived
+                    # correlations the Patterns card displays.
+                    cs_report = run_cross_sphere_analysis(conn)
                 _scheduler_logger.info(
-                    "observation scheduler: generated %d observation(s)",
+                    "observation scheduler: generated %d observation(s); "
+                    "cross-sphere saved=%d candidates=%d retired=%d",
                     len(saved),
+                    cs_report.get("saved", 0),
+                    cs_report.get("candidates", 0),
+                    cs_report.get("retired", 0),
                 )
             except asyncio.CancelledError:
                 raise

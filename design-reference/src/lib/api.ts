@@ -123,6 +123,38 @@ export type Observation = {
   created_at?: string | null;
 };
 
+/** Spheres the cross-sphere analyzer correlates between. Kept as a
+ *  union of the four current values so the FE palette can switch on
+ *  it exhaustively, but the backend serves whatever string it has
+ *  saved — unknown values render as a neutral gray badge. */
+export type CrossSphere = "finance" | "health" | "projects" | "life";
+
+export type CrossSphereInsight = {
+  id: number;
+  sphere1: CrossSphere | string;
+  sphere2: CrossSphere | string;
+  title: string;
+  description: string;
+  /** 0..1. The Patterns card uses three tone bands: <0.6 / 0.6-0.8 /
+   *  >0.8 (mirrors the backend phrasing). */
+  confidence: number;
+  /** Raw rule-layer payload. May be null for older rows; the UI
+   *  reads only `title`/`description` today. */
+  evidence?: Record<string, unknown> | null;
+  is_active: boolean;
+  expires_at?: string | null;
+  created_at?: string | null;
+};
+
+export async function fetchCrossSphereInsights(
+  limit = 20
+): Promise<CrossSphereInsight[]> {
+  const data = await apiFetch<{ insights: CrossSphereInsight[] }>(
+    `/api/cross-sphere?limit=${encodeURIComponent(limit)}`
+  );
+  return data.insights ?? [];
+}
+
 export type Transaction = {
   id: number;
   date: string;

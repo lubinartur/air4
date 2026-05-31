@@ -8,12 +8,12 @@
 
 ---
 
-## Текущий статус: Sprint 7 завершён
+## Текущий статус: Sprint 11 завершён
 
-**Дата:** 22 мая 2026  
-**Фаза:** Phase 7 — Performance, Streaming UX & Russian Localization
+**Дата:** 1 июня 2026
+**Фаза:** Phase 6 — Design, New Features & Cleanup
 
-Все основные страницы живые, memory-система работает: события и факты извлекаются после каждого сообщения, наблюдения генерируются по rule layer + LLM. Чат стримит ответы по дельтам, БД ускорена (PRAGMA + индексы + N+1 fix), весь UI переведён на русский.
+Все основные модули работают: Finance, Memory, Projects, Health, Analysis, Observations, Chat со стримингом. Добавлен workout_extractor для логирования тренировок через чат. Почищено 140 дублей событий (634 → 494). Проведён полный аудит кода.
 
 ---
 
@@ -23,62 +23,82 @@
 
 **Финансы (Sprint 1–2):**
 - `POST /api/upload` — парсер Swedbank CSV, категоризация через Claude
-- `GET /api/summary` — сводка трат; `mark_internal_transfers_in_db` при каждом запросе
-- `GET /api/transactions` — список транзакций
+- `GET /api/summary` — сводка трат; `mark_internal_transfers_in_db` только при upload
+- `GET /api/transactions`, `PUT /api/transactions/{id}/category`
 - `GET /api/uploads`, `DELETE /api/uploads/{id}`
 - `GET /api/insights`
+- `GET /api/finance/subscriptions` + POST/PUT/DELETE
+- `GET /api/finance/obligations` + POST/PUT/DELETE
+- `GET /api/finance/monthly-fixed`, `GET /api/finance/cycles`
 - Internal transfers fix — парный матчинг ±2 дня (`parser.py`)
+- Зарплатный цикл 10→10 (`salary_cycle.py`)
 
 **Чат и memory (Sprint 2–3):**
 - `POST /api/chat` — Claude Sonnet, контекст из SQLite, streaming (SSE)
-- `event_extractor`, `fact_extractor`, `body_extractor` — fire-and-forget после каждого сообщения
-- Дедупликация событий (title + date ±1 день)
+- `GET /api/chat/history`
+- Цепочка пост-чат экстракторов: `body_extractor` → `event_extractor` → `workout_extractor` → `fact_extractor` → `decision_extractor`
+- Дедупликация событий — двухуровневый порог (0.70 та же дата, 0.85 соседние)
 - Дедупликация фактов (первые два слова ключа)
+- Conversational continuity — `chat_messages` в БД, история подмешивается в LLM-контекст
 
-**Новые endpoints (Sprint 3):**
-- `GET /api/events` — события из memory
-- `GET /api/profile` — профиль, факты, stats
-- `GET /api/goals` — цели из profile + user_facts
-- `GET /api/hypotheses` — паттерны (hypotheses table)
-- `GET /api/health/metrics`, `GET /api/health/workouts`
-- `POST /api/observations/generate`, `GET /api/observations`
-- `GET /api/finance/subscriptions`, `GET /api/finance/obligations` — из user_facts (UI пока empty state)
-- `GET /api/projects`, `GET /api/dilemmas`
+**Endpoints (Sprint 3+):**
+- `GET /api/events`, `GET /api/profile`, `GET /api/goals`
+- `GET /api/hypotheses`, `GET /api/observations`, `POST /api/observations/generate`
+- `GET /api/cross-sphere`, `GET /api/dilemmas` + POST/PATCH/followup
+- `GET /api/health/metrics`, `GET /api/health/workouts`, `GET /api/health/checkups`
+- `GET /api/health/markers/{name}/history`
+- `GET /api/projects` + detail/todos/sessions/logs
+- `GET /api/feed` — Live Feed по 6 источникам
+- `GET /api/interview/question`, `PUT /api/interview/answer`
 
 **Сервисы:**
 - `observation_engine` — rule layer + LLM (Haiku), cooldown 7 дней, сигналы `workout_streak` / `no_workout` взаимоисключающие
-- `llm_client_shared.py` — общий async Claude-клиент для всех экстракторов
-- `import_workouts.py` — импорт тренировок из Coaich JSON (`python3 import_workouts.py coaich-backup.json`)
+- `workout_extractor.py` — логирование тренировок через чат, футер-подтверждение, notes для кардио (дистанция, пульс)
+- `cleanup_duplicate_events.py` — разовый инструмент дедупа (dry-run + --apply + --date)
+- `cross_sphere_analyzer.py` — кросс-сферный анализ (Finance ↔ Health ↔ Projects)
+- `subscription_updater.py` — чат правит подписки и кредиты
+- `subscription_migration.py` — идемпотентный перелив из user_facts в subscriptions
+- `llm_client.py` — чат (Sonnet, sync SDK)
+- `llm_client_shared.py` — экстракторы (Haiku, async httpx)
+- `import_workouts.py` — импорт тренировок из Coaich JSON
+- `import_health_checkup.py` — импорт анализов крови
 - `strip_internal_xml_tags()` — XML-теги не попадают в ответ пользователю
 
 ### Frontend (design-reference, port 3000)
 
 **Все страницы на реальных данных:**
-- Overview — Finance, Health, Projects, Patterns, Dilemma, AIR4 bubble
-- Finance — snapshot, categories, transactions, insights, uploads
-- Health — body metrics, workouts
-- Projects, Memory, Goals, Dilemmas, Patterns, Profile
-- Chat — ChatPanel + FullscreenChat, история в localStorage
+- Overview — Finance, Health, Projects, Patterns, Dilemma, AIR4 bubble, Live Feed
+- Finance — snapshot, categories, transactions, insights, uploads, cycle navigator
+- Health — маркеры крови CBC/Biochemistry/Lipids/Hormones, динамика, date picker, Biomarker Insight Panel
+- Sport — Athletic Command дизайн, Weight Trajectory chart, Log Session форма, кликабельные тренировки с деталями упражнений
+- Projects — Command Center дизайн, momentum bars, Focus Distribution, детальная страница с таймером Pomodoro и todo списком
+- Goals — карточки целей с прогресс-барами, Wishlist, Deadlines timeline, Weekly Focus
+- Memory — фильтры по доменам (ALL/FINANCE/HEALTH/PROJECTS/LIFE/PERSONAL), grid layout
+- Dilemmas, Patterns, Profile
+- Chat — ChatPanel + FullscreenChat, история из БД
 
 **Паттерны загрузки:**
 - Рефетч в App после каждого сообщения в чате (`refreshOverviewData`)
 - `Promise.allSettled` — один упавший запрос не роняет страницу (Finance, Overview)
-- Express proxy в `server.ts` для всех `/api/*` (маппинг `chatHistory` → `history`)
+- Vite proxy для всех `/api/*` → :8000
 
 **Subscriptions / Loans:** живой UI, таблицы `subscriptions` и `obligations`
-— единый источник правды; чат правит цены и удаляет записи через
-`subscription_updater`.
+— единый источник правды; чат правит цены и удаляет записи через `subscription_updater`.
 
 ### Database (SQLite, `backend/data/air4.db`)
 
 | Данные | Состояние |
 |--------|-----------|
-| Выписки Swedbank | 3 загружены (январь—май 2026) |
-| Тренировки | 8 из Coaich импортированы |
+| Выписки Swedbank | 3 загружены (январь–май 2026) |
+| Тренировки | 10 (8 Coaich + 2 новых) |
 | Body metrics | 95 кг / 187 см |
 | user_facts | ~73 факта |
+| events | 494 (после чистки 140 дублей) |
 | observations | 2 активных |
-| events | из чата, с дедупликацией |
+| health_checkups | маркеры крови 5 дат (2019→2026) |
+| subscriptions | 9 подписок ~€205/мес |
+| obligations | 2 кредита ~€647/мес |
+| chat_messages | полная история переписки |
 
 ### LLM
 
@@ -88,23 +108,28 @@
 
 ---
 
-## Что не сделано (следующие фазы)
+## Known issues / tech-debt (актуально)
 
-| Задача | Фаза |
-|--------|------|
-| Decision Memory Layer — таблица решений с исходами | Phase 7 |
-| Memory lifecycle — архивация событий | Phase 7–8 |
-| Cross-sphere report (Health × Finance × Projects) | Phase 8 |
-| Auth на API | Phase 8 |
-| Multiple bank support / Apple Health / Calendar | Phase 8 |
-| `chatHistory` → `history` при dev через Vite без Express | — |
+**Критично:**
+- `frontend/` — мёртвый Next.js прототип, 20+ битых endpoint-ов. Удалить или синхронизировать с бэкендом
+- Пост-чат экстракторы — 5 последовательных LLM вызовов после каждого сообщения, регулярные 429. Объединить в один вызов или asyncio.gather + backoff
 
-### Known issues / tech-debt (актуально)
+**Tech debt:**
+- Два LLM клиента — `llm_client.py` (sync SDK) и `llm_client_shared.py` (async httpx). Объединить
+- `@app.on_event` deprecated в FastAPI — заменить на lifespan context manager
+- Мёртвые колонки в `events`: `original_text`, `processed_text`, `embedding_id`, `archive_after`, `summarized`, `timestamp`
+- Таблица `embeddings` — объявлена в схеме, нигде не используется
+- `prompts.py` 23.5KB — разделить на `system.py` + `search.py`
+- `chat.py` 590 строк — разнести на `chat_attachments.py` + `chat_pipeline.py`
+- `.env.example` рекламирует Ollama, но код полностью на Anthropic — переписать
+- `GEMINI_API_KEY` в `vite.config.ts` — наследие шаблона, вычистить
+- Нет аутентификации — все 50 endpoints открыты (локально ок, но риск при проксировании)
+- `search_relevant_events` — LIKE '%kw%' full scan, при >10k events нужен FTS5
+- Дедуп workouts только по дате — при двух тренировках в день вторая не запишется. Расширить до `(date, type)`
 
-- Парсер Swedbank иногда пропускает служебные строки (`lõppsaldo`,
-  `Käive`) — фильтр работает, но не покрывает все варианты.
-- Категория `other` на Finance странице всё ещё собирает шум —
-  на Overview уже скрыта через `HIDDEN_CATEGORIES`.
+**Мелкое:**
+- Парсер Swedbank иногда пропускает служебные строки (`lõppsaldo`, `Käive`)
+- Категория `other` собирает шум (на Overview скрыта через `HIDDEN_CATEGORIES`)
 
 ---
 
@@ -117,25 +142,29 @@ AIR4/
 │   ├── database.py
 │   ├── data/air4.db
 │   ├── import_workouts.py
+│   ├── import_health_checkup.py
+│   ├── cleanup_duplicate_events.py
 │   ├── routers/
 │   │   ├── upload.py, summary.py, transactions.py, insights.py
 │   │   ├── chat.py, projects.py, dilemmas.py, observations.py
 │   │   ├── health.py, profile.py, events.py, goals.py
-│   │   ├── hypotheses.py, finance_facts.py
+│   │   ├── hypotheses.py, finance_recurring.py, finance_facts.py
 │   └── services/
 │       ├── llm_client.py            # чат (Sonnet)
 │       ├── llm_client_shared.py     # экстракторы (Haiku)
 │       ├── parser.py, categorizer.py, summary_loader.py
 │       ├── prompts.py, event_extractor.py, fact_extractor.py
-│       ├── body_extractor.py, observation_engine.py
+│       ├── body_extractor.py, workout_extractor.py
+│       ├── observation_engine.py, cross_sphere_analyzer.py
+│       ├── subscription_updater.py, subscription_migration.py
+│       ├── salary_cycle.py, feed.py, chat_history.py
 │       └── finance_facts.py
 ├── design-reference/                # React UI (порт 3000)
-│   ├── src/App.tsx                  # state + рефетч после чата
+│   ├── src/App.tsx
 │   ├── src/components/              # все страницы
 │   ├── src/lib/api.ts
-│   └── server.ts                    # Express proxy → :8000
-├── backend/app/                     # legacy (не используется в dev)
-├── docs/
+│   └── vite.config.ts
+├── frontend/                        # МЁРТВЫЙ Next.js прототип — удалить
 └── DEV_STATUS.md
 ```
 
@@ -151,9 +180,34 @@ cd backend && uvicorn main:app --reload --port 8000
 cd design-reference && npm run dev
 ```
 
-- Backend: http://127.0.0.1:8000  
-- Frontend: http://localhost:3000  
+- Backend: http://127.0.0.1:8000
+- Frontend: http://localhost:3000
 - Health check: `GET http://127.0.0.1:8000/health`
+
+---
+
+## Полезные команды
+
+```bash
+# Импорт тренировок из Coaich
+cd backend && python3 import_workouts.py path/to/coaich-backup.json
+
+# Импорт анализов крови
+cd backend && python3 import_health_checkup.py
+
+# Дедуп событий — dry-run
+python3 backend/cleanup_duplicate_events.py
+
+# Дедуп — применить
+python3 backend/cleanup_duplicate_events.py --apply
+
+# Дедуп — конкретная дата
+python3 backend/cleanup_duplicate_events.py --date 2026-05-29 --apply
+
+# Проверить БД
+sqlite3 backend/data/air4.db "SELECT COUNT(*) FROM events;"
+sqlite3 backend/data/air4.db "SELECT date, type, source FROM workouts ORDER BY date DESC LIMIT 10;"
+```
 
 ---
 
@@ -254,27 +308,19 @@ cd design-reference && npm run dev
 **Subscriptions как single source of truth:**
 - `services/subscription_migration.py` — на старте приложения
   идемпотентно переливает все subscription-подобные факты из
-  `user_facts` в таблицу `subscriptions` (key-сканер + value-сканер с
-  списком известных брендов и проверкой negation).
+  `user_facts` в таблицу `subscriptions`.
 - `fact_extractor.py` — публичные предикаты `is_subscription_key`,
-  `is_obligation_key`, `is_subscription_related_key`;
-  `canonical_subscription_name` + `_BRAND_DISPLAY` для нормального
-  написания брендов (ChatGPT, iCloud и т.д.); `_upsert_subscription_from_fact`
-  пишет любую новую subscription-факт сразу в таблицу.
+  `is_obligation_key`; `canonical_subscription_name` + `_BRAND_DISPLAY`
+  для нормального написания брендов (ChatGPT, iCloud и т.д.).
 - `prompts.py` — `get_subscriptions_context(db)` читает таблицу;
-  `_format_facts` отсеивает subscription-related факты из `user_facts`,
-  чтобы LLM не видел дубликатов.
+  `_format_facts` отсеивает subscription-related факты из `user_facts`.
 
 **Чат правит recurring items:**
 - `services/subscription_updater.py` — парсит сообщения пользователя,
-  ищет лучшее совпадение в `subscriptions` / `obligations` (токенизация
-  + рус. стемминг, стоп-слова, regex для сумм), различает intent
-  «обновить цену» vs «удалить»; обновляет `amount` /
-  `monthly_payment`, мягко удаляет (`is_active=0`).
+  ищет совпадение в `subscriptions` / `obligations`, различает intent
+  «обновить цену» vs «удалить».
 - `routers/chat.py` — после ответа LLM вызывает
-  `apply_recurring_corrections` и аппендит markdown-footer
-  (`_Обновлено: X €old → €new_` или `_Удалено: X_`); возвращает массив
-  `recurring_updated` в `ChatOut`.
+  `apply_recurring_corrections` и аппендит markdown-footer.
 - `DELETE /api/finance/subscriptions/{id}` добавлен.
 
 **Conversational continuity:**
@@ -282,82 +328,34 @@ cd design-reference && npm run dev
   индекс по `created_at`.
 - `services/chat_history.py` — `save_chat_message`, `save_exchange`,
   `fetch_recent_chat_messages`.
-- `routers/chat.py` — `_persist_exchange` сохраняет каждую пару
-  user/assistant, `_build_llm_history` подгружает последние сообщения
-  из БД и подмешивает их в LLM-контекст; `GET /api/chat/history?limit=50`
-  отдаёт историю фронту.
+- `GET /api/chat/history?limit=50` отдаёт историю фронту.
 
 **Live Feed (`GET /api/feed?limit=30`):**
 - `services/feed.py` — агрегатор по 6 источникам: `transactions`,
   `uploads`, `project_logs`, `events`, `observations`, плюс парсинг
   footer'ов из `chat_messages` для subscription-апдейтов.
-- Сортировка по `created_at desc` (SQLite ISO-строки сортируются
-  лексикографически), `_dedupe_by_title` снимает повторы `(type,
-  title)`.
 
 ### Frontend
 
 **Cycle navigator:**
-- `Finance.tsx` — стрелки `<` / `>` в шапке Monthly Snapshot, дефолт на
-  `latest_with_data`, обновление `summary` при смене цикла.
-- `App.tsx` — `fetchOverviewSummary()` помощник в `lib/api.ts`, тянет
-  `latest_with_data` через `/api/finance/cycles` и подставляет его в
-  `/api/summary`. Все три точки загрузки Overview переведены на него
-  (initial mount, page-switch, post-chat refresh).
+- `Finance.tsx` — стрелки `<` / `>` в шапке Monthly Snapshot.
+- `App.tsx` — `fetchOverviewSummary()` тянет `latest_with_data` через
+  `/api/finance/cycles`.
 
 **Finance страница:**
-- Cycle navigator переехал в шапку Monthly Snapshot (право).
-- Карточка «Upcoming Obligations» в правой колонке:
-  `nextBillingDate(billing_day)` + `formatRelativeDate` для следующих
-  списаний подписок и кредитов.
-- «Loans & Obligations» — прогресс-бары `remaining_amount / total_amount`,
-  цветовая шкала через `progressTone()` (зелёный / индиго / красный),
-  graceful fallback когда суммы не заданы.
-- При `recurring_updated.length > 0` из чата —
-  `setFinanceRefreshTick`, и `useEffect` рефетчит subscriptions /
-  obligations / monthly-fixed.
+- Карточка «Upcoming Obligations» — `nextBillingDate(billing_day)`.
+- «Loans & Obligations» — прогресс-бары, цветовая шкала через `progressTone()`.
 
 **Live Feed на Overview:**
-- `components/LiveFeed.tsx` — две вьюхи:
-  - **Digest** (дефолт, ≤8 строк) — последний элемент в каждой
-    «категории» (`categoryOf` отделяет spend от income, и event_health
-    от event_finance).
-  - **Full** — хронологический список с группировкой
-    TODAY / YESTERDAY / `MAY 20`, цветные accent bars слева, иконки
-    в tinted квадратах, точное локальное время.
+- `components/LiveFeed.tsx` — Digest (дефолт) + Full вьюхи.
 - Дедуп на бэке + категориальный фильтр на фронте.
-- Toggle `View all (N)` / `Show digest`, futter `CHRONICLE EVENTS
-  SYNCHRONIZED · LIVE STREAM CONNECTED`.
-
-**Observed Patterns на Overview:**
-- Перенесён в правую колонку, рядом с Live Feed (2/3 + 1/3 grid).
-- Title-only вид с indigo accent + chevron справа, max 3 элемента,
-  клик ведёт на страницу Patterns.
-
-**Overview typography & data:**
-- `fetchOverviewSummary` чинит KPI (Total Spent, Income, Free Capital)
-  и Spend Chart — Overview больше не дёргает пустой active cycle.
-- `HIDDEN_CATEGORIES` (`transfers`, `other`, `uncategorized`, ...)
-  отфильтровываются на Spend Chart, top 6.
-- Подписи категорий переехали на `w-32 break-words leading-tight` —
-  больше не режутся `...`.
-- Все sub-labels на Overview (INCOME, FREE, LAST 7 DAYS, LAST WORKOUT,
-  PRIMARY DILEMMA, TIMELINE) теперь идут через `t.cardLabel`
-  (`text-[11px] font-bold text-gray-400 uppercase tracking-wider`);
-  BMI вынесен на строку под весом.
 
 **Chat history hydration:**
-- `lib/api.ts` — `fetchChatHistory(limit)`.
-- `ChatPanel.tsx` и `FullscreenChat.tsx` — на mount тянут историю с
-  бэка; `sessionStorage` остаётся fallback на офлайн.
-- `onMessageSent` пробрасывает `ChatResponseMeta` (с `recurring_updated`)
-  до App.
+- `ChatPanel.tsx` и `FullscreenChat.tsx` — на mount тянут историю с бэка.
 
 ### Database (новое)
-
 - `chat_messages` — лог переписки.
-- `subscriptions` / `obligations` — теперь авторитетные таблицы
-  (миграция из `user_facts` идемпотентна).
+- `subscriptions` / `obligations` — теперь авторитетные таблицы.
 
 ---
 
@@ -366,105 +364,139 @@ cd design-reference && npm run dev
 ### Backend
 
 **Реальный стриминг чата:**
-- `routers/chat.py` — переход с псевдо-стриминга (накопление полного
-  ответа + отдача целиком) на честный per-delta SSE: каждая дельта от
+- `routers/chat.py` — честный per-delta SSE: каждая дельта от
   Anthropic SDK уходит во фронт через `yield` сразу.
-- `asyncio.to_thread()` оборачивает блокирующий SDK-вызов, чтобы event
-  loop не залипал; экстракторы (`event_extractor`, `fact_extractor`,
-  `body_extractor`) запускаются после закрытия стрима.
+- `asyncio.to_thread()` оборачивает блокирующий SDK-вызов.
 
 **Transfer detection — только на upload:**
-- `mark_internal_transfers_in_db` убран из read-пути
-  (`/api/summary`, `/api/transactions`) и вызывается только в
-  `POST /api/upload` после парсинга CSV.
-- Read-запросы больше не делают O(N²) парный матчинг на каждый GET.
+- `mark_internal_transfers_in_db` убран из read-пути и вызывается
+  только в `POST /api/upload`.
 
 **SQLite tuning:**
-- `database.py:get_db()` — `PRAGMA journal_mode=WAL`,
-  `synchronous=NORMAL`, `foreign_keys=ON`, `temp_store=MEMORY`,
-  `cache_size=-64000` применяются на каждое подключение.
-- Добавлены недостающие индексы: `transactions(date)`,
-  `transactions(category)`, `events(date)`, `events(domain)`,
-  `observations(created_at)`, `observations(status)`,
-  `subscriptions(is_active, billing_day)`,
+- `PRAGMA journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=ON`,
+  `temp_store=MEMORY`, `cache_size=-64000`.
+- Добавлены индексы: `transactions(date)`, `transactions(category)`,
+  `events(date)`, `events(domain)`, `observations(created_at)`,
+  `observations(status)`, `subscriptions(is_active, billing_day)`,
   `user_facts(key)`.
 
 **N+1 fix в projects:**
-- `routers/projects.py` — `GET /api/projects` теперь одним SQL с
-  `LEFT JOIN project_sessions ... GROUP BY project_id` тянет
-  `total_sessions_minutes`. Раньше — отдельный запрос на каждый проект.
-
-**Чистка proxy и API:**
-- Express proxy убран — Vite сам ходит на :8000.
-- `chatHistory` ключи в `localStorage` переименованы в `history`;
-  миграционный код снят.
+- `GET /api/projects` — одним SQL с `LEFT JOIN project_sessions ... GROUP BY project_id`.
 
 **Goals deduplication:**
-- `routers/goals.py` — `difflib.SequenceMatcher` с порогом 0.85
-  фильтрует дубли (например, «Купить машину» и «купить авто»
-  схлопываются в одну запись).
+- `routers/goals.py` — `difflib.SequenceMatcher` с порогом 0.85.
 
 **Migration gating:**
-- Новая служебная таблица `_app_meta(key TEXT PRIMARY KEY, value TEXT)`.
-- Одноразовые миграции (subscription_migration, etc.) проверяют
-  `_app_meta` и не запускаются повторно при каждом старте backend.
+- Таблица `_app_meta(key TEXT PRIMARY KEY, value TEXT)`.
+- Одноразовые миграции проверяют `_app_meta` и не повторяются.
 
 ### Frontend
 
 **Streaming UI:**
-- `ChatPanel.tsx` и `FullscreenChat.tsx` — каждый SSE-чанк добавляется
-  в сообщение с CSS-анимацией `fadeIn`, без блинкающего курсора в конце.
-- Текст «всплывает» по мере прихода токенов, ощущение живой печати.
+- Каждый SSE-чанк добавляется в сообщение с CSS-анимацией `fadeIn`.
 
 **Дедуп Overview-запросов:**
-- `App.tsx` — `fetchOverviewSummary()` мемоизирован и вызывается один
-  раз на mount + после чата. Раньше Overview, Finance и
-  `LiveFeed`/`OverviewDashboard` независимо дёргали `/api/summary` и
-  `/api/finance/cycles` — суммарно 4–6 GET на загрузку. Теперь 1.
+- `fetchOverviewSummary()` мемоизирован — 1 запрос вместо 4–6.
 
 **Полный перевод UI на русский:**
-- Все 22 компонента в `design-reference/src/components/` переведены:
-  кнопки, статусы (`ON TRACK` → `НА ПУТИ`, `ACTIVE` → `АКТИВЕН`,
-  `HIGH/LOW/NORMAL` → `ВЫШЕ/НИЖЕ/НОРМА`), заголовки секций, empty
-  states, тексты ошибок, placeholder'ы, `aria-label`/`title`,
-  AIR4-цитаты, footer-метки.
-- Сохранены английскими по правилу: `AIR4`, `milestone`,
-  `Push/Pull/Legs`, технические названия маркеров (hemoglobin,
-  testosterone, SHBG), merchant names (Swedbank).
-- `constants.ts` — добавлены `PAGE_LABELS`, `PROJECT_STATUS_LABEL`,
-  `DILEMMA_STATUS_LABEL`: идентификаторы остаются английскими (роутинг,
-  API), отображение — русское.
-- Locale `ru-RU` для дат/времени (`LiveFeed`, `Projects`,
-  `OverviewDashboard`, `Finance`).
-- Русская плюрализация для счётчиков (день/дня/дней,
-  воспоминание/воспоминания/воспоминаний, и т.д.).
-
-**Технические исправления:**
-- `React keys` — везде, где использовался `index` массива, заменено на
-  стабильный `id` (Memory, Goals, LiveFeed, Patterns).
-- `Dilemma` TS-тип расширен под новые поля бэка
-  (`follow_up_due`, `resolution_note`).
+- Все 22 компонента переведены. Сохранены английскими: `AIR4`,
+  `milestone`, технические названия маркеров, merchant names.
+- `constants.ts` — `PAGE_LABELS`, `PROJECT_STATUS_LABEL`,
+  `DILEMMA_STATUS_LABEL`.
+- Locale `ru-RU`, русская плюрализация счётчиков.
 
 **Удалён мёртвый код:**
-- `backend/services/finance_facts.py` — устаревший роутер,
-  поглощённый `subscriptions` / `obligations`.
-- `design-reference/src/components/Insights.tsx` — заменён карточками
-  в Finance / Overview.
-- Deprecated алиасы в `lib/api.ts` (`fetchProjectsList`,
-  `fetchHealthData`) — удалены, везде используется единое имя.
+- `backend/services/finance_facts.py` — поглощён subscriptions/obligations.
+- `design-reference/src/components/Insights.tsx` — заменён карточками.
+- Deprecated алиасы в `lib/api.ts` удалены.
+
+---
+
+## Sprint 8–10 — Health, Cross-sphere, Decision Memory (май 2026)
+
+- Cross-sphere insights на реальных данных
+- Decision Memory Layer — таблица решений с исходами
+- Health trend charts — динамика маркеров крови
+- Projects → Goals связь
+- File upload в чат (фото/PDF)
+- Forecast остаток к концу цикла
+- Burn rate дней на балансе
+
+---
+
+## Sprint 11 — Workout Extractor & Event Cleanup (1 июня 2026)
+
+### Backend
+- `workout_extractor.py` — логирование тренировок через чат естественным языком,
+  футер-подтверждение (`_Записал: cardio, 2026-05-31, 33 мин_`), notes для
+  кардио-данных (дистанция, пульс)
+- Интеграция в `routers/chat.py` — fire-and-forget после стрима
+- Фикс `event_extractor.py` — LLM больше не записывает meta-действия
+  («Добавил тренировку», «Импортировал данные» и т.п.) как жизненные события
+- Улучшен дедуп событий — двухуровневый порог:
+  - 0.70 для той же даты
+  - 0.85 для соседних дат (±1 день)
+- `cleanup_duplicate_events.py` — разовый инструмент:
+  - dry-run по умолчанию, `--apply` для коммита, `--date` для прицельной даты
+  - адаптивный порог: >5 групп на дату → 0.75 вместо 0.5
+  - защита от удаления событий на которые ссылается `workouts`
+- Очищено 140 дублей (634 → 494 events)
+- Импорт 2 новых тренировок из Coaich (2026-05-29 Upper A, 2026-05-30 Lower)
+
+### Database
+- `body_extractor.py` обновлён — workouts теперь двумя путями:
+  Coaich-импорт + чат через `workout_extractor`
+
+### Аудит кода (июнь 2026)
+Проведён полный аудит, найдены и задокументированы:
+- Мёртвый `frontend/` с 20+ битыми endpoints
+- 5 последовательных LLM вызовов после каждого сообщения (429 риск)
+- Два LLM клиента, deprecated lifecycle, мёртвые колонки схемы
+- Отсутствие аутентификации, устаревший .env.example
 
 ---
 
 ## Следующие шаги (приоритет)
 
-1. **Decision Memory Layer** — таблица решений с исходами, привязка
-   к dilemmas и observations.
-2. **Memory lifecycle** — архивация старых событий, expirable user_facts.
-3. **Загрузить выписку за май** (после 31 мая) — закроет текущий
-   зарплатный цикл и даст полный месяц данных для cross-sphere
-   insights.
-4. **Авто-декремент `remaining_amount` по кредитам** при обнаружении
-   платежа в транзакциях (matching по merchant + amount ± tolerance).
-5. **Cross-sphere insights на реальных данных** — наблюдения,
-   связывающие Finance ↔ Health ↔ Projects (после загрузки полных
-   циклов).
+1. **Загрузить выписку за май** (после 31 мая) — закроет зарплатный цикл
+2. **Импортировать анализы крови 2026-05-29** (38 маркеров, скрипт готов)
+3. **Объединить экстракторы в один LLM вызов** — убрать 429
+4. **Удалить `frontend/`** — мёртвый код сбивает с толку
+5. **Morning Brief** — endpoint + UI блок при открытии
+6. **Страница "Что AIR4 знает обо мне"** — живой портрет, правка через чат
+7. **Дедуп workouts по `(date, type)`**
+
+---
+
+## Roadmap — Фазы
+
+### Phase 6 — Design + New Features (сейчас)
+- Morning Brief — при открытии: молодец/не молодец/что сегодня, реальные цифры
+- Еженедельный разбор — план vs реальность по проектам, траты vs норма, тренировки
+- Страница "Что AIR4 знает обо мне" — живой портрет, факты и паттерны, правка через чат
+- Overview редизайн — три компактных плашки по сферам (Финансы/Здоровье/Проекты)
+- Быстрые кнопки-ответы `[Да]` `[Нет]` `[Расскажу]` `[Пропустить]` в чате
+- Follow-up после событий — "встреча с Карлосом прошла, как?"
+
+### Phase 7 — Polish + Toggle
+- Global Session Toggle — из шапки/чата/Overview, активная сессия идёт в контекст
+- Финансовый календарь — техосмотр/страховка через чат, тип `one_time` в obligations
+- Финансовая яма — конкретный план выхода с цифрами, не просто анализ
+- Tech debt: объединить экстракторы, два LLM клиента, мёртвая схема, удалить frontend/
+
+### Phase 8 — Onboarding + Capture
+- Быстрый capture — `Cmd+Shift+Space`, окошко поверх всего, одна фраза → Enter → закрылось
+- Онбординг разговором при первом запуске
+- SQLCipher — шифрование базы
+- Минимальная аутентификация `X-AIR4-Key` middleware
+
+### Phase 9 — Mobile
+- iOS приложение — быстрый capture + чат
+- Синхронизация с маком по локальной сети
+- Push уведомления — только strong observations
+
+### Phase 10 — Integrations + Voice
+- Погода контекстно — "катит на байке?" с учётом твоего байка и порога температуры
+- Голос — Whisper (распознавание локально) + Kokoro/Piper (синтез локально)
+- Другие банки, Apple Calendar, Apple Health
+- Claude API только с preview что уходит + анонимизация

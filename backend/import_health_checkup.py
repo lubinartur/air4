@@ -52,6 +52,9 @@ CHECKUP_DATA_DEC: list[CheckupRow] = [
     ("Estradiol E2", 191, "pmol/L", 40, 160, "HIGH"),
     ("SHBG", 19, "nmol/L", 18, 54, None),
     ("Prolactin", 407, "mU/L", 86, 324, "HIGH"),
+
+    # Lipids
+    ("Triglycerides", 0.86, "mmol/L", None, 2.0, None),
 ]
 
 CHECKUP_DATA_2019: list[CheckupRow] = [
@@ -106,6 +109,7 @@ CHECKUP_DATA_2025_NOV: list[CheckupRow] = [
     ("Total Cholesterol", 5.0, "mmol/L", None, 5.0, None),
     ("LDL Cholesterol", 3.2, "mmol/L", None, 3.0, "HIGH"),
     ("HDL Cholesterol", 1.0, "mmol/L", 1.0, None, None),
+    ("Triglycerides", 2.29, "mmol/L", None, 2.0, None),
 ]
 
 # SYNLAB Tallinn checkup — translated from Estonian lab printout.

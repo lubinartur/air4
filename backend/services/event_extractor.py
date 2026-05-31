@@ -18,13 +18,23 @@ VALID_CATEGORIES = frozenset(
     {"workout", "expense", "milestone", "meeting", "decision", "goal", "note"}
 )
 
-# Title similarity threshold for dedup. The LLM rephrases the same
+# Title similarity thresholds for dedup. The LLM rephrases the same
 # logical event differently every time the user mentions it ("Сдать
 # анализы" → "Сдача анализов" → "Планируемые анализы крови"), so a
 # strict `title = ?` check let dozens of near-duplicates through.
-# 0.85 matches the spec and lines up with `routers/goals.py`
-# (which uses the same threshold for goal-row dedup).
-_TITLE_SIMILARITY_THRESHOLD = 0.85
+#
+# Two thresholds because the cost of a false-positive grows with date
+# distance:
+#   • Same date  → 0.70. Rephrasings of the same day's event slip
+#     under 0.85 surprisingly often ("Фотка для ID карты" vs "Фотка
+#     для ID карты сделана", "Техосмотр на мотоцикл" vs "Техосмотр
+#     мотоцикла сделан"). On the same date the prior probability of a
+#     true duplicate is high, so we can be more aggressive.
+#   • ±1 day     → 0.85. Cross-day matches need to be tighter so we
+#     don't collapse genuinely different events that just share a
+#     verb. Matches the threshold used by `routers/goals.py`.
+_SAME_DATE_SIMILARITY_THRESHOLD = 0.70
+_CROSS_DATE_SIMILARITY_THRESHOLD = 0.85
 # ±1 day window. Sample the LLM-suggested date plus its neighbors so
 # the same event mentioned slightly differently across days collapses.
 _DEDUP_WINDOW_DAYS = 1
@@ -59,6 +69,17 @@ def _build_prompt(user_messages: list[str]) -> str:
         '   "category": "expense", "metadata": {"amount_eur": 150}}.\n'
         '  Example: "Купил книгу за 25 евро" → category="expense".\n'
         '  Do NOT skip these — they are events, not just transactions.\n'
+        "- SKIP self-referential actions about the journal/app itself — "
+        "they are technical bookkeeping, not life events. Examples to "
+        "EXCLUDE:\n"
+        '    • "Добавил тренировку" / "Добавил 2 тренировки" / '
+        '"Записал сессию" / "Импортировал данные из Coaich" / '
+        '"Залогировал кардио" / "Отметил X как сделанное" /\n'
+        '      "Исправил дату платежа на 15-е" / "Удалил подписку" / '
+        '"Зафиксировал вес".\n'
+        "  The underlying life event (the actual workout, the actual "
+        "completion, the actual purchase) IS valid — extract THAT "
+        "instead, not the meta-action of recording it.\n"
         "- If there are no events, return []."
     )
 
@@ -129,8 +150,9 @@ def _find_duplicate(
 ) -> dict[str, Any] | None:
     """Find a near-duplicate event within ±1 day of `event_date`.
 
-    A row counts as a duplicate when its normalized title's
-    `SequenceMatcher.ratio()` against the candidate is ≥0.85.
+    Uses date-dependent thresholds: a row on the same date counts as a
+    duplicate at ratio > 0.70, a row on a neighboring date needs
+    ratio ≥ 0.85. See the module-level constants for rationale.
 
     The old exact-match dedup let dozens of LLM rephrasings of the
     same logical event ("Сдать анализы" / "Сдача анализов" /
@@ -162,7 +184,17 @@ def _find_duplicate(
         if not existing_norm:
             continue
         ratio = SequenceMatcher(None, candidate_norm, existing_norm).ratio()
-        if ratio < _TITLE_SIMILARITY_THRESHOLD:
+        same_date = str(row.get("date") or "") == event_date
+        threshold = (
+            _SAME_DATE_SIMILARITY_THRESHOLD
+            if same_date
+            else _CROSS_DATE_SIMILARITY_THRESHOLD
+        )
+        # Same-date threshold is "strictly greater than" per spec —
+        # cross-date keeps its historical ≥ to avoid regressing the
+        # existing dedup-skip log lines.
+        passes = ratio > threshold if same_date else ratio >= threshold
+        if not passes:
             continue
         if best is None or ratio > best[0]:
             best = (ratio, dict(row))

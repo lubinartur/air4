@@ -108,6 +108,72 @@ CHECKUP_DATA_2025_NOV: list[CheckupRow] = [
     ("HDL Cholesterol", 1.0, "mmol/L", 1.0, None, None),
 ]
 
+# SYNLAB Tallinn checkup — translated from Estonian lab printout.
+# Canonical English marker names are reused wherever a prior checkup
+# already covers the same marker (Hemoglobin, Hematocrit, RBC, …) so
+# the trend chart on /health connects the dots across dates. Markers
+# without a prior history (MCV, MCH, MCHC, MPV, …) use the standard
+# English abbreviation. Reference ranges match the SYNLAB adult-male
+# panel; ranges already used by other checkups in this file are
+# repeated verbatim so a value comparing across dates stays apples-
+# to-apples.
+#
+# Explicit HIGH overrides:
+#   - LDL Cholesterol 3.0 mmol/L: at the lab's upper threshold; user
+#     confirmed повышен.
+#   - Triglycerides 1.99 mmol/L: above the recommended <1.7 mmol/L.
+CHECKUP_DATA_2026_MAY: list[CheckupRow] = [
+    # ---- CBC ----
+    ("Hemoglobin", 170, "g/L", 130, 170, None),
+    ("Hematocrit", 48.0, "%", 40, 50, None),
+    ("RBC", 5.25, "E12/L", 4.5, 5.5, None),
+    ("MCV", 91.4, "fL", 81, 100, None),
+    ("MCH", 32.4, "pg", 27, 34, None),
+    ("MCHC", 354, "g/L", 320, 360, None),
+    ("WBC", 7.1, "E9/L", 4.0, 9.0, None),
+    ("RDW", 12.5, "%", 11.5, 14.5, None),
+    ("Platelets", 197, "E9/L", 150, 400, None),
+    ("Plateletcrit", 0.23, "%", 0.18, 0.36, None),
+    ("MPV", 11.4, "fL", 8.5, 12.0, None),
+    ("PDW", 14.4, "fL", 9.0, 17.0, None),
+    ("Immature Granulocytes %", 0.4, "%", None, 0.5, None),
+    ("Normoblasts %", 0.0, "/100WBC", None, 0.0, None),
+    ("Neutrophils", 3.37, "E9/L", 1.8, 7.5, None),
+    ("Eosinophils", 0.34, "E9/L", 0.0, 0.5, None),
+    ("Basophils", 0.04, "E9/L", 0.0, 0.2, None),
+    ("Monocytes", 0.54, "E9/L", 0.1, 1.0, None),
+    ("Lymphocytes", 2.78, "E9/L", 1.0, 4.5, None),
+    ("Immature Granulocytes", 0.03, "E9/L", None, 0.10, None),
+    ("Normoblasts", 0.00, "E9/L", None, 0.0, None),
+
+    # ---- Liver enzymes ----
+    ("ALT", 35, "U/L", 0, 50, None),
+    ("AST", 23, "U/L", 0, 40, None),
+    ("GGT", 23, "U/L", 0, 55, None),
+
+    # ---- Lipid panel ----
+    ("Total Cholesterol", 4.7, "mmol/L", None, 5.0, None),
+    ("HDL Cholesterol", 1.1, "mmol/L", 1.0, None, None),
+    # LDL: at threshold; explicit HIGH per user spec.
+    ("LDL Cholesterol", 3.0, "mmol/L", None, 3.0, "HIGH"),
+    ("Non-HDL Cholesterol", 3.6, "mmol/L", None, 3.8, None),
+    # Triglycerides: above recommended <1.7; explicit HIGH per user spec.
+    ("Triglycerides", 1.99, "mmol/L", None, 1.7, "HIGH"),
+
+    # ---- Kidney function ----
+    ("Creatinine", 88, "µmol/L", 62, 115, None),
+    ("eGFR", 97.03, "mL/min/1.73m2", 90, None, None),
+
+    # ---- Hormones ----
+    ("Estradiol E2", 123.0, "pmol/L", 40, 160, None),
+    ("Free Testosterone", 0.34, "nmol/L", 0.2, 0.6, None),
+    ("SHBG", 19, "nmol/L", 18, 54, None),
+    ("Testosterone Total", 13.0, "nmol/L", 10, 35, None),
+    ("FSH", 4.3, "U/L", 1.5, 12.4, None),
+    ("LH", 4.40, "U/L", 1.7, 8.6, None),
+    ("Prolactin", 241, "mU/L", 86, 324, None),
+]
+
 CHECKUP_DATA_2022_SPERM: list[CheckupRow] = [
     # Spermogram
     ("Sperm Volume", 2.79, "ml", 1.5, None, None),
@@ -126,6 +192,7 @@ CHECKUPS: list[tuple[str, list[CheckupRow]]] = [
     ("2025-11-17", CHECKUP_DATA_2025_NOV),
     ("2025-12-30", CHECKUP_DATA_DEC),
     ("2026-03-12", CHECKUP_DATA),
+    ("2026-05-29", CHECKUP_DATA_2026_MAY),
 ]
 
 

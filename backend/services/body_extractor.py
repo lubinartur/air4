@@ -121,8 +121,10 @@ def _upsert_body_metric(
 async def extract_body_data(user_messages: list[str], db: Any) -> list[dict]:
     """Extract weight/height from chat messages and upsert into body_metrics.
 
-    Workouts are intentionally NOT logged from chat — they are imported only
-    from Coaich (see backend/import_workouts.py).
+    Workouts are logged through two paths now: bulk imports from a Coaich
+    backup (see backend/import_workouts.py) and per-message chat
+    extraction (see services/workout_extractor.py, wired in
+    routers/chat.py). This extractor only owns body metrics.
     """
     messages = [m.strip() for m in user_messages if (m or "").strip()]
     if not messages:

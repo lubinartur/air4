@@ -21,6 +21,7 @@ from services.decision_extractor import extract_decisions
 from services.event_extractor import extract_events
 from services.fact_extractor import extract_facts
 from services.llm_client import chat, chat_stream
+from services.workout_extractor import extract_workout, format_workout_footer
 from services.prompts import (
     build_system_context,
     get_health_checkups_context,
@@ -209,29 +210,43 @@ def _build_user_turn(message: str, attachment: dict[str, str] | None) -> dict[st
 
 async def _run_post_chat_extractors(
     user_messages: list[str], api_key: str
-) -> list[dict[str, Any]]:
-    """Run post-chat side effects and return recurring rows created or
-    updated by fact extraction (subscriptions / obligations).
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """Run post-chat side effects.
 
-    Awaited before the chat response meta is sent so the Finance page
-    can refetch immediately and see new rows. Failures are logged and
-    swallowed — the chat reply still lands.
+    Returns a tuple of:
+      • recurring rows created/updated by fact extraction
+        (subscriptions / obligations), surfaced as meta so the Finance
+        page can refetch immediately.
+      • the workout row inserted by `extract_workout`, or ``None`` —
+        used by the chat router to append a `_Записал: …_` footer to
+        the assistant message.
+
+    Awaited before persistence so the workout footer can be folded into
+    the message saved in `chat_messages` (and streamed as one last
+    delta). Failures inside any extractor are logged and swallowed — a
+    side-effect crash must never break the user's chat reply.
     """
     recurring_from_facts: list[dict[str, Any]] = []
+    saved_workout: dict[str, Any] | None = None
     if not user_messages:
-        return recurring_from_facts
+        return recurring_from_facts, saved_workout
     try:
         with get_db() as conn:
             await extract_body_data(user_messages, conn)
     except Exception:
         logger.exception("Background body extraction failed")
     if not api_key.strip():
-        return recurring_from_facts
+        return recurring_from_facts, saved_workout
     try:
         with get_db() as conn:
             await extract_events(user_messages, conn, api_key)
     except Exception:
         logger.exception("Background event extraction failed")
+    try:
+        with get_db() as conn:
+            saved_workout = await extract_workout(user_messages, conn, api_key)
+    except Exception:
+        logger.exception("Background workout extraction failed")
     try:
         with get_db() as conn:
             _saved, recurring_from_facts = await extract_facts(
@@ -248,7 +263,7 @@ async def _run_post_chat_extractors(
             await extract_decisions(user_messages, conn, api_key)
     except Exception:
         logger.exception("Background decision extraction failed")
-    return recurring_from_facts
+    return recurring_from_facts, saved_workout
 
 
 def _merge_recurring_updates(
@@ -479,14 +494,24 @@ async def chat_endpoint(
             if confirmation:
                 yield f"data: {json.dumps({'type': 'delta', 'text': confirmation}, ensure_ascii=False)}\n\n"
 
-            assistant_text = (full_text or "") + (confirmation or "")
+            # Run extractors before persistence so the workout footer
+            # (if any) is folded into the same `chat_messages` row that
+            # we save below — and yielded as one final delta so the FE
+            # sees it without a reload.
+            fact_recurring, saved_workout = await _run_post_chat_extractors(
+                user_messages, api_key
+            )
+            workout_footer = format_workout_footer(saved_workout)
+            if workout_footer:
+                yield f"data: {json.dumps({'type': 'delta', 'text': workout_footer}, ensure_ascii=False)}\n\n"
+
+            assistant_text = (
+                (full_text or "") + (confirmation or "") + (workout_footer or "")
+            )
             _persist_exchange(
                 message, assistant_text, body.current_page, attachment=attachment
             )
 
-            fact_recurring = await _run_post_chat_extractors(
-                user_messages, api_key
-            )
             all_updates = _merge_recurring_updates(
                 updates,
                 _merge_recurring_updates(obligation_updates, fact_recurring),
@@ -514,10 +539,16 @@ async def chat_endpoint(
         updates + obligation_updates
     )
 
+    # Extractors run before persistence so the workout footer (if any)
+    # is part of the response payload AND the saved chat_messages row.
+    fact_recurring, saved_workout = await _run_post_chat_extractors(
+        user_messages, api_key
+    )
+    response_text = response_text + format_workout_footer(saved_workout)
+
     _persist_exchange(
         message, response_text, body.current_page, attachment=attachment
     )
-    fact_recurring = await _run_post_chat_extractors(user_messages, api_key)
     all_updates = _merge_recurring_updates(
         updates,
         _merge_recurring_updates(obligation_updates, fact_recurring),

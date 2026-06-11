@@ -14,6 +14,7 @@ import {
   readFileAsAttachment,
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
+import { EnergyStateDropdown } from "./EnergyStateDropdown";
 import { PAGE_LABELS } from "../constants";
 import type {
   Summary,
@@ -335,14 +336,17 @@ export function FullscreenChat({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-2 border-[1.5px] border-[#6366f1] text-[#6366f1] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider hover:bg-indigo-50 transition-all shadow-sm bg-white"
-        >
-          <ArrowLeft size={16} />
-          Назад: {PAGE_LABELS[previousPage] ?? previousPage}
-        </button>
+        <div className="flex items-center gap-3">
+          <EnergyStateDropdown />
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-2 border-[1.5px] border-[#6366f1] text-[#6366f1] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider hover:bg-indigo-50 transition-all shadow-sm bg-white"
+          >
+            <ArrowLeft size={16} />
+            Назад: {PAGE_LABELS[previousPage] ?? previousPage}
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 flex min-h-0">

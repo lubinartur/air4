@@ -37,6 +37,7 @@ from routers import (
     observations,
     profile,
     projects,
+    recommendation,
     summary,
     transactions,
     upload,
@@ -79,6 +80,7 @@ app.include_router(finance_recurring.router, prefix="/api", tags=["finance"])
 app.include_router(hypotheses.router, prefix="/api", tags=["hypotheses"])
 app.include_router(interview.router, prefix="/api", tags=["interview"])
 app.include_router(feed.router, prefix="/api", tags=["feed"])
+app.include_router(recommendation.router, prefix="/api/air4", tags=["recommendation"])
 
 
 _scheduler_logger = logging.getLogger("observations.scheduler")

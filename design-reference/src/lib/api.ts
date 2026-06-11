@@ -212,6 +212,19 @@ export async function getSummary(
 
 export const fetchSummary = getSummary;
 
+export type RecommendationState = "stable" | "attention" | "critical";
+
+export type Recommendation = {
+  recommendation: string;
+  basis: string;
+  state: RecommendationState;
+};
+
+/** AIR4's single "what to do now" recommendation for the Overview. */
+export async function fetchRecommendation(): Promise<Recommendation> {
+  return apiFetch<Recommendation>("/api/air4/recommendation");
+}
+
 /** Summary for Overview KPIs/chart: latest cycle that has transactions. */
 export async function fetchOverviewSummary(): Promise<Summary> {
   const cycles = await fetchFinanceCycles();

@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from fastapi import Query
 
 from database import fetch_all, fetch_one, get_db
+from routers.recommendation import air4_mode_instruction, normalize_air4_mode
 from schemas import ChatAttachment, ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
 from services.body_extractor import extract_body_data
 from services.chat_history import fetch_recent_chat_messages, save_exchange
@@ -426,6 +427,12 @@ async def chat_endpoint(
         current_page=body.current_page,
         relevant_events=relevant_events,
     )
+    # Append the AIR4 engagement-mode instruction (quiet/active/jarvis).
+    # `normal` resolves to an empty string, leaving the prompt unchanged.
+    mode = normalize_air4_mode(profile.get("air4_mode") if profile else None)
+    mode_suffix = air4_mode_instruction(mode)
+    if mode_suffix:
+        system = f"{system}\n\n{mode_suffix}"
     messages: list[dict[str, Any]] = list(llm_history)
     messages.append(_build_user_turn(message, attachment))
 

@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useState,
   type KeyboardEvent,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   bmiFromMetrics,
+  fetchRecommendation,
   formatCategoryLabel,
   formatEuro,
   hasFinanceData,
@@ -27,6 +29,8 @@ import {
   type Dilemma,
   type Observation,
   type Project,
+  type Recommendation,
+  type RecommendationState,
   type Summary,
   type Workout,
 } from "../lib/api";
@@ -346,6 +350,83 @@ function workoutPill(daysSince: number | null): { text: string; cls: string } {
   };
 }
 
+// Accent palette for the Current Recommendation block, keyed by the
+// backend `state`. stable = indigo (matches the old advisor card so the
+// default look is unchanged), attention = amber, critical = red.
+const RECO_STATE_STYLE: Record<
+  RecommendationState,
+  { card: string; badge: string; label: string }
+> = {
+  stable: { card: "bg-[#4F46E5]", badge: "bg-white/20 text-white", label: "Стабильно" },
+  attention: { card: "bg-amber-500", badge: "bg-white/25 text-white", label: "Внимание" },
+  critical: { card: "bg-red-600", badge: "bg-white/25 text-white", label: "Проблема" },
+};
+
+// Per-sphere health signal shown as a small dot badge on each KPI card.
+// `neutral` covers the "no data yet" case so an empty sphere doesn't
+// masquerade as green.
+type SphereStatus = "stable" | "attention" | "critical" | "neutral";
+
+const SPHERE_STATUS_META: Record<SphereStatus, { dot: string; label: string }> = {
+  stable: { dot: "bg-green-500", label: "Стабильно" },
+  attention: { dot: "bg-yellow-500", label: "Внимание" },
+  critical: { dot: "bg-red-500", label: "Проблема" },
+  neutral: { dot: "bg-gray-300", label: "Нет данных" },
+};
+
+// Finance: free capital > 0 → stable; spending == income → attention;
+// overspent (< 0) → critical; missing income/finance data → neutral.
+// NB: /api/summary returns income split across `total_income` and
+// `other_incoming` — in real data `total_income` is often 0 while the
+// actual inflow lands in `other_incoming`, so the badge must read both
+// to avoid being stuck on neutral/gray.
+function financeSphereStatus(summary: Summary | null): SphereStatus {
+  if (!summary || !hasFinanceData(summary)) return "neutral";
+  const income =
+    (summary.total_income ?? 0) + (summary.other_incoming?.amount ?? 0);
+  if (income <= 0) return "neutral";
+  const freeCapital = income - (summary.total_spent ?? 0);
+  if (freeCapital > 0) return "stable";
+  if (freeCapital === 0) return "attention";
+  return "critical";
+}
+
+// Health: >7 days without a workout → critical; 4..7 days → attention;
+// otherwise stable; no workouts logged at all → neutral.
+function healthSphereStatus(daysSinceWorkout: number | null): SphereStatus {
+  if (daysSinceWorkout == null) return "neutral";
+  if (daysSinceWorkout > 7) return "critical";
+  if (daysSinceWorkout >= 4) return "attention";
+  return "stable";
+}
+
+// Projects: all active projects stalled → critical; more than one
+// stalled → attention; otherwise stable; no active projects → neutral.
+function projectsSphereStatus(
+  stalledCount: number,
+  activeCount: number,
+): SphereStatus {
+  if (activeCount === 0) return "neutral";
+  if (stalledCount >= activeCount) return "critical";
+  if (stalledCount > 1) return "attention";
+  return "stable";
+}
+
+// Small status dot, parked just left of the card's chevron so it reads
+// in the top-right corner without colliding with it.
+function SphereStatusBadge({ status }: { status: SphereStatus }) {
+  const meta = SPHERE_STATUS_META[status];
+  return (
+    <span
+      className="absolute top-6 right-12 flex items-center"
+      title={meta.label}
+      aria-label={`Статус: ${meta.label}`}
+    >
+      <span className={cn("w-2.5 h-2.5 rounded-full", meta.dot)} />
+    </span>
+  );
+}
+
 export function OverviewDashboard({
   summary,
   projects,
@@ -444,181 +525,47 @@ export function OverviewDashboard({
     ? daysSince(openDilemma.created_at)
     : null;
 
-  // --- AIR4 Advisor card ---
-  // Dismissal is in-memory only (same pattern as AIRCheckIn). On reload
-  // the card returns — by design — because the underlying signal
-  // (stalled project, workout drought, observation, dilemma) is still
-  // real and the user hasn't acted on it yet.
-  const [advisorDismissed, setAdvisorDismissed] = useState(false);
-
-  // Featured observation: prefer the parent-curated `insight` (the
-  // backend's chosen top observation), else fall back to the most
-  // recent unread observation, else the freshest observation overall.
-  // Keeps the prop wired even though the new logic doesn't depend
-  // exclusively on it.
-  const featuredObservation = useMemo(
-    () =>
-      insight ??
-      observations.find((o) => !o.is_read) ??
-      observations[0] ??
-      null,
-    [insight, observations],
+  // --- Current Recommendation (AIR4) ---
+  // Replaces the old in-card "advisor question" flow with a single
+  // opinionated recommendation fetched from the backend on mount. While
+  // the request is in flight we render a skeleton; the block's accent
+  // color is driven by the returned `state`. On a hard network failure
+  // `recommendation` stays null and the block is omitted (the rest of
+  // the dashboard is unaffected).
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(
+    null,
   );
+  const [recoLoading, setRecoLoading] = useState(true);
 
-  // Content priority — highest-signal first; the first matching branch
-  // wins. Each branch returns `{ question, actions[] }`. The
-  // "Пропустить" ghost action is appended unconditionally at render
-  // time so a branch can't accidentally forget it.
-  //
-  // Action handler convention:
-  //   - "Action-y" buttons (project names, "Запишу тренировку", "Да"
-  //     for the dilemma, "Нет, меняю план" for an observation) open
-  //     chat with a contextual message — chat is where the user
-  //     elaborates or AIR4 follows up.
-  //   - "Acknowledgment-y" buttons ("Не до этого", "Да, временно",
-  //     "Ещё думаю") just dismiss the card; the signal has been seen
-  //     and the user opted out of acting on it right now.
-  const advisor = useMemo(() => {
-    // 1. Stalled projects — concrete, actionable, most user-blocking.
-    if (stalledList.length > 0) {
-      return {
-        question: `${stalledProjectsPhrase(stalledList.length)}. Что сегодня важнее?`,
-        actions: stalledList.slice(0, 3).map((p) => ({
-          label: truncate(p.name, 24),
-          onClick: () =>
-            onOpenChatWithMessage(
-              `Сегодня важнее всего разморозить проект «${p.name}»`,
-            ),
-        })),
-      };
-    }
-
-    // 2. Pending decision follow-up — the user committed to a
-    //    decision ~2 weeks ago and the follow-up window is now open.
-    //    Ranks above workout drought / observations because it's a
-    //    time-bound commitment the user made to themselves; letting
-    //    it slide silently defeats the whole Decision Memory loop.
-    //    Pick the oldest due follow-up so the queue drains FIFO.
-    if (pendingFollowups.length > 0) {
-      const fu = pendingFollowups[0];
-      const daysAgo = fu.created_at ? daysSince(fu.created_at) : null;
-      const intro = daysAgo != null
-        ? `${daysAgo} ${pluralizeDays(daysAgo)} назад ты решил «${fu.title}». Как вышло?`
-        : `Ты решил «${fu.title}». Как вышло?`;
-      return {
-        question: intro,
-        actions: [
-          {
-            label: "Расскажу",
-            onClick: () =>
-              onOpenChatWithMessage(
-                `Исход по решению «${fu.title}»: `,
-              ),
-          },
-          {
-            label: "Позже",
-            onClick: () => setAdvisorDismissed(true),
-          },
-        ],
-      };
-    }
-
-    // 3. Workout drought (>5 days since last logged workout).
-    if (daysSinceWorkout != null && daysSinceWorkout > 5) {
-      return {
-        question: `${daysSinceWorkout} ${pluralizeDays(daysSinceWorkout)} без тренировки. Что мешает?`,
-        actions: [
-          {
-            label: "Запишу тренировку",
-            onClick: () => onOpenChatWithMessage("Запишу тренировку"),
-          },
-          {
-            label: "Не до этого",
-            onClick: () => setAdvisorDismissed(true),
-          },
-        ],
-      };
-    }
-
-    // 4. Active observation — rephrase the title as a yes/no question
-    //    if it isn't already one. Real LLM-driven rephrasing (like the
-    //    spec's "Объём тренировок упал после 18 мая. Это временно?"
-    //    example) belongs on the backend; this is the deterministic
-    //    client-side fallback.
-    if (featuredObservation?.title) {
-      const t = featuredObservation.title.trim();
-      const q = t.endsWith("?") ? t : `${t}. Это временно?`;
-      return {
-        question: q,
-        actions: [
-          {
-            label: "Да, временно",
-            onClick: () => setAdvisorDismissed(true),
-          },
-          {
-            label: "Нет, меняю план",
-            onClick: () =>
-              onOpenChatWithMessage(
-                `По наблюдению «${featuredObservation.title}»: меняю план`,
-              ),
-          },
-        ],
-      };
-    }
-
-    // 5. Open dilemma — nudge a decision after it's been pending.
-    if (openDilemma && dilemmaDays != null) {
-      return {
-        question: `Дилемма открыта уже ${dilemmaDays} ${pluralizeDays(dilemmaDays)}. Принял решение?`,
-        actions: [
-          {
-            label: "Да",
-            onClick: () =>
-              onOpenChatWithMessage(
-                `По дилемме «${openDilemma.title}»: принял решение`,
-              ),
-          },
-          {
-            label: "Ещё думаю",
-            onClick: () => setAdvisorDismissed(true),
-          },
-        ],
-      };
-    }
-
-    // 6. Fallback — let the user pick their priority from their own
-    //    active projects. If they have none, surface page shortcuts.
-    if (activeProjects.length > 0) {
-      return {
-        question: "Что сегодня в приоритете?",
-        actions: activeProjects.slice(0, 3).map((p) => ({
-          label: truncate(p.name, 24),
-          onClick: () =>
-            onOpenChatWithMessage(
-              `Сегодня в приоритете проект «${p.name}»`,
-            ),
-        })),
-      };
-    }
-    return {
-      question: "Что сегодня в приоритете?",
-      actions: [
-        { label: "Финансы", onClick: () => onPageChange("Finance") },
-        { label: "Здоровье", onClick: () => onPageChange("Health") },
-        { label: "Проекты", onClick: () => onPageChange("Projects") },
-      ],
+  useEffect(() => {
+    let cancelled = false;
+    setRecoLoading(true);
+    fetchRecommendation()
+      .then((data) => {
+        if (!cancelled) setRecommendation(data);
+      })
+      .catch(() => {
+        if (!cancelled) setRecommendation(null);
+      })
+      .finally(() => {
+        if (!cancelled) setRecoLoading(false);
+      });
+    return () => {
+      cancelled = true;
     };
-  }, [
-    stalledList,
-    pendingFollowups,
-    daysSinceWorkout,
-    featuredObservation,
-    openDilemma,
-    dilemmaDays,
-    activeProjects,
-    onOpenChatWithMessage,
-    onPageChange,
-  ]);
+  }, []);
+
+  const recoStyle = recommendation
+    ? RECO_STATE_STYLE[recommendation.state]
+    : null;
+
+  // --- Per-sphere status badges (top-right dot on each KPI card) ---
+  const financeStatus = financeSphereStatus(summary);
+  const healthStatus = healthSphereStatus(daysSinceWorkout);
+  const projectsStatus = projectsSphereStatus(
+    stalledList.length,
+    activeProjects.length,
+  );
 
   const handleProjectClick = (_id: number) => {
     onPageChange("Projects");
@@ -658,66 +605,70 @@ export function OverviewDashboard({
         </div>
       </div>
 
-      {/* -------------------- AIR4 Advisor (full-width, sits above the KPIs) -------------------- */}
-      {/* Bright indigo card that replaces the old dark "AIR4 Insight"
-          panel. Borrows the AIRCheckIn visual language (indigo, white
-          chrome, soft pill actions) but is data-driven by Overview
-          props rather than a separate interview endpoint. Dismissal is
-          local-state only — see the `advisor` memo for content
-          priority. The relative wrapper + overflow-hidden contain the
-          decorative Brain watermark in the top-right. */}
-      {!advisorDismissed && (
+      {/* -------------------- Current Recommendation (full-width, sits above the KPIs) -------------------- */}
+      {/* Single opinionated recommendation from AIR4 (GET
+          /api/air4/recommendation). The accent color tracks the
+          returned `state` (stable=indigo, attention=amber,
+          critical=red). While loading we show a skeleton pulse. The
+          relative wrapper + overflow-hidden contain the decorative
+          Brain watermark in the top-right. */}
+      {recoLoading ? (
         <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-6 shadow-xl">
+          <div className="relative space-y-4 animate-pulse">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-white/40" />
+              <span className="h-3 w-28 rounded bg-white/30" />
+            </div>
+            <div className="space-y-2">
+              <span className="block h-5 w-3/4 rounded bg-white/30" />
+              <span className="block h-5 w-2/3 rounded bg-white/20" />
+            </div>
+            <span className="block h-3 w-1/3 rounded bg-white/20" />
+          </div>
+        </div>
+      ) : recommendation && recoStyle ? (
+        <div
+          className={cn(
+            "relative overflow-hidden rounded-2xl p-6 shadow-xl",
+            recoStyle.card,
+          )}
+        >
           <Brain
             size={140}
             strokeWidth={1.5}
             className="absolute -top-4 -right-4 text-white/10 pointer-events-none"
           />
 
-          <div className="relative space-y-4">
+          <div className="relative space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
               <span className="text-[11px] font-black text-white/80 uppercase tracking-widest">
-                AIR4 Advisor
+                AIR4 · Рекомендация
               </span>
-              <span className="bg-white/20 text-white text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                Активный чекин
+              <span
+                className={cn(
+                  "text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full",
+                  recoStyle.badge,
+                )}
+              >
+                {recoStyle.label}
               </span>
             </div>
 
-            {/* `pr-16` keeps the question from running into the
-                decorative Brain watermark on narrow widths. */}
+            {/* `pr-16` keeps the text clear of the decorative Brain
+                watermark on narrow widths. */}
             <p className="text-xl font-bold text-white leading-snug pr-16">
-              {advisor.question}
+              {recommendation.recommendation}
             </p>
 
-            {/* Primary actions are white pills with dark text;
-                "Пропустить" is a ghost so it visually de-emphasizes
-                relative to the affirmative choices. Index-keyed
-                because two stalled projects could in principle share a
-                truncated label. */}
-            <div className="flex flex-wrap gap-2">
-              {advisor.actions.map((a, i) => (
-                <button
-                  key={`advisor-${i}-${a.label}`}
-                  type="button"
-                  onClick={a.onClick}
-                  className="bg-white text-gray-900 text-[12px] font-semibold px-4 py-2 rounded-full hover:bg-gray-50 transition-colors"
-                >
-                  {a.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setAdvisorDismissed(true)}
-                className="text-white/70 text-[12px] font-medium px-4 py-2 rounded-full hover:text-white hover:bg-white/10 transition-colors"
-              >
-                Пропустить
-              </button>
-            </div>
+            {recommendation.basis && (
+              <p className="text-[13px] text-white/70 leading-snug pr-16">
+                {recommendation.basis}
+              </p>
+            )}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* -------------------- Row 1: 3 hero cards -------------------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -734,6 +685,7 @@ export function OverviewDashboard({
           className="relative bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col min-h-[180px]"
         >
           <CardChevron className="absolute top-6 right-6" />
+          <SphereStatusBadge status={financeStatus} />
 
           {/* Icon sits between the small title and the hero number — the
               same green Wallet badge used in the Finance page header so
@@ -778,6 +730,7 @@ export function OverviewDashboard({
           className="relative bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col min-h-[180px]"
         >
           <CardChevron className="absolute top-6 right-6" />
+          <SphereStatusBadge status={healthStatus} />
 
           {/* Rose Heart badge mirrors the Health page header
               (bg-rose-50 / text-rose-600 / fill-rose-100). Sized down
@@ -824,6 +777,7 @@ export function OverviewDashboard({
           className="relative bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)] flex flex-col min-h-[180px]"
         >
           <CardChevron className="absolute top-6 right-6" />
+          <SphereStatusBadge status={projectsStatus} />
 
           {/* Briefcase badge — NB: spec asked for `bg-blue-50` here so
               we use blue (not the Projects page header's indigo) to

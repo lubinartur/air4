@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS user_profile (
     transport       TEXT,
     context         TEXT,
     timezone        TEXT DEFAULT 'UTC',
+    air4_mode       TEXT DEFAULT 'normal',
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 );
@@ -436,6 +437,19 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
 
     if "user_profile" in tables:
         _ensure_columns(conn, "user_profile", [("timezone", "TEXT DEFAULT 'UTC'")])
+        # AIR4 engagement mode (quiet | normal | active | jarvis). Gated
+        # by an _app_meta flag per spec so the ALTER + backfill run at
+        # most once; `_ensure_columns` is also inherently idempotent on
+        # its own, so re-running this is always safe.
+        if get_meta(conn, "air4_mode_migration_done") != "1":
+            _ensure_columns(
+                conn, "user_profile", [("air4_mode", "TEXT DEFAULT 'normal'")]
+            )
+            conn.execute(
+                "UPDATE user_profile SET air4_mode = 'normal' "
+                "WHERE air4_mode IS NULL OR TRIM(air4_mode) = ''"
+            )
+            set_meta(conn, "air4_mode_migration_done", "1")
 
     if "user_facts" in tables:
         _ensure_columns(

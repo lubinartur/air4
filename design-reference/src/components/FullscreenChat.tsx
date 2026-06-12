@@ -103,6 +103,9 @@ export function FullscreenChat({
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  // Text of the Morning Brief message (if shown), so we can render a
+  // "Доброе утро" label above that specific assistant bubble.
+  const [morningBriefText, setMorningBriefText] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -162,27 +165,54 @@ export function FullscreenChat({
     saveChatHistory(messages);
   }, [messages]);
 
+  // Load chat history FIRST, then request the Morning Brief and append it
+  // as the LAST message (below the history) so it isn't overwritten by the
+  // history fetch. The brief only shows when the user hasn't written today.
   useEffect(() => {
     let cancelled = false;
-    void fetchChatHistory(50)
-      .then((res) => {
-        if (cancelled) return;
-        const remote: Message[] = res.messages
-          .filter(
-            (m) =>
-              (m.role === "user" || m.role === "assistant") &&
-              m.content.trim() !== ""
-          )
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-            attachment: m.attachment ?? undefined,
-          }));
-        if (remote.length > 0) setMessages(remote);
-      })
-      .catch(() => {
+    void (async () => {
+      try {
+        const res = await fetchChatHistory(50);
+        if (!cancelled) {
+          const remote: Message[] = res.messages
+            .filter(
+              (m) =>
+                (m.role === "user" || m.role === "assistant") &&
+                m.content.trim() !== ""
+            )
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+              attachment: m.attachment ?? undefined,
+            }));
+          if (remote.length > 0) setMessages(remote);
+        }
+      } catch {
         /* keep localStorage fallback */
-      });
+      }
+
+      try {
+        const r = await fetch("/api/chat/morning-brief");
+        const data: { should_show?: boolean; message?: string } | null = r.ok
+          ? await r.json()
+          : null;
+        if (cancelled || !data || !data.should_show || !data.message) return;
+        const briefText = data.message;
+        setMorningBriefText(briefText);
+        setMessages((prev) => {
+          if (
+            prev.some(
+              (m) => m.role === "assistant" && m.content === briefText,
+            )
+          ) {
+            return prev;
+          }
+          return [...prev, { role: "assistant", content: briefText }];
+        });
+      } catch {
+        /* brief is optional — stay silent on error */
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -452,6 +482,13 @@ export function FullscreenChat({
                     msg.role === "user" ? "ml-auto items-end" : "mr-auto items-start"
                   )}
                 >
+                  {msg.role === "assistant" &&
+                    morningBriefText !== null &&
+                    msg.content === morningBriefText && (
+                      <span className="text-[11px] font-medium text-gray-400">
+                        Доброе утро
+                      </span>
+                    )}
                   {msg.role === "assistant" && (
                     <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">
                       AIR4

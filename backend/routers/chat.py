@@ -6,10 +6,12 @@ import binascii
 import json
 import logging
 import os
+import time
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from fastapi import Query
 
@@ -22,6 +24,7 @@ from services.decision_extractor import extract_decisions
 from services.event_extractor import extract_events
 from services.fact_extractor import extract_facts
 from services.llm_client import chat, chat_stream
+from services.llm_client_shared import call_claude
 from services.workout_extractor import extract_workout, format_workout_footer
 from services.prompts import (
     build_system_context,
@@ -607,3 +610,152 @@ def chat_history(limit: int = Query(50, ge=1, le=500)) -> ChatHistoryOut:
         for r in rows
     ]
     return ChatHistoryOut(messages=messages)
+
+
+# --- Morning Brief -------------------------------------------------------
+# When the user opens the app and hasn't written anything yet today, AIR4
+# speaks first with one short, concrete observation. Generated via Claude
+# Haiku and cached for an hour so repeated opens don't re-hit the LLM.
+
+
+class MorningBriefOut(BaseModel):
+    should_show: bool
+    message: str | None = None
+
+
+_MORNING_BRIEF_TTL_SECONDS = 60 * 60
+_morning_brief_cache: dict[str, Any] = {}
+
+_MORNING_BRIEF_PROMPT = (
+    "Ты AIR4. Пользователь только что открыл приложение утром.\n"
+    "Напиши короткое приветствие — 2-3 предложения максимум.\n"
+    "Не 'доброе утро' и не общие слова.\n"
+    "Одна конкретная вещь которую ты заметил + один вопрос или следующий шаг.\n"
+    "Тон зависит от air4_mode: jarvis=прямой и конкретный, active=проактивный, "
+    "normal=спокойный, quiet=минимальный.\n"
+    "Данные: {context}"
+)
+
+
+def _build_morning_context(conn) -> str:
+    """Compact snapshot for the morning brief prompt."""
+    profile = fetch_one(conn, "SELECT * FROM user_profile WHERE id = 1")
+    mode = normalize_air4_mode(profile.get("air4_mode") if profile else None)
+    name = (profile.get("name") if profile else None) or "—"
+    goals = (profile.get("goals") if profile else None) or "—"
+
+    events = fetch_all(
+        conn,
+        """
+        SELECT date, title, domain
+        FROM events
+        WHERE COALESCE(archived, 0) = 0 AND date IS NOT NULL
+        ORDER BY date DESC, datetime(created_at) DESC, id DESC
+        LIMIT 5
+        """,
+    )
+    projects = fetch_all(
+        conn,
+        """
+        SELECT name, status
+        FROM projects
+        WHERE status = 'active'
+        ORDER BY datetime(updated_at) DESC
+        LIMIT 8
+        """,
+    )
+    workout = fetch_one(
+        conn, "SELECT date, type FROM workouts ORDER BY date DESC, id DESC LIMIT 1"
+    )
+    summary = load_summary(conn)
+
+    lines: list[str] = [
+        f"Режим (air4_mode): {mode}",
+        f"Имя: {name}",
+        f"Цели: {goals}",
+    ]
+
+    if events:
+        ev = "; ".join(
+            f"{e.get('date')} [{e.get('domain') or '—'}] {e.get('title') or ''}".strip()
+            for e in events
+        )
+        lines.append(f"Последние события: {ev}")
+    else:
+        lines.append("Последние события: нет.")
+
+    if projects:
+        pr = "; ".join(
+            f"{p.get('name')} ({p.get('status')})" for p in projects
+        )
+        lines.append(f"Активные проекты: {pr}")
+    else:
+        lines.append("Активные проекты: нет.")
+
+    if workout:
+        lines.append(
+            f"Последняя тренировка: {workout.get('date')} {workout.get('type') or ''}".strip()
+        )
+    else:
+        lines.append("Последняя тренировка: нет данных.")
+
+    total_spent = float(getattr(summary, "total_spent", 0) or 0)
+    total_income = float(getattr(summary, "total_income", 0) or 0)
+    other = getattr(summary, "other_incoming", None)
+    other_amt = float(getattr(other, "amount", 0) or 0) if other else 0.0
+    income = total_income + other_amt
+    if total_spent > 0 or income > 0:
+        if income > 0:
+            free_capital = income - total_spent
+            lines.append(
+                f"Финансы: потрачено €{total_spent:.2f}, свободно €{free_capital:.2f}"
+            )
+        else:
+            lines.append(f"Финансы: потрачено €{total_spent:.2f}")
+    else:
+        lines.append("Финансы: нет данных за цикл.")
+
+    return "\n".join(lines)
+
+
+@router.get("/chat/morning-brief", response_model=MorningBriefOut)
+async def morning_brief() -> MorningBriefOut:
+    """AIR4 speaks first if the user hasn't written anything today.
+
+    The "wrote today" check is always live (never cached) so the brief
+    stops showing the moment the user sends a message. Only the generated
+    text is cached, for an hour.
+    """
+    with get_db() as conn:
+        row = fetch_one(
+            conn,
+            "SELECT COUNT(*) AS n FROM chat_messages "
+            "WHERE role = 'user' AND date(created_at) = date('now')",
+        )
+    if row and int(row.get("n") or 0) > 0:
+        return MorningBriefOut(should_show=False)
+
+    now = time.time()
+    cached = _morning_brief_cache.get("message")
+    expires_at = _morning_brief_cache.get("expires_at", 0.0)
+    if cached and now < expires_at:
+        return MorningBriefOut(should_show=True, message=cached)
+
+    with get_db() as conn:
+        context = _build_morning_context(conn)
+
+    prompt = _MORNING_BRIEF_PROMPT.format(context=context)
+    try:
+        message = (await call_claude(prompt, max_tokens=300)).strip()
+    except Exception:
+        logger.exception("morning-brief: LLM call failed")
+        message = ""
+
+    if not message:
+        # Nothing useful to say (no key or model error) — stay silent
+        # rather than injecting an empty bubble.
+        return MorningBriefOut(should_show=False)
+
+    _morning_brief_cache["message"] = message
+    _morning_brief_cache["expires_at"] = now + _MORNING_BRIEF_TTL_SECONDS
+    return MorningBriefOut(should_show=True, message=message)

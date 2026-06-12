@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import time
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
@@ -665,7 +666,8 @@ def _build_morning_context(conn) -> str:
         """,
     )
     workout = fetch_one(
-        conn, "SELECT date, type FROM workouts ORDER BY date DESC, id DESC LIMIT 1"
+        conn,
+        "SELECT date, type, duration FROM workouts ORDER BY date DESC, id DESC LIMIT 1",
     )
     summary = load_summary(conn)
 
@@ -693,8 +695,18 @@ def _build_morning_context(conn) -> str:
         lines.append("Активные проекты: нет.")
 
     if workout:
+        last_workout_date = str(workout.get("date") or "").strip()
+        # Compute the gap in days explicitly so AIR4 doesn't have to infer
+        # "how long ago" from a raw date. Tolerant of malformed dates —
+        # falls back to just the date string if parsing fails.
+        try:
+            days_ago = (date.today() - date.fromisoformat(last_workout_date[:10])).days
+            ago_part = f"{days_ago} дней назад, "
+        except ValueError:
+            ago_part = ""
         lines.append(
-            f"Последняя тренировка: {workout.get('date')} {workout.get('type') or ''}".strip()
+            f"последняя тренировка: {last_workout_date} "
+            f"({ago_part}{workout.get('type') or '—'}, {workout.get('duration') or '—'} мин)"
         )
     else:
         lines.append("Последняя тренировка: нет данных.")
@@ -735,12 +747,17 @@ async def morning_brief() -> MorningBriefOut:
     if row and int(row.get("n") or 0) > 0:
         return MorningBriefOut(should_show=False)
 
+    # Date-stamped cache key: a new day automatically invalidates the
+    # previous day's brief, and an in-memory dict means a server restart
+    # drops the cache entirely.
+    cache_key = f"morning_brief_{date.today()}"
     now = time.time()
-    cached = _morning_brief_cache.get("message")
-    expires_at = _morning_brief_cache.get("expires_at", 0.0)
-    if cached and now < expires_at:
-        return MorningBriefOut(should_show=True, message=cached)
+    entry = _morning_brief_cache.get(cache_key)
+    if entry and now < entry.get("expires_at", 0.0):
+        return MorningBriefOut(should_show=True, message=entry["message"])
 
+    # NB: the workouts/profile/etc. snapshot below is rebuilt on every
+    # cache miss — it is never cached separately.
     with get_db() as conn:
         context = _build_morning_context(conn)
 
@@ -756,6 +773,8 @@ async def morning_brief() -> MorningBriefOut:
         # rather than injecting an empty bubble.
         return MorningBriefOut(should_show=False)
 
-    _morning_brief_cache["message"] = message
-    _morning_brief_cache["expires_at"] = now + _MORNING_BRIEF_TTL_SECONDS
+    _morning_brief_cache[cache_key] = {
+        "message": message,
+        "expires_at": now + _MORNING_BRIEF_TTL_SECONDS,
+    }
     return MorningBriefOut(should_show=True, message=message)

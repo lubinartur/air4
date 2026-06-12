@@ -66,6 +66,17 @@ export default function App() {
   const [previousPage, setPreviousPage] = useState<Page>("Overview");
   const [financeRefreshTick, setFinanceRefreshTick] = useState(0);
 
+  // Mobile = viewport < 768px. On mobile we render ONLY the FullscreenChat
+  // (no sidebar, no routing). Desktop behavior is untouched. The resize
+  // listener keeps this in sync if the window crosses the breakpoint.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const openChatWithMessage = useCallback((text: string) => {
     setPendingChatMessage(text);
   }, []);
@@ -345,6 +356,25 @@ export default function App() {
       return String(d.followup_due).slice(0, 10) <= todayIso;
     });
   })();
+
+  // Mobile: chat-only experience — no sidebar, no page routing.
+  if (isMobile) {
+    return (
+      <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">
+        <FullscreenChat
+          onBack={() => {}}
+          previousPage={previousPage}
+          summary={summary}
+          projects={projects}
+          bodyMetrics={bodyMetrics}
+          workouts={workouts}
+          dilemmas={dilemmas}
+          facts={facts}
+          onMessageSent={handleMessageSent}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">

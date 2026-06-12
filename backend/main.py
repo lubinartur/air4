@@ -179,3 +179,17 @@ async def shutdown() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    # Bind to 0.0.0.0 so the server accepts connections from other
+    # devices on the network (e.g. phone over Tailscale), not just
+    # localhost. Port is configurable via AIR4_PORT, defaulting to 8000.
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("AIR4_PORT", "8000")),
+        reload=True,
+    )

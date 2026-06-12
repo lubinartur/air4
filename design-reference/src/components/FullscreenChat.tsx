@@ -322,7 +322,7 @@ export function FullscreenChat({
 
   return (
     <div className="flex flex-col h-full bg-[#f4f5f7] overflow-hidden">
-      <header className="px-8 py-6 bg-white border-b border-gray-100 flex items-center justify-between shrink-0">
+      <header className="px-4 md:px-8 py-4 md:py-6 bg-white border-b border-gray-100 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
             <MessageSquare size={24} />
@@ -341,7 +341,7 @@ export function FullscreenChat({
           <button
             type="button"
             onClick={onBack}
-            className="flex items-center gap-2 border-[1.5px] border-[#6366f1] text-[#6366f1] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider hover:bg-indigo-50 transition-all shadow-sm bg-white"
+            className="hidden md:flex items-center gap-2 border-[1.5px] border-[#6366f1] text-[#6366f1] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider hover:bg-indigo-50 transition-all shadow-sm bg-white"
           >
             <ArrowLeft size={16} />
             Назад: {PAGE_LABELS[previousPage] ?? previousPage}
@@ -350,7 +350,7 @@ export function FullscreenChat({
       </header>
 
       <div className="flex-1 flex min-h-0">
-        <div className="w-[30%] border-r border-gray-100 bg-white/50 p-8 overflow-y-auto space-y-6">
+        <div className="hidden md:block w-[30%] border-r border-gray-100 bg-white/50 p-8 overflow-y-auto space-y-6">
           <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
             <h2 className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-[0.1em] mb-4">
               Текущая сессия
@@ -436,7 +436,7 @@ export function FullscreenChat({
         </div>
 
         <div className="flex-1 flex flex-col min-w-0 bg-white">
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-12 py-10 space-y-10">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-12 py-6 md:py-10 space-y-6 md:space-y-10">
             {messages.length === 0 ? (
               <p className="text-[14px] text-[#9ca3af] text-center mt-20">
                 Сообщений пока нет. Начните диалог с AIR4.
@@ -493,7 +493,7 @@ export function FullscreenChat({
             )}
           </div>
 
-          <div className="px-12 py-8 bg-white border-t border-gray-100">
+          <div className="px-4 md:px-12 py-4 md:py-8 bg-white border-t border-gray-100">
             <div className="max-w-4xl mx-auto">
               {(attachment || attachmentError) && (
                 <div className="mb-3 space-y-1.5">

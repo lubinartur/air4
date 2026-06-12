@@ -8,10 +8,10 @@
 
 ---
 
-## Текущий статус: Sprint 11 завершён
+## Текущий статус: Sprint 12 завершён
 
-**Дата:** 1 июня 2026
-**Фаза:** Phase 6 — Design, New Features & Cleanup
+**Дата:** 12 июня 2026
+**Фаза:** Phase 6.5 — Real Usage Validation
 
 Все основные модули работают: Finance, Memory, Projects, Health, Analysis, Observations, Chat со стримингом. Добавлен workout_extractor для логирования тренировок через чат. Почищено 140 дублей событий (634 → 494). Проведён полный аудит кода.
 
@@ -456,47 +456,70 @@ sqlite3 backend/data/air4.db "SELECT date, type, source FROM workouts ORDER BY d
 
 ---
 
+## Sprint 12 — Jarvis Mode & Energy State (12 июня 2026)
+
+### Backend
+- Новый роутер `backend/routers/recommendation.py`
+- `GET /api/air4/recommendation` — главная рекомендация на основе всех сфер, Claude Haiku, кэш 30 минут
+- `GET /api/air4/mode` — читает текущий режим из `user_profile`
+- `PUT /api/air4/mode` — сохраняет режим в `user_profile`
+- Миграция: колонка `air4_mode TEXT DEFAULT 'normal'` в `user_profile`, гейтится через `_app_meta`
+- Промпты по режимам `quiet`/`normal`/`active`/`jarvis` подмешиваются в `chat.py` и `recommendation.py`
+- Роутер подключён в `main.py` с `prefix="/api/air4"`
+
+### Frontend
+- `OverviewDashboard.tsx` — синий блок заменён на Current Recommendation (одна рекомендация, цвет по state: stable=indigo, attention=amber, critical=red, skeleton при загрузке)
+- `OverviewDashboard.tsx` — статус бейджи на карточках сфер (🟢🟡🔴)
+- `EnergyStateDropdown.tsx` — новый переиспользуемый компонент, 4 режима + DND
+- `Header.tsx` — Energy State dropdown, синхронизация с БД
+- `FullscreenChat.tsx` — Energy State dropdown в шапке
+
+---
+
 ## Следующие шаги (приоритет)
 
-1. **Загрузить выписку за май** (после 31 мая) — закроет зарплатный цикл
-2. **Импортировать анализы крови 2026-05-29** (38 маркеров, скрипт готов)
-3. **Объединить экстракторы в один LLM вызов** — убрать 429
-4. **Удалить `frontend/`** — мёртвый код сбивает с толку
-5. **Morning Brief** — endpoint + UI блок при открытии
-6. **Страница "Что AIR4 знает обо мне"** — живой портрет, правка через чат
-7. **Дедуп workouts по `(date, type)`**
+1. **Tailscale** — доступ с телефона
+2. **Morning Brief** — при первом открытии за день AIR4 говорит сам
+3. **Загрузить выписку за май**
+4. **Объединить экстракторы в один LLM вызов** — убрать 429
+5. **Удалить `frontend/`** — мёртвый код
 
 ---
 
 ## Roadmap — Фазы
 
-### Phase 6 — Design + New Features (сейчас)
-- Morning Brief — при открытии: молодец/не молодец/что сегодня, реальные цифры
-- Еженедельный разбор — план vs реальность по проектам, траты vs норма, тренировки
-- Страница "Что AIR4 знает обо мне" — живой портрет, факты и паттерны, правка через чат
-- Overview редизайн — три компактных плашки по сферам (Финансы/Здоровье/Проекты)
-- Быстрые кнопки-ответы `[Да]` `[Нет]` `[Расскажу]` `[Пропустить]` в чате
-- Follow-up после событий — "встреча с Карлосом прошла, как?"
+### Sprint 13 (текущий)
+- Tailscale — доступ с телефона
+- Morning Brief — AIR4 говорит первым при первом открытии за день
+- Загрузить выписку за май
 
-### Phase 7 — Polish + Toggle
-- Global Session Toggle — из шапки/чата/Overview, активная сессия идёт в контекст
-- Финансовый календарь — техосмотр/страховка через чат, тип `one_time` в obligations
-- Финансовая яма — конкретный план выхода с цифрами, не просто анализ
-- Tech debt: объединить экстракторы, два LLM клиента, мёртвая схема, удалить frontend/
+### Sprint 14
+- Объединить 5 экстракторов в один LLM вызов — убрать 429
+- Удалить мёртвый frontend/
+- Follow-up Engine — AIR4 заканчивает разговор действием
 
-### Phase 8 — Onboarding + Capture
-- Быстрый capture — `Cmd+Shift+Space`, окошко поверх всего, одна фраза → Enter → закрылось
-- Онбординг разговором при первом запуске
-- SQLCipher — шифрование базы
-- Минимальная аутентификация `X-AIR4-Key` middleware
+### Sprint 15
+- Живём с продуктом, итерируем промпты
+- Фиксируем моменты "чёрт… он прав"
+- Observation Engine — улучшаем качество на реальных данных
 
-### Phase 9 — Mobile
-- iOS приложение — быстрый capture + чат
-- Синхронизация с маком по локальной сети
+### Phase 7
+- Global Session Toggle
+- Финансовый календарь — разовые обязательства через чат
+- Conversation First — любая сущность через чат без UI форм
+- Tech debt: объединить LLM клиенты, deprecated lifecycle
+
+### Phase 8
+- Curiosity Engine — редкие вопросы для понимания пользователя
+- Positive Patterns — AIR4 замечает что работает
+- Онбординг через разговор
+- SQLCipher + X-AIR4-Key аутентификация
+
+### Phase 9
+- iOS приложение
 - Push уведомления — только strong observations
 
-### Phase 10 — Integrations + Voice
-- Погода контекстно — "катит на байке?" с учётом твоего байка и порога температуры
-- Голос — Whisper (распознавание локально) + Kokoro/Piper (синтез локально)
-- Другие банки, Apple Calendar, Apple Health
-- Claude API только с preview что уходит + анонимизация
+### Phase 10
+- Голос — Whisper + Kokoro локально
+- Apple Health, Apple Calendar
+- Другие банки

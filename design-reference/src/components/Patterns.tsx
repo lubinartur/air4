@@ -4,7 +4,6 @@ import {
   ChevronRight,
   RefreshCw,
   Repeat,
-  Sparkles,
   X,
 } from "lucide-react";
 import type {
@@ -38,7 +37,7 @@ function statusBadge(status: string): { label: string; className: string } {
   if (s === "rejected") {
     return { label: "ОТКЛОНЕНО", className: "bg-red-50 text-red-600" };
   }
-  return { label: "ОЖИДАЕТ", className: "bg-gray-100 text-gray-500" };
+  return { label: "ОЖИДАЕТ", className: "bg-white/5 text-[#94a3b8]" };
 }
 
 function ConfidenceIndicator({ confidence }: { confidence: number }) {
@@ -53,18 +52,39 @@ function ConfidenceIndicator({ confidence }: { confidence: number }) {
             key={i}
             className={cn(
               "w-1.5 h-1.5 rounded-full",
-              i < filled ? "bg-indigo-500" : "bg-gray-200"
+              i < filled ? "bg-[#f97316]" : "bg-white/10"
             )}
           />
         ))}
       </div>
-      <span className="font-mono text-[11px] font-bold text-[#9ca3af]">{pct}%</span>
+      <span className="font-mono text-[11px] font-bold text-[#94a3b8]">{pct}%</span>
     </div>
   );
 }
 
 function domainLabel(domain: string): string {
   return domain.replace(/_/g, " ");
+}
+
+// Per-domain accent palette for hypothesis domain pills. Each sphere
+// keeps its own hue so the pills read as category markers; unknown
+// domains fall back to the orange accent.
+function domainColorClass(domain: string): string {
+  switch ((domain || "").toLowerCase()) {
+    case "finance":
+      return "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30";
+    case "health":
+    case "sport":
+      return "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/30";
+    case "projects":
+      return "bg-[#a855f7]/15 text-[#a855f7] border-[#a855f7]/30";
+    case "life":
+      return "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30";
+    case "personal":
+      return "bg-[#ec4899]/15 text-[#ec4899] border-[#ec4899]/30";
+    default:
+      return "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30";
+  }
 }
 
 /** Two-tone palette per sphere — kept in sync with the Overview
@@ -76,23 +96,23 @@ const SPHERE_BADGE: Record<CrossSphere | "default", {
 }> = {
   finance: {
     label: "ФИНАНСЫ",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    className: "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30",
   },
   health: {
     label: "ЗДОРОВЬЕ",
-    className: "bg-rose-50 text-rose-700 border-rose-100",
+    className: "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/30",
   },
   projects: {
     label: "ПРОЕКТЫ",
-    className: "bg-indigo-50 text-indigo-700 border-indigo-100",
+    className: "bg-[#a855f7]/15 text-[#a855f7] border-[#a855f7]/30",
   },
   life: {
     label: "ЖИЗНЬ",
-    className: "bg-amber-50 text-amber-700 border-amber-100",
+    className: "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30",
   },
   default: {
     label: "—",
-    className: "bg-gray-50 text-gray-500 border-gray-100",
+    className: "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30",
   },
 };
 
@@ -108,24 +128,24 @@ function confidenceTier(confidence: number): {
   dotClass: string;
   pillClass: string;
 } {
-  if (confidence < 0.6) {
+  if (confidence < 0.5) {
     return {
       label: "слабый сигнал",
-      dotClass: "bg-gray-300",
-      pillClass: "bg-gray-50 text-gray-500 border-gray-100",
+      dotClass: "bg-[#6b7280]",
+      pillClass: "bg-[#6b7280]/15 text-[#6b7280] border-[#6b7280]/30",
     };
   }
-  if (confidence < 0.8) {
+  if (confidence <= 0.7) {
     return {
       label: "паттерн",
-      dotClass: "bg-amber-400",
-      pillClass: "bg-amber-50 text-amber-700 border-amber-100",
+      dotClass: "bg-[#f97316]",
+      pillClass: "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30",
     };
   }
   return {
     label: "уверенно",
-    dotClass: "bg-emerald-500",
-    pillClass: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    dotClass: "bg-[#22c55e]",
+    pillClass: "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/30",
   };
 }
 
@@ -211,8 +231,8 @@ export function Patterns({
   const header = (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div className="flex items-center gap-2.5">
-        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-          <Repeat size={22} className="fill-indigo-100" />
+        <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
+          <Repeat size={22} className="fill-[#f97316]/20" />
         </div>
         <div>
           <h1 className={t.pageTitle}>Поведенческие паттерны</h1>
@@ -223,13 +243,6 @@ export function Patterns({
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
-          <Sparkles size={14} className="text-indigo-600" />
-          <span className="text-xs font-bold text-indigo-700">
-            Распознавание паттернов
-          </span>
-        </div>
-
         {onRefresh && (
           <button
             type="button"
@@ -237,7 +250,7 @@ export function Patterns({
             disabled={refreshing}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-[12px]",
-              "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20",
+              "bg-[#f97316] hover:bg-[#ea6a06] text-white shadow-md shadow-[#f97316]/20",
               "uppercase tracking-wider transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             )}
             title="Перезапустить анализатор и обновить cross-sphere insights"
@@ -268,7 +281,7 @@ export function Patterns({
           title="Паттернов пока нет"
           subtext="AIR4 ещё накапливает данные."
         />
-        <p className="text-[13px] text-center text-[#9ca3af] font-medium max-w-2xl mx-auto leading-relaxed">
+        <p className="text-[13px] text-center text-[#94a3b8] font-medium max-w-2xl mx-auto leading-relaxed">
           AIR4 ещё накапливает данные. Паттерны появятся после нескольких
           недель использования — продолжайте логировать тренировки,
           транзакции и работу над проектами.
@@ -294,19 +307,19 @@ export function Patterns({
 
       {/* ============== Cross-sphere insights ============== */}
       {sortedInsights.length > 0 && (
-        <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5">
+        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h2 className="text-lg font-extrabold text-gray-900">
+              <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                 Связи между сферами
               </h2>
-              <p className="text-[12px] text-gray-400 mt-0.5 font-medium">
+              <p className="text-[12px] text-[#94a3b8] mt-0.5 font-medium">
                 Корреляции, которые AIR4 нашёл между финансами, здоровьем
                 и проектами за последние 12 недель.
               </p>
             </div>
             <span
-              className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full"
+              className="text-[11px] font-bold text-[#f97316] bg-[#f97316]/15 border border-[#f97316]/30 px-2.5 py-1 rounded-full"
               title="Кросс-сферные связи обновляются раз в сутки"
             >
               {sortedInsights.length}{" "}
@@ -327,22 +340,22 @@ export function Patterns({
               return (
                 <li
                   key={`cs-${ins.id}`}
-                  className="p-5 rounded-2xl bg-amber-50/30 border border-amber-100/40 space-y-3"
+                  className="p-5 rounded-2xl bg-[#1e1e2e] border border-white/5 space-y-3"
                 >
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span
                         className={cn(
-                          "text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border",
+                          "text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider border",
                           b1.className
                         )}
                       >
                         {b1.label}
                       </span>
-                      <span className="text-[12px] text-gray-300 font-bold">×</span>
+                      <span className="text-[12px] text-[#64748b] font-bold">×</span>
                       <span
                         className={cn(
-                          "text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider border",
+                          "text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider border",
                           b2.className
                         )}
                       >
@@ -364,16 +377,16 @@ export function Patterns({
                     </span>
                   </div>
 
-                  <h3 className="text-[15px] font-bold text-gray-900 leading-snug">
+                  <h3 className="text-[16px] font-semibold text-[#f1f5f9] leading-snug">
                     {ins.title}
                   </h3>
 
-                  <p className="text-[13px] text-gray-600 leading-relaxed">
+                  <p className="text-[14px] text-[#94a3b8] leading-relaxed">
                     {ins.description}
                   </p>
 
                   {age !== null && (
-                    <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                    <p className="text-[11px] text-[#64748b] font-medium uppercase tracking-wider">
                       Найдено{" "}
                       {age === 0
                         ? "сегодня"
@@ -391,13 +404,13 @@ export function Patterns({
 
       {/* ============== Hypotheses ============== */}
       {hypotheses.length > 0 ? (
-        <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5">
+        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h2 className="text-lg font-extrabold text-gray-900">
+              <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                 Обнаруженные паттерны
               </h2>
-              <p className="text-[12px] text-gray-400 mt-0.5 font-medium">
+              <p className="text-[12px] text-[#94a3b8] mt-0.5 font-medium">
                 Гипотезы AIR4 о повторяющихся привычках — подтверждаются
                 по мере накопления подтверждений.
               </p>
@@ -409,8 +422,8 @@ export function Patterns({
                 className={cn(
                   "flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-colors",
                   showStale
-                    ? "bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200"
-                    : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                  ? "bg-white/5 border-white/5 text-[#cbd5e1] hover:bg-white/5"
+                  : "bg-[#13131f] border-white/5 text-[#94a3b8] hover:bg-white/5"
                 )}
                 title="Скрывает гипотезы старше 30 дней с одним подтверждением"
               >
@@ -444,12 +457,12 @@ export function Patterns({
                   className={cn(
                     "p-4 rounded-2xl border",
                     stale
-                      ? "bg-gray-50/40 border-gray-100 opacity-75"
-                      : "bg-gray-50/50 border-gray-50"
+                      ? "bg-[#1e1e2e] border-white/5 opacity-75"
+                      : "bg-[#1e1e2e] border-white/5"
                   )}
                 >
                   <div className="flex justify-between items-start gap-4 mb-3">
-                    <p className="text-[15px] font-bold text-gray-900 leading-snug flex-1 min-w-0">
+                    <p className="text-[16px] font-semibold text-[#f1f5f9] leading-snug flex-1 min-w-0">
                       {h.text}
                     </p>
                     <span
@@ -464,14 +477,14 @@ export function Patterns({
 
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                     <ConfidenceIndicator confidence={h.confidence} />
-                    <span className="text-[12px] text-[#9ca3af] font-medium">
+                    <span className="text-[12px] text-[#94a3b8] font-medium">
                       {confirmations}
                     </span>
                     {age !== null && (
                       <span
                         className={cn(
                           "text-[11px] font-medium",
-                          stale ? "text-rose-400" : "text-[#9ca3af]"
+                          stale ? "text-rose-400" : "text-[#94a3b8]"
                         )}
                         title={h.created_at ?? undefined}
                       >
@@ -491,7 +504,10 @@ export function Patterns({
                       {h.domains.map((domain) => (
                         <span
                           key={domain}
-                          className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600"
+                          className={cn(
+                            "text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border",
+                            domainColorClass(domain)
+                          )}
                         >
                           {domainLabel(domain)}
                         </span>
@@ -504,8 +520,8 @@ export function Patterns({
           </ul>
 
           {visibleHypotheses.length === 0 && (
-            <div className="bg-gray-50/50 border border-dashed border-gray-200 rounded-2xl p-5 text-center">
-              <p className="text-[12px] text-gray-400 font-medium">
+            <div className="bg-white/5 border border-dashed border-white/5 rounded-2xl p-5 text-center">
+              <p className="text-[12px] text-[#94a3b8] font-medium">
                 Все гипотезы устарели — нажмите «Показать старые», чтобы
                 их раскрыть.
               </p>
@@ -515,8 +531,8 @@ export function Patterns({
       ) : (
         // Cross-sphere exists but no hypotheses — still show a slim
         // explainer so the page doesn't look like it's missing a half.
-        <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
-          <p className="text-[13px] text-gray-500 font-medium">
+        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+          <p className="text-[13px] text-[#94a3b8] font-medium">
             Поведенческих гипотез ещё нет — продолжайте логировать
             активность, AIR4 заметит повторения.
           </p>

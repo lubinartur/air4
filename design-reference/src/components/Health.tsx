@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Activity,
   CalendarDays,
   ChevronRight,
   FileUp,
@@ -97,7 +96,7 @@ const CATEGORY_DOT: Record<string, string> = {
   rose: "bg-red-500",
   amber: "bg-amber-500",
   orange: "bg-orange-500",
-  violet: "bg-violet-500",
+  violet: "bg-[#f97316]",
   gray: "bg-gray-400",
 };
 
@@ -402,8 +401,8 @@ export function Health() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
-              <Heart size={22} className="fill-rose-100" />
+            <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
+              <Heart size={22} />
             </div>
             <div>
               <h1 className={t.pageTitle}>
@@ -415,19 +414,12 @@ export function Health() {
             </div>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
-          <Activity size={14} className="text-indigo-600" />
-          <span className="text-xs font-bold text-indigo-700">
-            Медицинская карта
-          </span>
-        </div>
       </div>
 
       {/* Date selector */}
       {checkups.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest pr-1">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#94a3b8] uppercase tracking-widest pr-1">
             <CalendarDays size={12} />
             Дата анализа
           </div>
@@ -441,15 +433,15 @@ export function Health() {
                 className={cn(
                   "px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors inline-flex items-center gap-2",
                   active
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                    : "bg-white text-gray-500 border border-gray-100 hover:text-gray-900 hover:border-gray-200"
+                    ? "bg-[#f97316] text-white shadow-md shadow-[#f97316]/20"
+                    : "bg-[#13131f] text-[#94a3b8] border border-white/5 hover:text-[#f1f5f9] hover:border-white/5"
                 )}
               >
                 <span className="font-mono">{c.date}</span>
                 <span
                   className={cn(
                     "text-[9px] font-mono",
-                    active ? "text-white/80" : "text-gray-400"
+                    active ? "text-white/80" : "text-[#94a3b8]"
                   )}
                 >
                   {c.markers.length}
@@ -462,22 +454,22 @@ export function Health() {
 
       {/* Loading / empty / error */}
       {loading && (
-        <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-          <p className="text-[14px] text-[#9ca3af]">Загрузка данных…</p>
+        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+          <p className="text-[14px] text-[#94a3b8]">Загрузка данных…</p>
         </div>
       )}
 
       {!loading && error && (
-        <div className="bg-white p-6 rounded-[20px] shadow-sm border border-red-100">
+        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-red-100">
           <p className="text-[13px] text-red-500">{error}</p>
         </div>
       )}
 
       {!loading && !error && checkups.length === 0 && (
-        <div className="bg-white p-12 rounded-[20px] shadow-sm border border-gray-100 text-center flex flex-col items-center justify-center gap-2">
-          <Info size={36} className="text-gray-300" />
-          <p className="text-sm font-bold text-gray-900">Данных анализов пока нет</p>
-          <p className="text-xs text-gray-400 max-w-sm">
+        <div className="bg-[#13131f] p-12 rounded-[20px] shadow-sm border border-white/5 text-center flex flex-col items-center justify-center gap-2">
+          <Info size={36} className="text-[#64748b]" />
+          <p className="text-sm font-bold text-[#f1f5f9]">Данных анализов пока нет</p>
+          <p className="text-xs text-[#94a3b8] max-w-sm">
             Импортируйте анализ крови (например, через <span className="font-mono">python3 import_health_checkup.py</span>) и обновите страницу — маркеры появятся здесь.
           </p>
         </div>
@@ -488,13 +480,13 @@ export function Health() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: directory + categories */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white p-5 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
+            <div className="bg-[#13131f] p-5 rounded-[20px] shadow-sm border border-white/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-extrabold text-gray-900">
+                  <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                     Каталог анализов
                   </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
+                  <p className="text-[11px] text-[#94a3b8] mt-0.5">
                     Результаты клинических анализов крови.
                   </p>
                 </div>
@@ -503,7 +495,7 @@ export function Health() {
                   disabled
                   aria-disabled="true"
                   title="Скоро"
-                  className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100/50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 text-xs text-[#f97316] font-bold bg-[#f97316]/15 px-3 py-1.5 rounded-lg border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <FileUp size={14} />
                   Импорт анализов
@@ -514,33 +506,33 @@ export function Health() {
                 <div className="flex-1 relative">
                   <Search
                     size={15}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94a3b8]"
                   />
                   <input
                     type="text"
                     placeholder="Поиск маркеров или профилей..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all text-gray-800"
+                    className="w-full pl-10 pr-4 py-2 bg-[#13131f] border border-white/10 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#f97316]/50 transition-all text-[#f1f5f9]"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#cbd5e1]"
                     >
                       <X size={14} />
                     </button>
                   )}
                 </div>
 
-                <div className="flex gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
+                <div className="flex gap-1 bg-white/5 p-1 rounded-lg border border-white/5">
                   <button
                     onClick={() => setStatusFilter("ALL")}
                     className={cn(
                       "text-[10px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-md transition-colors",
                       statusFilter === "ALL"
-                        ? "bg-white text-gray-800 shadow-sm"
-                        : "text-gray-400 hover:text-gray-600"
+                        ? "bg-[#13131f] text-[#f1f5f9] shadow-sm"
+                        : "text-[#94a3b8] hover:text-[#cbd5e1]"
                     )}
                   >
                     Все ({totalOutCount + totalNormalCount})
@@ -551,7 +543,7 @@ export function Health() {
                       "text-[10px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1",
                       statusFilter === "OUT_OF_RANGE"
                         ? "bg-red-50 text-red-600 shadow-sm"
-                        : "text-gray-400 hover:text-red-500"
+                        : "text-[#94a3b8] hover:text-red-500"
                     )}
                   >
                     Вне нормы ({totalOutCount})
@@ -562,7 +554,7 @@ export function Health() {
                       "text-[10px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-md transition-colors",
                       statusFilter === "NORMAL"
                         ? "bg-green-50 text-green-600 shadow-sm"
-                        : "text-gray-400 hover:text-green-500"
+                        : "text-[#94a3b8] hover:text-green-500"
                     )}
                   >
                     В норме ({totalNormalCount})
@@ -576,7 +568,7 @@ export function Health() {
                 filteredCategories.map((group) => (
                   <div
                     key={group.category}
-                    className="bg-white rounded-[20px] p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+                    className="bg-[#13131f] rounded-[20px] p-6 shadow-sm border border-white/5 hover:shadow-md transition-shadow"
                   >
                     {/* Group header — matches Finance card titles
                         (text-lg font-extrabold gray-900). Colored
@@ -585,7 +577,7 @@ export function Health() {
                         tinted icon-square pattern used elsewhere. */}
                     <div className="flex items-start justify-between mb-4">
                       <div>
-                        <h2 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+                        <h2 className="text-lg font-extrabold text-[#f1f5f9] flex items-center gap-2">
                           <span
                             className={cn(
                               "w-2 h-2 rounded-full",
@@ -594,13 +586,13 @@ export function Health() {
                           />
                           {group.category}
                         </h2>
-                        <p className="text-[11px] text-gray-400 mt-1">
+                        <p className="text-[11px] text-[#94a3b8] mt-1">
                           {group.desc}
                         </p>
                       </div>
                     </div>
 
-                    <div className="divide-y divide-gray-50">
+                    <div className="divide-y divide-white/5">
                       {group.markers.map((marker) => {
                         const isHigh = marker.status === "HIGH";
                         const isLow = marker.status === "LOW";
@@ -613,21 +605,21 @@ export function Health() {
                           <div
                             key={marker.name}
                             onClick={() => setSelectedMarker(marker)}
-                            className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-gray-50/40 px-3 -mx-3 rounded-xl transition-colors group"
+                            className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-white/5 px-3 -mx-3 rounded-xl transition-colors group"
                           >
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-[14px] font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">
+                                <span className="text-[14px] font-bold text-[#f1f5f9] group-hover:text-[#f97316] transition-colors">
                                   {marker.name}
                                 </span>
                                 <span
                                   className={cn(
-                                    "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider",
+                                    "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border",
                                     isHigh
-                                      ? "bg-red-50 text-red-600"
+                                      ? "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30"
                                       : isLow
-                                        ? "bg-amber-50 text-amber-600"
-                                        : "bg-green-50 text-green-600"
+                                        ? "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30"
+                                        : "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/30"
                                   )}
                                 >
                                   {marker.status === "HIGH"
@@ -637,25 +629,25 @@ export function Health() {
                                     : "НОРМА"}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-gray-400 mt-0.5">
+                              <p className="text-[11px] text-[#94a3b8] mt-0.5">
                                 Референс: {marker.range}
                               </p>
                             </div>
 
                             <div className="flex items-center gap-6 min-w-[200px]">
                               <div className="text-right">
-                                <span className="font-mono text-[15px] font-bold text-gray-800">
+                                <span className="font-mono text-[15px] font-bold text-[#f1f5f9]">
                                   {formatNumber(marker.value)}
                                 </span>
                                 {marker.unit && (
-                                  <span className="text-[10px] text-gray-400 ml-1 font-medium">
+                                  <span className="text-[10px] text-[#94a3b8] ml-1 font-medium">
                                     {marker.unit}
                                   </span>
                                 )}
                               </div>
 
                               <div className="w-28 h-6 flex flex-col justify-center relative">
-                                <div className="h-1.5 w-full bg-gray-100 rounded-full flex overflow-hidden relative">
+                                <div className="h-1.5 w-full bg-white/10 rounded-full flex overflow-hidden relative">
                                   <div className="absolute left-[25%] right-[25%] top-0 bottom-0 bg-green-100/60 rounded" />
                                 </div>
 
@@ -675,7 +667,7 @@ export function Health() {
 
                               <ChevronRight
                                 size={14}
-                                className="text-gray-300 group-hover:text-gray-500 group-hover:translate-x-0.5 transition-all"
+                                className="text-[#64748b] group-hover:text-[#94a3b8] group-hover:translate-x-0.5 transition-all"
                               />
                             </div>
                           </div>
@@ -685,12 +677,12 @@ export function Health() {
                   </div>
                 ))
               ) : (
-                <div className="bg-white p-12 text-center rounded-[20px] border border-gray-100 shadow-sm text-gray-400 flex flex-col items-center justify-center">
-                  <Info size={36} className="text-gray-300 mb-3" />
+                <div className="bg-[#13131f] p-12 text-center rounded-[20px] border border-white/5 shadow-sm text-[#94a3b8] flex flex-col items-center justify-center">
+                  <Info size={36} className="text-[#64748b] mb-3" />
                   <p className="text-sm font-semibold">
                     Под выбранные фильтры ничего не нашлось.
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-[#94a3b8] mt-1">
                     Попробуйте другие фильтры или другой поисковый запрос.
                   </p>
                 </div>
@@ -705,7 +697,7 @@ export function Health() {
               stats already computed in scope (`totalOutCount`,
               `totalNormalCount`, `activeGroup.date`). */}
           <div className="space-y-6">
-            <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
               <Heart
                 size={100}
                 strokeWidth={1.5}
@@ -739,11 +731,11 @@ export function Health() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-white p-6 rounded-[20px] shadow-sm border-[1.5px] border-indigo-100 relative"
+                  className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border-[1.5px] border-[#f97316]/30 relative"
                 >
                   <button
                     onClick={() => setSelectedMarker(null)}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-full"
+                    className="absolute top-4 right-4 text-[#94a3b8] hover:text-[#cbd5e1] bg-white/5 hover:bg-white/5 p-1.5 rounded-full"
                   >
                     <X size={14} />
                   </button>
@@ -759,7 +751,7 @@ export function Health() {
                             : "bg-green-500"
                       )}
                     />
-                    <h3 className="text-base font-black text-gray-900">
+                    <h3 className="text-base font-black text-[#f1f5f9]">
                       {selectedMarker.name} · Разбор
                     </h3>
                   </div>
@@ -768,15 +760,15 @@ export function Health() {
                       protocol, existing content) vs "Динамика" (line
                       chart over all checkup dates). Lazy-loads the
                       history endpoint only on first switch to trend. */}
-                  <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-wider mb-4 border-b border-gray-100">
+                  <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-wider mb-4 border-b border-white/5">
                     <button
                       type="button"
                       onClick={() => setDetailTab("value")}
                       className={cn(
                         "pb-2 -mb-px border-b-2 transition-colors",
-                        detailTab === "value"
-                          ? "border-indigo-600 text-indigo-600"
-                          : "border-transparent text-gray-400 hover:text-gray-600"
+                      detailTab === "value"
+                        ? "border-[#f97316] text-[#f97316]"
+                          : "border-transparent text-[#94a3b8] hover:text-[#cbd5e1]"
                       )}
                     >
                       Значение
@@ -786,9 +778,9 @@ export function Health() {
                       onClick={() => setDetailTab("trend")}
                       className={cn(
                         "pb-2 -mb-px border-b-2 transition-colors",
-                        detailTab === "trend"
-                          ? "border-indigo-600 text-indigo-600"
-                          : "border-transparent text-gray-400 hover:text-gray-600"
+                      detailTab === "trend"
+                        ? "border-[#f97316] text-[#f97316]"
+                          : "border-transparent text-[#94a3b8] hover:text-[#cbd5e1]"
                       )}
                     >
                       Динамика
@@ -805,19 +797,19 @@ export function Health() {
                           label length. */}
                       <div className="mb-4 space-y-2">
                         <div className="flex justify-between items-baseline text-xs">
-                          <span className="text-gray-400">Ваше значение</span>
-                          <span className="font-mono font-bold text-gray-800">
+                          <span className="text-[#94a3b8]">Ваше значение</span>
+                          <span className="font-mono font-bold text-[#f1f5f9]">
                             {formatNumber(selectedMarker.value)} {selectedMarker.unit}
                           </span>
                         </div>
                         <div className="flex justify-between items-baseline text-xs">
-                          <span className="text-gray-400">Референс</span>
-                          <span className="font-mono text-gray-600">
+                          <span className="text-[#94a3b8]">Референс</span>
+                          <span className="font-mono text-[#cbd5e1]">
                             {selectedMarker.range}
                           </span>
                         </div>
                         <div className="flex justify-between items-baseline text-xs">
-                          <span className="text-gray-400">Статус</span>
+                          <span className="text-[#94a3b8]">Статус</span>
                           <span
                             className={cn(
                               "font-bold uppercase tracking-wider text-[10px]",
@@ -837,21 +829,21 @@ export function Health() {
                         </div>
                       </div>
 
-                      <p className="text-xs text-gray-500 leading-relaxed italic mb-4">
+                      <p className="text-xs text-[#94a3b8] leading-relaxed italic mb-4">
                         "{selectedMarker.info}"
                       </p>
 
-                      <div className="pt-4 border-t border-gray-100">
-                        <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-wider mb-2">
+                      <div className="pt-4 border-t border-white/5">
+                        <h4 className="text-[10px] font-black text-[#f97316] uppercase tracking-wider mb-2">
                           Рекомендация AIR4
                         </h4>
-                        <p className="text-[11px] text-gray-400 leading-snug">
+                        <p className="text-[11px] text-[#94a3b8] leading-snug">
                           {interventionFor(selectedMarker)}
                         </p>
                       </div>
                     </>
                   ) : historyLoading ? (
-                    <div className="h-[160px] flex items-center justify-center text-[11px] text-gray-400">
+                    <div className="h-[160px] flex items-center justify-center text-[11px] text-[#94a3b8]">
                       Загрузка истории…
                     </div>
                   ) : historyError ? (
@@ -876,7 +868,7 @@ export function Health() {
                           markerHistory.points.find((p) => p.unit)?.unit ?? null
                         }
                       />
-                      <p className="text-[10px] text-gray-400 uppercase tracking-wider pt-2 border-t border-gray-100">
+                      <p className="text-[10px] text-[#94a3b8] uppercase tracking-wider pt-2 border-t border-white/5">
                         {markerHistory.points.length} измерений ·{" "}
                         {markerHistory.points[0]?.date} —{" "}
                         {
@@ -886,18 +878,18 @@ export function Health() {
                       </p>
                     </div>
                   ) : (
-                    <div className="h-[160px] flex items-center justify-center text-[11px] text-gray-400">
+                    <div className="h-[160px] flex items-center justify-center text-[11px] text-[#94a3b8]">
                       Готовлю график…
                     </div>
                   )}
                 </motion.div>
               ) : (
-                <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 text-center py-10 flex flex-col items-center justify-center">
-                  <Info size={32} className="text-indigo-200 mb-3" />
-                  <h3 className="text-xs font-bold text-gray-800">
+                <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 text-center py-10 flex flex-col items-center justify-center">
+                  <Info size={32} className="text-[#f97316] mb-3" />
+                  <h3 className="text-xs font-bold text-[#f1f5f9]">
                     Панель биомаркера
                   </h3>
-                  <p className="text-[11px] text-gray-400 mt-1 leading-relaxed max-w-[200px]">
+                  <p className="text-[11px] text-[#94a3b8] mt-1 leading-relaxed max-w-[200px]">
                     Кликните по любому маркеру, чтобы увидеть подробное физиологическое
                     объяснение и рекомендуемый протокол.
                   </p>
@@ -906,20 +898,20 @@ export function Health() {
             </AnimatePresence>
 
             {(testo || e2 || shbg) && (
-              <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
                 {/* Title matches the Finance card-title family but
                     one step smaller (`text-base`) because this card
                     lives in the narrow right column and shares space
                     with the biomarker detail panel — `text-lg` would
                     feel oversized here. */}
                 <div className="flex items-center gap-2 mb-4">
-                  <Sparkles size={16} className="text-violet-500" />
-                  <h3 className="text-base font-extrabold text-gray-900">
+                  <Sparkles size={16} className="text-[#f97316]" />
+                  <h3 className="text-base font-extrabold text-[#f1f5f9]">
                     Ароматизация и свободные гормоны
                   </h3>
                 </div>
 
-                <p className="text-[13px] text-gray-700 leading-relaxed mb-4">
+                <p className="text-[13px] text-[#cbd5e1] leading-relaxed mb-4">
                   {testo && (
                     <>
                       Ваш тестостерон —{" "}
@@ -977,15 +969,15 @@ export function Health() {
                 </p>
 
                 {/* Bullet list — parent sets size + body color
-                    (text-[12px] text-gray-600). The label spans bump
+                    (text-[12px] text-[#cbd5e1]). The label spans bump
                     contrast to gray-800 and add font-semibold; size is
                     re-declared on the spans so the typography intent
                     reads explicitly at each label. */}
-                <div className="space-y-3 text-[12px] text-gray-600">
+                <div className="space-y-3 text-[12px] text-[#cbd5e1]">
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1 shrink-0" />
                     <p>
-                      <span className="text-[12px] font-semibold text-gray-800">
+                      <span className="text-[12px] font-semibold text-[#f1f5f9]">
                         Ароматизация в эстрогены:
                       </span>{" "}
                       Периферическую ароматизацию можно отслеживать между визитами — сравните E2 в разных датах.
@@ -994,7 +986,7 @@ export function Health() {
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 shrink-0" />
                     <p>
-                      <span className="text-[12px] font-semibold text-gray-800">
+                      <span className="text-[12px] font-semibold text-[#f1f5f9]">
                         Низкий гликопротеин-переносчик:
                       </span>{" "}
                       SHBG регулирует фракцию свободных биодоступных стероидов. Низкий SHBG усиливает действие и андрогенов, и эстрогенов.

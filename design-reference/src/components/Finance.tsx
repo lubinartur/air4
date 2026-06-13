@@ -19,7 +19,6 @@ import {
   Trash2,
   Loader2,
   Landmark,
-  Sparkles,
   Wallet,
   X,
   type LucideIcon,
@@ -65,18 +64,18 @@ const StatusDot = ({ color = "#ef4444" }: { color?: string }) => (
 const CATEGORY_ICONS: Record<string, { icon: LucideIcon; color: string }> = {
   food_restaurants: { icon: Utensils, color: "bg-red-500" },
   food_groceries: { icon: ShoppingBag, color: "bg-emerald-500" },
-  transport: { icon: Car, color: "bg-blue-500" },
+  transport: { icon: Car, color: "bg-[#f97316]" },
   subscriptions: { icon: Zap, color: "bg-amber-500" },
   health: { icon: Activity, color: "bg-teal-500" },
-  shopping: { icon: CreditCard, color: "bg-indigo-500" },
+  shopping: { icon: CreditCard, color: "bg-[#f97316]" },
   transfers: { icon: MoreHorizontal, color: "bg-gray-400" },
   // `loan_payment` is real spending (mortgage / consumer loan instalments),
   // distinct from neutral `repayment`/`transfers`. Indigo matches the
   // "Кредиты и обязательства" sidebar accent so the chart row visually
   // ties back to the obligation it decrements.
-  loan_payment: { icon: Landmark, color: "bg-indigo-500" },
+  loan_payment: { icon: Landmark, color: "bg-[#f97316]" },
   utilities: { icon: Zap, color: "bg-sky-500" },
-  entertainment: { icon: Activity, color: "bg-purple-500" },
+  entertainment: { icon: Activity, color: "bg-[#f97316]" },
   other: { icon: MoreHorizontal, color: "bg-gray-300" },
 };
 
@@ -184,9 +183,9 @@ function cycleEndFromStart(startIso: string): string {
 
 function ChatEmpty({ label }: { label: string }) {
   return (
-    <p className="text-[13px] text-[#9ca3af] font-medium py-4 text-center">
+    <p className="text-[13px] text-[#94a3b8] font-medium py-4 text-center">
       {label}
-      <span className="block text-[11px] mt-1 text-[#d1d5db]">Добавить через чат</span>
+      <span className="block text-[11px] mt-1 text-[#64748b]">Добавить через чат</span>
     </p>
   );
 }
@@ -245,9 +244,9 @@ function progressTone(percentPaid: number): {
   }
   if (percentPaid >= 35) {
     return {
-      bar: "bg-indigo-500",
-      text: "text-indigo-600",
-      badge: "bg-indigo-50 text-indigo-700",
+      bar: "bg-[#f97316]",
+      text: "text-[#f97316]",
+      badge: "bg-[#f97316]/15 text-[#f97316]",
     };
   }
   return {
@@ -638,20 +637,20 @@ function CategoryReview({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.2 }}
-            className="relative bg-white rounded-[24px] shadow-2xl w-full max-w-5xl max-h-[88vh] overflow-hidden flex flex-col"
+            className="relative bg-[#13131f] border border-white/5 rounded-[24px] shadow-2xl w-full max-w-5xl max-h-[88vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-100">
+            <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-white/5">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-lg">
                   <Tag size={16} />
                 </div>
                 <div>
-                  <h2 className="text-[17px] font-black text-gray-900 leading-tight">
+                  <h2 className="text-[17px] font-black text-[#f1f5f9] leading-tight">
                     Проверка категорий
                   </h2>
-                  <p className="text-[12px] text-gray-600 mt-0.5">
+                  <p className="text-[12px] text-[#cbd5e1] mt-0.5">
                     {counts.total > 0
                       ? `${counts.total} транзакций · ${counts.needsReview} требуют внимания`
                       : "Просмотрите автокатегории и исправьте неверные"}
@@ -662,31 +661,31 @@ function CategoryReview({
                 type="button"
                 onClick={handleClose}
                 aria-label="Закрыть"
-                className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-[#94a3b8] hover:text-[#cbd5e1] hover:bg-white/5 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Toolbar */}
-            <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap gap-3 items-center">
+            <div className="px-6 py-4 border-b border-white/5 flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
                 <Search
                   size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94a3b8]"
                 />
                 <input
                   type="text"
                   placeholder="Поиск по контрагенту..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-gray-800"
+                  className="w-full pl-9 pr-3 py-2 bg-[#13131f] border border-white/10 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-[#f97316]/50 text-[#f1f5f9]"
                 />
               </div>
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-gray-800"
+                className="px-3 py-2 bg-[#13131f] border border-white/10 rounded-lg text-[13px] font-medium focus:outline-none focus:ring-1 focus:ring-[#f97316]/50 text-[#f1f5f9]"
               >
                 <option value="all">Все категории</option>
                 <option value="needs_review">Требуют внимания (other)</option>
@@ -698,7 +697,7 @@ function CategoryReview({
                       key={cat}
                       value={cat}
                       title={isNeutral ? "Не считается расходом" : undefined}
-                      className={isNeutral ? "text-gray-400" : undefined}
+                      className={isNeutral ? "text-[#94a3b8]" : undefined}
                     >
                       {formatCategoryLabel(cat)}
                       {isNeutral ? " · нейтральная" : ""}
@@ -710,7 +709,7 @@ function CategoryReview({
                 type="button"
                 onClick={() => void reload()}
                 disabled={loading}
-                className="px-3 py-2 text-[12px] font-bold uppercase tracking-wider text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-lg disabled:opacity-50 transition-colors"
+                className="px-3 py-2 text-[12px] font-bold uppercase tracking-wider text-[#cbd5e1] bg-white/5 hover:bg-white/5 border border-white/5 rounded-lg disabled:opacity-50 transition-colors"
               >
                 {loading ? "Загрузка..." : "Обновить"}
               </button>
@@ -725,11 +724,11 @@ function CategoryReview({
               )}
 
               {loading && items.length === 0 ? (
-                <p className="text-[14px] text-[#9ca3af] py-12 text-center">
+                <p className="text-[14px] text-[#94a3b8] py-12 text-center">
                   Загрузка транзакций...
                 </p>
               ) : visible.length === 0 ? (
-                <p className="text-[14px] text-[#9ca3af] py-12 text-center">
+                <p className="text-[14px] text-[#94a3b8] py-12 text-center">
                   {items.length === 0
                     ? "Транзакций в этом цикле нет."
                     : "По текущему фильтру ничего не найдено."}
@@ -737,8 +736,8 @@ function CategoryReview({
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 bg-white z-10">
-                      <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    <thead className="sticky top-0 bg-[#13131f] z-10">
+                      <tr className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider">
                         <th className="pb-3 pr-2">Дата</th>
                         <th className="pb-3 pr-2">Контрагент</th>
                         <th className="pb-3 pr-2 text-right">Сумма</th>
@@ -770,16 +769,16 @@ function CategoryReview({
                           <tr
                             key={tx.id}
                             className={cn(
-                              "group border-t border-gray-50",
-                              i % 2 === 0 ? "bg-gray-50/30" : "bg-white",
+                              "group border-t border-white/5",
+                              i % 2 === 0 ? "bg-white/5" : "bg-[#13131f]",
                               isUnreviewed && "bg-amber-50/40"
                             )}
                           >
-                            <td className="py-3 pr-2 font-mono text-gray-600 whitespace-nowrap">
+                            <td className="py-3 pr-2 font-mono text-[#cbd5e1] whitespace-nowrap">
                               {formatTxDate(tx.date)}
                             </td>
                             <td
-                              className="py-3 pr-2 font-bold text-gray-900 max-w-[280px] truncate"
+                              className="py-3 pr-2 font-bold text-[#f1f5f9] max-w-[280px] truncate"
                               title={tx.description ?? ""}
                             >
                               {tx.description || "—"}
@@ -787,7 +786,7 @@ function CategoryReview({
                             <td
                               className={cn(
                                 "py-3 pr-2 font-mono font-bold text-right whitespace-nowrap",
-                                isIncome ? "text-green-600" : "text-gray-900"
+                                isIncome ? "text-green-600" : "text-[#f1f5f9]"
                               )}
                             >
                               {signed > 0 ? "+" : ""}
@@ -824,7 +823,7 @@ function CategoryReview({
                                         }
                                       }}
                                       disabled={isSaving}
-                                      className="w-[160px] px-2 py-1 bg-white border border-indigo-300 rounded text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-800 disabled:opacity-50"
+                                      className="w-[160px] px-2 py-1 bg-[#13131f] border border-[#f97316]/40 rounded text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-[#f97316] text-[#f1f5f9] disabled:opacity-50"
                                     />
                                     <button
                                       type="button"
@@ -842,7 +841,7 @@ function CategoryReview({
                                         setDraftName("");
                                       }}
                                       title="Отмена (Esc)"
-                                      className="w-6 h-6 rounded text-gray-400 hover:bg-gray-100 flex items-center justify-center"
+                                      className="w-6 h-6 rounded text-[#94a3b8] hover:bg-white/5 flex items-center justify-center"
                                     >
                                       <X size={14} />
                                     </button>
@@ -860,10 +859,10 @@ function CategoryReview({
                                         : undefined
                                     }
                                     className={cn(
-                                      "bg-transparent border border-gray-200 rounded px-2 py-1 text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 cursor-pointer hover:border-gray-300 transition-colors",
+                                      "bg-transparent border border-white/10 rounded px-2 py-1 text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-[#f97316]/50 disabled:opacity-50 cursor-pointer hover:border-white/20 transition-colors",
                                       NEUTRAL_CATEGORIES.has(currentCategory)
-                                        ? "text-gray-400 italic"
-                                        : "text-gray-700"
+                                        ? "text-[#94a3b8] italic"
+                                        : "text-[#cbd5e1]"
                                     )}
                                   >
                                     {dropdownOptions.map((cat) => {
@@ -880,7 +879,7 @@ function CategoryReview({
                                           }
                                           className={
                                             isNeutral
-                                              ? "text-gray-400"
+                                              ? "text-[#94a3b8]"
                                               : undefined
                                           }
                                         >
@@ -901,7 +900,7 @@ function CategoryReview({
                               {isSaving ? (
                                 <Loader2
                                   size={14}
-                                  className="text-gray-400 animate-spin inline-block"
+                                  className="text-[#94a3b8] animate-spin inline-block"
                                 />
                               ) : confirmed ? (
                                 <span
@@ -1224,11 +1223,11 @@ export function Finance({
           here. */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-green-50 text-green-600 rounded-xl">
-            <Wallet size={22} className="fill-green-100" />
+          <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
+            <Wallet size={22} />
           </div>
           <div>
-            <h1 className={cn(t.pageTitle, "text-4xl")}>
+            <h1 className={t.pageTitle}>
               Финансовый обзор
             </h1>
             <p className={cn(t.pageSub, "mt-0.5")}>
@@ -1238,15 +1237,10 @@ export function Finance({
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-green-50/50 border border-green-100 px-3.5 py-1.5 rounded-xl">
-            <Sparkles size={14} className="text-green-600" />
-            <span className="text-xs font-bold text-green-700">Финансовый советник</span>
-          </div>
-
           <button
             type="button"
             onClick={() => onPageChange("CSVUpload")}
-            className="flex items-center gap-2 bg-[#6366f1] text-white px-4 py-2 rounded-xl font-bold text-[12px] shadow-md shadow-indigo-500/20 hover:bg-indigo-700 transition-all uppercase tracking-wider"
+            className="flex items-center gap-2 bg-[#f97316] text-white px-4 py-2 rounded-xl font-bold text-[12px] shadow-md shadow-[#f97316]/20 hover:bg-[#ea6a06] transition-all uppercase tracking-wider"
           >
             <Upload size={14} />
             Загрузить выписку
@@ -1259,17 +1253,17 @@ export function Finance({
       )}
 
       {loading ? (
-        <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
+        <p className="text-[14px] text-[#94a3b8]">Загрузка…</p>
       ) : !hasData ? (
-        <div className="bg-white rounded-[20px] p-12 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
-          <p className="text-[16px] font-bold text-[#111827]">Выписки пока не загружены</p>
-          <p className="text-[13px] text-[#9ca3af] mt-2">
+        <div className="bg-[#13131f] rounded-[20px] p-12 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+          <p className="text-[16px] font-bold text-[#f1f5f9]">Выписки пока не загружены</p>
+          <p className="text-[13px] text-[#94a3b8] mt-2">
             Загрузите CSV Swedbank, чтобы увидеть свои финансы.
           </p>
           <button
             type="button"
             onClick={() => onPageChange("CSVUpload")}
-            className="mt-6 inline-flex items-center gap-2 bg-[#6366f1] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px]"
+            className="mt-6 inline-flex items-center gap-2 bg-[#f97316] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px]"
           >
             <Upload size={16} />
             Загрузить выписку
@@ -1278,9 +1272,9 @@ export function Finance({
       ) : (
         <div className="grid grid-cols-5 gap-6">
           <div className="col-span-3 space-y-6">
-            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-center justify-between gap-4 mb-6">
-                <h2 className="text-lg font-extrabold text-gray-900">
+                <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Срез месяца
                 </h2>
                 {cycleStart && cycleEnd && (
@@ -1290,11 +1284,11 @@ export function Finance({
                       onClick={handlePrevCycle}
                       disabled={!canGoBack}
                       aria-label="Предыдущий цикл"
-                      className="p-1 rounded-full text-gray-500 hover:bg-gray-100 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                      className="p-1 rounded-full text-[#94a3b8] hover:bg-white/5 hover:text-[#f97316] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#94a3b8] disabled:cursor-not-allowed transition-colors"
                     >
                       <ChevronLeft size={14} />
                     </button>
-                    <span className="text-[11px] font-bold text-gray-700 font-mono tabular-nums tracking-wide min-w-[120px] text-center">
+                    <span className="text-[11px] font-bold text-[#cbd5e1] font-mono tabular-nums tracking-wide min-w-[120px] text-center">
                       {formatCycleEdge(cycleStart)} – {formatCycleEdge(cycleEnd)}
                     </span>
                     <button
@@ -1302,7 +1296,7 @@ export function Finance({
                       onClick={handleNextCycle}
                       disabled={!canGoForward}
                       aria-label="Следующий цикл"
-                      className="p-1 rounded-full text-gray-500 hover:bg-gray-100 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                      className="p-1 rounded-full text-[#94a3b8] hover:bg-white/5 hover:text-[#f97316] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#94a3b8] disabled:cursor-not-allowed transition-colors"
                     >
                       <ChevronRight size={14} />
                     </button>
@@ -1311,52 +1305,52 @@ export function Finance({
               </div>
               <div className="grid grid-cols-2 gap-8">
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Доход</p>
-                  <p className="font-mono text-2xl font-bold text-gray-900">{formatEuro(income)}</p>
-                  <p className="text-[10px] font-bold text-gray-300 uppercase tracking-wider mt-1">
+                  <p className="text-[10px] font-bold text-[#94a3b8] uppercase mb-1">Доход</p>
+                  <p className="font-mono text-2xl font-bold text-[#f1f5f9]">{formatEuro(income)}</p>
+                  <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-wider mt-1">
                     Зарплата и доверенные источники
                   </p>
                   {otherIncoming && otherIncoming.amount > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <p className="text-[10px] font-bold text-[#94a3b8] uppercase mb-0.5">
                         Прочие поступления
                       </p>
-                      <p className="font-mono text-[15px] font-semibold text-gray-500">
+                      <p className="font-mono text-[15px] font-semibold text-[#94a3b8]">
                         {formatEuro(otherIncoming.amount)}
-                        <span className="ml-1.5 text-[10px] font-medium text-gray-400">
+                        <span className="ml-1.5 text-[10px] font-medium text-[#94a3b8]">
                           ({otherIncoming.count})
                         </span>
                       </p>
-                      <p className="text-[10px] text-gray-600 mt-0.5">
+                      <p className="text-[10px] text-[#cbd5e1] mt-0.5">
                         Переводы, возвраты — не учитываются в свободном капитале
                       </p>
                     </div>
                   )}
                 </div>
-                <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
-                  <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">
+                <div className="bg-[#1e1e2e] p-4 rounded-2xl border border-white/5">
+                  <p className="text-[10px] font-bold text-[#94a3b8] uppercase mb-1">
                     Свободный капитал
                   </p>
-                  <div className="flex items-center gap-2 text-indigo-600">
+                  <div className="flex items-center gap-2 text-[#f1f5f9]">
                     <p className="font-mono text-3xl font-black">{formatEuro(freeCapital)}</p>
                     {freeCapital >= 0 ? (
-                      <TrendingUp size={20} />
+                      <TrendingUp size={20} className="text-[#f97316]" />
                     ) : (
                       <TrendingDown size={20} className="text-red-500" />
                     )}
                   </div>
-                  <p className="text-[10px] font-black text-indigo-600/60 uppercase mt-1">
+                  <p className="text-[10px] font-black text-[#64748b] uppercase mt-1">
                     Доход − расходы
                   </p>
-                  <p className="text-[10px] text-[#9ca3af] mt-2">Потрачено: {formatEuro(spent)}</p>
+                  <p className="text-[10px] text-[#94a3b8] mt-2">Потрачено: {formatEuro(spent)}</p>
                   {monthlyFixed && monthlyFixed.fixed_total > 0 && (
-                    <p className="text-[10px] text-[#9ca3af] mt-1">
+                    <p className="text-[10px] text-[#94a3b8] mt-1">
                       Постоянные расходы: {formatEuro(monthlyFixed.fixed_total)}/мес
                     </p>
                   )}
                   {hasProjection && (
                     <>
-                      <p className="text-[12px] text-gray-500 mt-2">
+                      <p className="text-[12px] text-[#94a3b8] mt-2">
                         Прогноз:{" "}
                         <span
                           className={cn(
@@ -1369,9 +1363,9 @@ export function Finance({
                         {cycleEnd && ` к ${formatCycleEdge(cycleEnd)}`}
                       </p>
                       {freeCapital > 0 && burnRateDays > 0 && (
-                        <p className="text-[12px] text-gray-500 mt-1">
+                        <p className="text-[12px] text-[#94a3b8] mt-1">
                           Хватит на{" "}
-                          <span className="font-mono font-semibold text-gray-700">
+                          <span className="font-mono font-semibold text-[#cbd5e1]">
                             {burnRateDays}
                           </span>{" "}
                           {pluralizeDays(burnRateDays)} при текущем темпе
@@ -1383,16 +1377,16 @@ export function Finance({
               </div>
             </div>
 
-            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
               {categories.length > 0 && <StatusDot color="#ef4444" />}
               <div className="flex items-start justify-between gap-3 mb-6">
-                <h2 className="text-lg font-extrabold text-gray-900">
+                <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Структура трат
                 </h2>
                 <button
                   type="button"
                   onClick={() => setReviewOpen(true)}
-                  className="shrink-0 mr-7 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 px-2.5 py-1 rounded-md transition-colors"
+                  className="shrink-0 mr-7 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#f97316] bg-[#f97316]/15 hover:bg-[#f97316]/10 border border-[#f97316]/30 px-2.5 py-1 rounded-md transition-colors"
                   title="Открыть проверку категорий"
                 >
                   <Tag size={11} />
@@ -1400,7 +1394,7 @@ export function Finance({
                 </button>
               </div>
               {categories.length === 0 ? (
-                <p className="text-[14px] text-[#9ca3af]">Категорий расходов пока нет.</p>
+                <p className="text-[14px] text-[#94a3b8]">Категорий расходов пока нет.</p>
               ) : (
                 <div className="space-y-5">
                   {categories.map((cat) => (
@@ -1409,33 +1403,33 @@ export function Finance({
                         <div
                           className={cn(
                             "flex items-center gap-2",
-                            cat.isInternal ? "text-gray-400" : "text-gray-700"
+                            cat.isInternal ? "text-[#94a3b8]" : "text-[#cbd5e1]"
                           )}
                         >
                           <cat.icon
                             size={16}
                             className={cn(
-                              cat.highlight ? "text-amber-500" : "text-gray-400"
+                              cat.highlight ? "text-amber-500" : "text-[#94a3b8]"
                             )}
                           />
                           {cat.name}
-                          <span className="text-[10px] text-[#9ca3af]">({cat.count})</span>
+                          <span className="text-[10px] text-[#94a3b8]">({cat.count})</span>
                           {cat.isInternal && (
-                            <span className="text-[10px] text-gray-600 font-normal normal-case tracking-normal">
+                            <span className="text-[10px] text-[#cbd5e1] font-normal normal-case tracking-normal">
                               не реальные траты
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-gray-900 font-bold">
+                          <span className="text-[#f1f5f9] font-bold">
                             {formatEuro(cat.amount)}
                           </span>
-                          <span className="text-gray-600 font-mono text-[11px] w-8 text-right">
+                          <span className="text-[#cbd5e1] font-mono text-[11px] w-8 text-right">
                             {cat.percent}%
                           </span>
                         </div>
                       </div>
-                      <div className="h-2 w-full bg-gray-50 rounded-full overflow-hidden">
+                      <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${cat.percent}%` }}
@@ -1449,17 +1443,17 @@ export function Finance({
               )}
             </div>
 
-            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+              <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
                 Транзакции
               </h2>
               {transactions.length === 0 ? (
-                <p className="text-[14px] text-[#9ca3af]">Транзакций не найдено.</p>
+                <p className="text-[14px] text-[#94a3b8]">Транзакций не найдено.</p>
               ) : (
                 <div className="overflow-hidden">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      <tr className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider">
                         <th className="pb-4">Дата</th>
                         <th className="pb-4">Контрагент</th>
                         <th className="pb-4 text-right">Сумма</th>
@@ -1473,18 +1467,18 @@ export function Finance({
                         return (
                           <tr
                             key={t.id}
-                            className={cn("group", i % 2 === 0 ? "bg-gray-50/30" : "bg-white")}
+                            className={cn("group", i % 2 === 0 ? "bg-white/5" : "bg-[#13131f]")}
                           >
-                            <td className="py-3 font-mono text-gray-600">
+                            <td className="py-3 font-mono text-[#cbd5e1]">
                               {formatTxDate(t.date)}
                             </td>
-                            <td className="py-3 font-bold text-gray-900 max-w-[200px] truncate">
+                            <td className="py-3 font-bold text-[#f1f5f9] max-w-[200px] truncate">
                               {t.description || "—"}
                             </td>
                             <td
                               className={cn(
                                 "py-3 font-bold text-right",
-                                isIncome ? "text-green-600" : "text-gray-900"
+                                isIncome ? "text-green-600" : "text-[#f1f5f9]"
                               )}
                             >
                               {signed > 0 ? "+" : ""}
@@ -1498,7 +1492,7 @@ export function Finance({
                                   encodes that signal; the pill goes back
                                   to a single neutral gray so the eye
                                   reads the table by rows, not by stripes. */}
-                              <span className="bg-gray-100 text-gray-600 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                              <span className="bg-white/5 text-[#cbd5e1] rounded-full px-2 py-0.5 text-[11px] font-medium">
                                 {formatCategoryLabel(t.category || "other")}
                               </span>
                             </td>
@@ -1519,7 +1513,7 @@ export function Finance({
               the same Finance state already in scope (income, spent,
               freeCapital, fixed costs) — no extra API call needed. */}
           <div className="col-span-2 space-y-6">
-            <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
               <Wallet
                 size={100}
                 strokeWidth={1.5}
@@ -1554,9 +1548,9 @@ export function Finance({
               </div>
             </div>
 
-            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-baseline justify-between gap-3 mb-4">
-                <h2 className="text-lg font-extrabold text-gray-900">
+                <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Предстоящие платежи
                 </h2>
                 {upcomingPayments.length > 0 && (
@@ -1569,7 +1563,7 @@ export function Finance({
                   // other header totals (Подписки, Кредиты) and the
                   // Monthly Snapshot hero numbers, so the eye reads
                   // every Finance total in the same monospaced rhythm.
-                  <span className="font-mono text-lg font-extrabold text-[#6366F1] shrink-0">
+                  <span className="font-mono text-lg font-extrabold text-[#f97316] shrink-0">
                     {formatEuro(
                       upcomingPayments.reduce(
                         (sum, p) => sum + (p.amount ?? 0),
@@ -1582,7 +1576,7 @@ export function Finance({
               {upcomingPayments.length === 0 ? (
                 <ChatEmpty label="Запланированных платежей нет" />
               ) : (
-                <ul className="divide-y divide-gray-50">
+                <ul className="divide-y divide-white/5">
                   {upcomingPayments.map((p) => (
                     <li
                       key={p.key}
@@ -1594,7 +1588,7 @@ export function Finance({
                             "shrink-0 w-9 h-9 rounded-xl flex flex-col items-center justify-center text-[9px] font-bold uppercase tracking-wider",
                             p.kind === "subscription"
                               ? "bg-amber-50 text-amber-700"
-                              : "bg-indigo-50 text-indigo-700"
+                              : "bg-[#f97316]/15 text-[#f97316]"
                           )}
                         >
                           <span className="text-[10px] leading-none">
@@ -1605,15 +1599,15 @@ export function Finance({
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[13px] font-bold text-gray-900 truncate">
+                          <p className="text-[13px] font-bold text-[#f1f5f9] truncate">
                             {p.name}
                           </p>
-                          <p className="text-[10px] text-gray-600 font-mono mt-0.5">
+                          <p className="text-[10px] text-[#cbd5e1] font-mono mt-0.5">
                             {formatRelativeDate(p.date)}
                           </p>
                         </div>
                       </div>
-                      <span className="text-[13px] font-bold text-gray-900 shrink-0">
+                      <span className="text-[13px] font-bold text-[#f1f5f9] shrink-0">
                         {p.amount != null ? formatEuro(p.amount) : "—"}
                       </span>
                     </li>
@@ -1622,9 +1616,9 @@ export function Finance({
               )}
             </div>
 
-            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-baseline justify-between gap-3 mb-4">
-                <h2 className="text-lg font-extrabold text-gray-900">
+                <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Подписки · в месяц
                 </h2>
                 {subscriptions.length > 0 && monthlyFixed && (
@@ -1633,7 +1627,7 @@ export function Finance({
                   // header line; indigo color anchors the sum visually.
                   // `font-mono` aligns the digits with the other Finance
                   // totals (Кредиты, Предстоящие платежи, Срез месяца).
-                  <span className="font-mono text-lg font-extrabold text-[#6366F1] shrink-0">
+                  <span className="font-mono text-lg font-extrabold text-[#f97316] shrink-0">
                     {formatEuro(monthlyFixed.subscriptions_total)}/мес
                   </span>
                 )}
@@ -1641,23 +1635,23 @@ export function Finance({
               {subscriptions.length === 0 ? (
                 <ChatEmpty label="Подписки не отслеживаются" />
               ) : (
-                <ul className="divide-y divide-gray-50">
+                <ul className="divide-y divide-white/5">
                   {subscriptions.map((s) => (
                     <li
                       key={s.id}
                       className="flex items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
                     >
                       <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-gray-900 truncate">
+                        <p className="text-[13px] font-bold text-[#f1f5f9] truncate">
                           {s.name}
                         </p>
                         {s.billing_day != null && (
-                          <p className="text-[10px] text-gray-600 font-mono mt-0.5">
+                          <p className="text-[10px] text-[#cbd5e1] font-mono mt-0.5">
                             {s.billing_day}-е число
                           </p>
                         )}
                       </div>
-                      <span className="text-[13px] font-bold text-gray-900 shrink-0">
+                      <span className="text-[13px] font-bold text-[#f1f5f9] shrink-0">
                         {s.amount != null ? formatEuro(s.amount) : "—"}
                       </span>
                     </li>
@@ -1666,16 +1660,16 @@ export function Finance({
               )}
             </div>
 
-            <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
               <div className="flex items-baseline justify-between gap-3 mb-4">
-                <h2 className="text-lg font-extrabold text-gray-900">
+                <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Кредиты и обязательства
                 </h2>
                 {obligations.length > 0 && monthlyFixed && (
                   // `font-mono` matches the other Finance header totals
                   // so all monetary totals share the same monospaced
                   // baseline regardless of card.
-                  <span className="font-mono text-lg font-extrabold text-[#6366F1] shrink-0">
+                  <span className="font-mono text-lg font-extrabold text-[#f97316] shrink-0">
                     {formatEuro(monthlyFixed.obligations_total)}/мес
                   </span>
                 )}
@@ -1720,17 +1714,17 @@ export function Finance({
                     return (
                       <li
                         key={o.id}
-                        className="bg-gray-50 rounded-xl border border-gray-100 p-4 space-y-2"
+                        className="bg-white/5 rounded-xl border border-white/5 p-4 space-y-2"
                       >
                         {/* Row 1 — name + monthly payment. Both dark
                             gray-900 so the row reads as one balanced
                             line; only the card-header total stays
                             indigo to anchor the section visually. */}
                         <div className="flex items-baseline justify-between gap-3">
-                          <p className="text-[13px] font-bold text-gray-900 truncate">
+                          <p className="text-[13px] font-bold text-[#f1f5f9] truncate">
                             {o.name}
                           </p>
-                          <span className="text-[13px] font-bold text-gray-900 shrink-0">
+                          <span className="text-[13px] font-bold text-[#f1f5f9] shrink-0">
                             {o.monthly_payment != null
                               ? formatEuro(o.monthly_payment)
                               : "—"}
@@ -1741,7 +1735,7 @@ export function Finance({
                             {/* Row 2 — progress bar against gray-200
                                 track (visible on the card's gray-50
                                 surface). */}
-                            <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                            <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${percentPaid}%` }}
@@ -1755,7 +1749,7 @@ export function Finance({
                                 pulls the % pill onto the same row so
                                 the card terminates in one footer
                                 rather than two. */}
-                            <div className="flex items-center justify-between gap-3 text-[12px] text-gray-600">
+                            <div className="flex items-center justify-between gap-3 text-[12px] text-[#cbd5e1]">
                               <span className="truncate">
                                 {fmtShort(paid)} / {fmtShort(total as number)}
                                 {o.interest_rate != null &&
@@ -1777,7 +1771,7 @@ export function Finance({
                           // with whatever fields exist; conditional
                           // bullets so we never render a leading or
                           // duplicate "·".
-                          <div className="text-[12px] text-gray-600 truncate">
+                          <div className="text-[12px] text-[#cbd5e1] truncate">
                             {remaining != null && fmtShort(remaining)}
                             {o.interest_rate != null && (
                               <>
@@ -1805,27 +1799,27 @@ export function Finance({
         </div>
       )}
 
-      <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+        <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
           Выписки
         </h2>
         {loading && uploads.length === 0 ? (
-          <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
+          <p className="text-[14px] text-[#94a3b8]">Загрузка…</p>
         ) : uploads.length === 0 ? (
-          <p className="text-[14px] text-[#9ca3af]">Выписки пока не загружены.</p>
+          <p className="text-[14px] text-[#94a3b8]">Выписки пока не загружены.</p>
         ) : (
-          <ul className="divide-y divide-gray-50">
+          <ul className="divide-y divide-white/5">
             {uploads.map((up) => (
               <li
                 key={up.id}
                 className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-bold text-[#111827] truncate">{up.filename}</p>
-                  <p className="text-[12px] text-[#6b7280] font-mono mt-1">
+                  <p className="text-[15px] font-bold text-[#f1f5f9] truncate">{up.filename}</p>
+                  <p className="text-[12px] text-[#94a3b8] font-mono mt-1">
                     {formatPeriod(up.period_start, up.period_end)}
                   </p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-[#9ca3af] font-bold uppercase tracking-wider">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-[#94a3b8] font-bold uppercase tracking-wider">
                     <span>{up.total_transactions} транзакций</span>
                     <span>Загружено {formatUploadDate(up.created_at)}</span>
                     {up.account_iban && (

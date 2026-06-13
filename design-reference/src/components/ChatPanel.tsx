@@ -340,11 +340,12 @@ export function ChatPanel({
         style={{ borderColor: "rgba(255,255,255,0.06)" }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-[13px] shrink-0"
-            style={{ backgroundColor: "#f97316" }}
-          >
-            A4
+          <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              src="/ar4-test.svg"
+              alt="AIR4"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">

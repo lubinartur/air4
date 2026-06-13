@@ -14,12 +14,12 @@ function ProfileField({
 }) {
   const empty = value == null || value === "";
   return (
-    <div className="flex justify-between items-baseline gap-4 py-2 border-b border-gray-50 last:border-0">
-      <span className="text-[11px] font-black text-gray-400 uppercase shrink-0">{label}</span>
+    <div className="flex justify-between items-baseline gap-4 py-2 border-b border-white/5 last:border-0">
+      <span className="text-[11px] font-black text-[#94a3b8] uppercase shrink-0">{label}</span>
       {empty ? (
-        <span className="text-[13px] font-medium text-indigo-500 text-right">Расскажите AIR4 в чате</span>
+        <span className="text-[13px] font-medium text-[#f97316] text-right">Расскажите AIR4 в чате</span>
       ) : (
-        <span className="text-[14px] font-bold text-gray-900 text-right">{value}</span>
+        <span className="text-[14px] font-bold text-[#f1f5f9] text-right">{value}</span>
       )}
     </div>
   );
@@ -35,12 +35,12 @@ function ConfidenceDots({ confidence }: { confidence: number }) {
             key={i}
             className={cn(
               "w-1.5 h-1.5 rounded-full",
-              i < filled ? "bg-indigo-500" : "bg-gray-200"
+              i < filled ? "bg-[#f97316]" : "bg-white/10"
             )}
           />
         ))}
       </div>
-      <span className="text-[10px] font-mono font-bold text-gray-400">
+      <span className="text-[10px] font-mono font-bold text-[#94a3b8]">
         {formatConfidencePercent(confidence)}
       </span>
     </div>
@@ -77,8 +77,8 @@ export function Profile() {
   const header = (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div className="flex items-center gap-2.5">
-        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-          <User size={22} className="fill-indigo-100" />
+        <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
+          <User size={22} className="fill-[#f97316]/20" />
         </div>
         <div>
           <h1 className={t.pageTitle}>
@@ -90,9 +90,9 @@ export function Profile() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
-        <Sparkles size={14} className="text-indigo-600" />
-        <span className="text-xs font-bold text-indigo-700">Личность</span>
+      <div className="flex items-center gap-2 bg-[#f97316]/15 border border-[#f97316]/30 px-3.5 py-1.5 rounded-xl">
+        <Sparkles size={14} className="text-[#f97316]" />
+        <span className="text-xs font-bold text-[#f97316]">Личность</span>
       </div>
     </div>
   );
@@ -101,7 +101,7 @@ export function Profile() {
     return (
       <div className="flex flex-col gap-8 pb-10">
         {header}
-        <p className="text-[14px] text-[#9ca3af]">Загрузка…</p>
+        <p className="text-[14px] text-[#94a3b8]">Загрузка…</p>
       </div>
     );
   }
@@ -124,7 +124,7 @@ export function Profile() {
       {header}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
           <ProfileField label="Имя" value={profile.name} />
           <ProfileField label="Город" value={profile.city} />
           <ProfileField label="Профессия" value={profile.profession} />
@@ -135,11 +135,11 @@ export function Profile() {
             />
           )}
           {profile.goals.length > 0 && (
-            <div className="pt-4 mt-2 border-t border-gray-50">
-              <p className="text-[11px] font-black text-gray-400 uppercase mb-2">Цели</p>
+            <div className="pt-4 mt-2 border-t border-white/5">
+              <p className="text-[11px] font-black text-[#94a3b8] uppercase mb-2">Цели</p>
               <ul className="space-y-1">
                 {profile.goals.map((g) => (
-                  <li key={g} className="text-[14px] font-medium text-gray-800">
+                  <li key={g} className="text-[14px] font-medium text-[#f1f5f9]">
                     {g}
                   </li>
                 ))}
@@ -147,35 +147,35 @@ export function Profile() {
             </div>
           )}
           {profile.context && (
-            <p className="text-[13px] text-gray-500 mt-4 leading-relaxed">{profile.context}</p>
+            <p className="text-[13px] text-[#94a3b8] mt-4 leading-relaxed">{profile.context}</p>
           )}
         </div>
 
-        <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-          <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
             Статистика
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Транзакции</p>
-              <p className="font-mono text-2xl font-black text-gray-900">
+            <div className="p-4 bg-white/5 rounded-2xl">
+              <p className="text-[10px] font-bold text-[#94a3b8] uppercase mb-1">Транзакции</p>
+              <p className="font-mono text-2xl font-black text-[#f1f5f9]">
                 {stats.total_transactions}
               </p>
-              <p className="text-[11px] text-gray-400 mt-1">загружено</p>
+              <p className="text-[11px] text-[#94a3b8] mt-1">загружено</p>
             </div>
-            <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">События</p>
-              <p className="font-mono text-2xl font-black text-gray-900">{stats.total_events}</p>
-              <p className="text-[11px] text-gray-400 mt-1">записано</p>
+            <div className="p-4 bg-white/5 rounded-2xl">
+              <p className="text-[10px] font-bold text-[#94a3b8] uppercase mb-1">События</p>
+              <p className="font-mono text-2xl font-black text-[#f1f5f9]">{stats.total_events}</p>
+              <p className="text-[11px] text-[#94a3b8] mt-1">записано</p>
             </div>
-            <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Факты</p>
-              <p className="font-mono text-2xl font-black text-gray-900">{stats.facts_count}</p>
-              <p className="text-[11px] text-gray-400 mt-1">известно</p>
+            <div className="p-4 bg-white/5 rounded-2xl">
+              <p className="text-[10px] font-bold text-[#94a3b8] uppercase mb-1">Факты</p>
+              <p className="font-mono text-2xl font-black text-[#f1f5f9]">{stats.facts_count}</p>
+              <p className="text-[11px] text-[#94a3b8] mt-1">известно</p>
             </div>
-            <div className="p-4 bg-gray-50/50 rounded-2xl">
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">С нами с</p>
-              <p className="font-mono text-lg font-black text-gray-900">
+            <div className="p-4 bg-white/5 rounded-2xl">
+              <p className="text-[10px] font-bold text-[#94a3b8] uppercase mb-1">С нами с</p>
+              <p className="font-mono text-lg font-black text-[#f1f5f9]">
                 {stats.member_since ?? "—"}
               </p>
             </div>
@@ -183,12 +183,12 @@ export function Profile() {
         </div>
       </div>
 
-      <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+        <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
           Что AIR4 знает о вас
         </h2>
         {facts.length === 0 ? (
-          <p className="text-[14px] text-[#9ca3af] text-center py-8">
+          <p className="text-[14px] text-[#94a3b8] text-center py-8">
             Продолжайте общаться — AIR4 запомнит.
           </p>
         ) : (
@@ -196,15 +196,15 @@ export function Profile() {
             {facts.map((fact) => (
               <div
                 key={fact.key}
-                className="p-4 rounded-2xl border border-gray-50 bg-gray-50/30"
+                className="p-4 rounded-2xl border border-white/5 bg-white/5"
               >
                 <div className="flex justify-between items-start gap-4 mb-2">
-                  <h3 className="text-[14px] font-bold text-gray-900">
+                  <h3 className="text-[14px] font-bold text-[#f1f5f9]">
                     {formatFactKey(fact.key)}
                   </h3>
                   <ConfidenceDots confidence={fact.confidence} />
                 </div>
-                <p className="text-[14px] text-gray-600 leading-relaxed">{fact.value}</p>
+                <p className="text-[14px] text-[#cbd5e1] leading-relaxed">{fact.value}</p>
               </div>
             ))}
           </div>

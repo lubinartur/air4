@@ -182,7 +182,7 @@ export function EnergyStateDropdown({
               onClick={() => selectMode(m.id)}
               className={cn(
                 "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors",
-                m.id === mode ? "bg-indigo-50" : "hover:bg-gray-50",
+                m.id === mode ? "bg-[#f97316]/15" : "hover:bg-gray-50",
               )}
             >
               <span className="text-[15px] leading-none">{m.icon}</span>
@@ -193,7 +193,7 @@ export function EnergyStateDropdown({
                 <span className="block text-[11px] text-gray-400">{m.desc}</span>
               </span>
               {m.id === mode && (
-                <span className="text-indigo-500 text-[12px] font-bold">✓</span>
+                <span className="text-[#f97316] text-[12px] font-bold">✓</span>
               )}
             </button>
           ))}
@@ -217,7 +217,7 @@ export function EnergyStateDropdown({
               <button
                 type="button"
                 onClick={clearDnd}
-                className="text-[12px] font-semibold text-indigo-600 hover:text-indigo-700"
+                className="text-[12px] font-semibold text-[#f97316] hover:text-[#f97316]"
               >
                 Выключить
               </button>

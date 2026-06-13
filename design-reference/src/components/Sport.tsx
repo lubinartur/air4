@@ -97,41 +97,41 @@ function WorkoutDetailsModal({
       role="presentation"
     >
       <div
-        className="relative bg-white rounded-[20px] shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+        className="relative bg-[#13131f] rounded-[20px] shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Закрыть"
-          className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+          className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full text-[#94a3b8] hover:text-[#cbd5e1] hover:bg-white/5 transition-colors"
         >
           <X size={20} />
         </button>
 
         <div className="p-7">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+          <p className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.2em]">
             {workout.date}
           </p>
           <h2 className={cn(t.pageTitle, "mt-1")}>
             {formatWorkoutType(workout.type)}
           </h2>
 
-          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 text-[13px] text-gray-600">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-4 text-[13px] text-[#cbd5e1]">
             {workout.duration != null && (
               <span>
-                <span className="text-gray-400">Длительность:</span>{" "}
-                <span className="font-bold text-gray-900">{workout.duration} мин</span>
+                <span className="text-[#94a3b8]">Длительность:</span>{" "}
+                <span className="font-bold text-[#f1f5f9]">{workout.duration} мин</span>
               </span>
             )}
             {workout.total_volume != null && workout.total_volume > 0 && (
               <span>
-                <span className="text-gray-400">Объём:</span>{" "}
-                <span className="font-bold text-gray-900">{formatVolume(workout.total_volume)}</span>
+                <span className="text-[#94a3b8]">Объём:</span>{" "}
+                <span className="font-bold text-[#f1f5f9]">{formatVolume(workout.total_volume)}</span>
               </span>
             )}
             {workout.source && (
-              <span className="text-[11px] font-mono uppercase tracking-wide text-gray-400 self-center">
+              <span className="text-[11px] font-mono uppercase tracking-wide text-[#94a3b8] self-center">
                 {workout.source}
               </span>
             )}
@@ -139,29 +139,29 @@ function WorkoutDetailsModal({
 
           <div className="mt-6 space-y-6">
             {workout.exercises.length === 0 ? (
-              <p className="text-[14px] text-[#9ca3af]">
+              <p className="text-[14px] text-[#94a3b8]">
                 Детали упражнений по этой тренировке не записаны.
               </p>
             ) : (
               workout.exercises.map((ex) => (
                 <div
                   key={ex.exerciseName}
-                  className="border border-gray-100 rounded-2xl p-4"
+                  className="border border-white/5 rounded-2xl p-4"
                 >
                   <div className="flex items-baseline justify-between gap-3 mb-3">
-                    <h3 className="text-[15px] font-bold text-gray-900">{ex.exerciseName}</h3>
+                    <h3 className="text-[15px] font-bold text-[#f1f5f9]">{ex.exerciseName}</h3>
                     {ex.muscleGroup && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#f97316] bg-[#f97316]/15 px-2 py-0.5 rounded-full">
                         {ex.muscleGroup}
                       </span>
                     )}
                   </div>
                   {ex.sets.length === 0 ? (
-                    <p className="text-[12px] text-[#9ca3af]">Подходы не записаны.</p>
+                    <p className="text-[12px] text-[#94a3b8]">Подходы не записаны.</p>
                   ) : (
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        <tr className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider">
                           <th className="pb-2 w-16">Подход</th>
                           <th className="pb-2">Вес</th>
                           <th className="pb-2">Повторы</th>
@@ -171,13 +171,13 @@ function WorkoutDetailsModal({
                         {ex.sets.map((s) => (
                           <tr
                             key={s.setNumber}
-                            className="border-t border-gray-50"
+                            className="border-t border-white/5"
                           >
-                            <td className="py-2 text-gray-400">{s.setNumber}</td>
-                            <td className="py-2 font-bold text-gray-900">
+                            <td className="py-2 text-[#94a3b8]">{s.setNumber}</td>
+                            <td className="py-2 font-bold text-[#f1f5f9]">
                               {s.weight != null ? `${s.weight} кг` : "—"}
                             </td>
-                            <td className="py-2 text-gray-700">
+                            <td className="py-2 text-[#cbd5e1]">
                               {s.reps != null ? s.reps : "—"}
                             </td>
                           </tr>
@@ -191,7 +191,7 @@ function WorkoutDetailsModal({
           </div>
 
           {workout.notes && (
-            <p className="mt-6 text-[13px] text-gray-600 italic border-t border-gray-50 pt-4">
+            <p className="mt-6 text-[13px] text-[#cbd5e1] italic border-t border-white/5 pt-4">
               {workout.notes}
             </p>
           )}
@@ -381,8 +381,8 @@ export function Sport() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-              <Dumbbell size={22} className="fill-amber-100" />
+            <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
+              <Dumbbell size={22} />
             </div>
             <div>
               <h1 className={t.pageTitle}>
@@ -395,15 +395,11 @@ export function Sport() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-amber-50/50 border border-amber-100 px-3.5 py-1.5 rounded-xl">
-          <Flame size={14} className="text-amber-600" />
-          <span className="text-xs font-bold text-amber-700">Спортивный советник</span>
-        </div>
       </div>
 
       {loading && (
-        <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-          <p className="text-[14px] text-[#9ca3af]">Загрузка спортивных данных…</p>
+        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+          <p className="text-[14px] text-[#94a3b8]">Загрузка спортивных данных…</p>
         </div>
       )}
 
@@ -414,7 +410,7 @@ export function Sport() {
             {/* Bento metric cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Weight card */}
-              <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between group transition-all relative">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between group transition-all relative">
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <p className={t.cardLabel}>Вес</p>
@@ -426,12 +422,12 @@ export function Sport() {
                     </span>
                     <span className={t.heroSub}>кг</span>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-1 block">{trendLabel}</span>
+                  <span className="text-[10px] text-[#94a3b8] mt-1 block">{trendLabel}</span>
                 </div>
 
                 <form
                   onSubmit={handleLogWeight}
-                  className="mt-4 pt-4 border-t border-gray-50 flex flex-col gap-1.5"
+                  className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-1.5"
                 >
                   <div className="flex gap-2">
                     <input
@@ -441,12 +437,12 @@ export function Sport() {
                       value={newWeightInput}
                       onChange={(e) => setNewWeightInput(e.target.value)}
                       disabled={weightSaving}
-                      className="flex-1 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500/50 text-gray-800 disabled:opacity-50"
+                      className="flex-1 px-3 py-1.5 bg-[#13131f] border border-white/10 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#f97316]/50 text-[#f1f5f9] disabled:opacity-50"
                     />
                     <button
                       type="submit"
                       disabled={weightSaving}
-                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-wider transition-colors"
+                      className="bg-[#f97316] hover:bg-[#ea6a06] disabled:opacity-50 text-white font-bold px-3 py-1.5 rounded-lg text-[11px] uppercase tracking-wider transition-colors"
                     >
                       {weightSaving ? "…" : "Записать"}
                     </button>
@@ -458,11 +454,11 @@ export function Sport() {
               </div>
 
               {/* Height card */}
-              <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between transition-all">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between transition-all">
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <p className={t.cardLabel}>Рост</p>
-                    <Activity size={16} className="text-indigo-500" />
+                    <Activity size={16} className="text-[#f97316]" />
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className={t.hero}>
@@ -470,20 +466,20 @@ export function Sport() {
                     </span>
                     <span className={t.heroSub}>см</span>
                   </div>
-                  <span className="text-[10px] text-gray-400 mt-1 block">Активный биометрический верхний предел</span>
+                  <span className="text-[10px] text-[#94a3b8] mt-1 block">Активный биометрический верхний предел</span>
                 </div>
-                <div className="pt-4 border-t border-gray-50">
-                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
+                <div className="pt-4 border-t border-white/5">
+                  <span className="text-[10px] text-[#94a3b8] uppercase font-black tracking-wider block">
                     Клинический статус
                   </span>
-                  <span className="text-xs font-bold text-gray-700 mt-0.5 block">
+                  <span className="text-xs font-bold text-[#cbd5e1] mt-0.5 block">
                     Стабильная биологическая база
                   </span>
                 </div>
               </div>
 
               {/* BMI card */}
-              <div className="bg-white p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 flex flex-col justify-between transition-all">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between transition-all">
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <p className={t.cardLabel}>
@@ -500,17 +496,17 @@ export function Sport() {
                   <span
                     className={cn(
                       "text-[10px] font-bold mt-1 block",
-                      bmiInfo?.className ?? "text-gray-400"
+                      bmiInfo?.className ?? "text-[#94a3b8]"
                     )}
                   >
                     {bmiInfo?.label ?? "Статус: недостаточно данных"}
                   </span>
                 </div>
-                <div className="pt-4 border-t border-gray-50">
-                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-wider block">
+                <div className="pt-4 border-t border-white/5">
+                  <span className="text-[10px] text-[#94a3b8] uppercase font-black tracking-wider block">
                     Состав тела
                   </span>
-                  <span className="text-xs font-bold text-gray-700 mt-0.5 block">
+                  <span className="text-xs font-bold text-[#cbd5e1] mt-0.5 block">
                     Высокий показатель сухой мышечной массы
                   </span>
                 </div>
@@ -518,11 +514,11 @@ export function Sport() {
             </div>
 
             {/* Weight Trajectory */}
-            <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-lg font-extrabold text-gray-900">Динамика веса</h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
+                  <h3 className="text-lg font-extrabold text-[#f1f5f9]">Динамика веса</h3>
+                  <p className="text-[11px] text-[#94a3b8] mt-0.5">
                     Последние {weightLogs.length || 0}{" "}
                     {weightLogs.length % 10 === 1 && weightLogs.length % 100 !== 11
                       ? "измерение"
@@ -549,14 +545,14 @@ export function Sport() {
                         </span>
                       </>
                     ) : (
-                      <span className="text-gray-400 font-mono">Без изменений</span>
+                      <span className="text-[#94a3b8] font-mono">Без изменений</span>
                     )}
                   </div>
                 )}
               </div>
 
               {weightLogs.length === 0 ? (
-                <p className="text-[13px] text-[#9ca3af] py-6 text-center">
+                <p className="text-[13px] text-[#94a3b8] py-6 text-center">
                   Данных о весе пока нет — запишите через чат (например, «вес 95 кг») или через форму выше.
                 </p>
               ) : (
@@ -573,15 +569,15 @@ export function Sport() {
                         <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 bg-gray-900 text-white font-mono text-[9px] px-1.5 py-0.5 rounded transition-all duration-300 z-10 pointer-events-none">
                           {log.weight} кг
                         </div>
-                        <div className="w-full bg-indigo-50/50 rounded-t-lg transition-all duration-300 h-[100px] flex items-end overflow-hidden border border-indigo-50/30 group-hover:border-indigo-100">
+                        <div className="w-full bg-[#f97316]/15 rounded-t-lg transition-all duration-300 h-[100px] flex items-end overflow-hidden border border-[#f97316]/30 group-hover:border-[#f97316]/30">
                           <motion.div
                             initial={{ height: 0 }}
                             animate={{ height: `${cappedHt}%` }}
                             transition={{ duration: 0.8, ease: "easeOut", delay: index * 0.05 }}
-                            className="w-full bg-indigo-500 hover:bg-indigo-600 transition-colors rounded-t-lg"
+                            className="w-full bg-[#f97316] hover:bg-[#ea6a06] transition-colors rounded-t-lg"
                           />
                         </div>
-                        <span className="font-mono text-[9px] text-gray-400">{log.date}</span>
+                        <span className="font-mono text-[9px] text-[#94a3b8]">{log.date}</span>
                       </div>
                     );
                   })}
@@ -590,20 +586,20 @@ export function Sport() {
             </div>
 
             {/* Workout history (read-only — workouts are imported from Coaich) */}
-            <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
-                    <History size={18} className="text-indigo-600" />
+                  <h3 className="text-lg font-extrabold text-[#f1f5f9] flex items-center gap-2">
+                    <History size={18} className="text-[#f97316]" />
                     Журнал тренировок
                   </h3>
-                  <p className="text-[11px] text-gray-400 mt-1">
+                  <p className="text-[11px] text-[#94a3b8] mt-1">
                     Импорт из Coaich + ручные сессии. Кликните по строке для разбора по подходам.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   {workouts.length > 0 && (
-                    <span className="text-[10px] font-mono text-gray-400 uppercase">
+                    <span className="text-[10px] font-mono text-[#94a3b8] uppercase">
                       {workouts.length}{" "}
                       {workouts.length % 10 === 1 && workouts.length % 100 !== 11
                         ? "сессия"
@@ -618,7 +614,7 @@ export function Sport() {
                       setShowAddWorkout((v) => !v);
                       setWorkoutError(null);
                     }}
-                    className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100/50 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-[#f97316] font-bold bg-[#f97316]/15 px-3 py-1.5 rounded-lg border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors"
                   >
                     {showAddWorkout ? <X size={14} /> : <Plus size={14} />}
                     {showAddWorkout ? "Закрыть" : "Записать сессию"}
@@ -633,13 +629,13 @@ export function Sport() {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="bg-gray-50 border border-gray-100 p-4 rounded-xl space-y-3 overflow-hidden text-xs"
+                    className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-3 overflow-hidden text-xs"
                   >
-                    <p className="font-bold text-gray-700">Добавить тренировку</p>
+                    <p className="font-bold text-[#cbd5e1]">Добавить тренировку</p>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                        <span className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider">
                           Тип
                         </span>
                         <select
@@ -650,7 +646,7 @@ export function Sport() {
                             )
                           }
                           disabled={workoutSaving}
-                          className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 disabled:opacity-50"
+                          className="p-2 border border-white/10 outline-none rounded bg-[#13131f] text-[#f1f5f9] disabled:opacity-50"
                         >
                           <option value="strength">Силовая / Веса</option>
                           <option value="cardio">Кардио / Зона 2</option>
@@ -658,7 +654,7 @@ export function Sport() {
                       </div>
 
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                        <span className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider">
                           Длительность (мин)
                         </span>
                         <input
@@ -669,12 +665,12 @@ export function Sport() {
                           value={newWorkoutDuration}
                           onChange={(e) => setNewWorkoutDuration(e.target.value)}
                           disabled={workoutSaving}
-                          className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 disabled:opacity-50"
+                          className="p-2 border border-white/10 outline-none rounded bg-[#13131f] text-[#f1f5f9] disabled:opacity-50"
                         />
                       </div>
 
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                        <span className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider">
                           Заметки / упражнения
                         </span>
                         <input
@@ -683,7 +679,7 @@ export function Sport() {
                           value={newWorkoutNotes}
                           onChange={(e) => setNewWorkoutNotes(e.target.value)}
                           disabled={workoutSaving}
-                          className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 disabled:opacity-50"
+                          className="p-2 border border-white/10 outline-none rounded bg-[#13131f] text-[#f1f5f9] disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -696,7 +692,7 @@ export function Sport() {
                       <button
                         type="submit"
                         disabled={workoutSaving}
-                        className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold px-4 py-2 rounded-lg leading-none"
+                        className="bg-[#f97316] hover:bg-[#ea6a06] disabled:opacity-50 text-white font-extrabold px-4 py-2 rounded-lg leading-none"
                       >
                         {workoutSaving ? "Сохранение…" : "Сохранить сессию"}
                       </button>
@@ -706,12 +702,12 @@ export function Sport() {
               </AnimatePresence>
 
               {workouts.length === 0 ? (
-                <p className="text-[13px] text-[#9ca3af] py-4">
+                <p className="text-[13px] text-[#94a3b8] py-4">
                   Тренировок пока нет — добавьте через форму выше или импортируйте бэкап Coaich:{" "}
                   <span className="font-mono">python3 import_workouts.py coaich-backup.json</span>.
                 </p>
               ) : (
-                <div className="divide-y divide-gray-50 pt-2">
+                <div className="divide-y divide-white/5 pt-2">
                   {workouts.map((w) => {
                     const isStrength = (w.type ?? "").toLowerCase() === "strength";
                     const topExercise =
@@ -727,7 +723,7 @@ export function Sport() {
                         key={w.id}
                         type="button"
                         onClick={() => setActiveWorkoutId(w.id)}
-                        className="w-full text-left py-3 flex justify-between items-center group hover:bg-gray-50/50 px-2 rounded-lg transition-all"
+                        className="w-full text-left py-3 flex justify-between items-center group hover:bg-white/5 px-2 rounded-lg transition-all"
                       >
                         <div className="flex items-center gap-3">
                           <div
@@ -741,7 +737,7 @@ export function Sport() {
                             {isStrength ? <Dumbbell size={14} /> : <Activity size={14} />}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-gray-800 truncate">
+                            <p className="text-xs font-bold text-[#f1f5f9] truncate">
                               {logText}
                             </p>
                             {/* Meta line — type label stays in Inter
@@ -749,7 +745,7 @@ export function Sport() {
                                 (duration, volume) get `font-mono` so
                                 their digits align in JetBrains Mono and
                                 read as data, not prose. */}
-                            <span className="text-[10px] text-gray-400 mt-0.5 block">
+                            <span className="text-[10px] text-[#94a3b8] mt-0.5 block">
                               {formatWorkoutType(w.type)}
                               {" • "}
                               <span className="font-mono">
@@ -769,7 +765,7 @@ export function Sport() {
                           </div>
                         </div>
 
-                        <span className="font-mono text-[10px] text-gray-400 shrink-0 ml-3">
+                        <span className="font-mono text-[10px] text-[#94a3b8] shrink-0 ml-3">
                           {formatChartDate(w.date)}
                         </span>
                       </button>
@@ -787,7 +783,7 @@ export function Sport() {
               the Overview AIR4 Advisor card visual language in a
               more compact (p-5, text-[14px]) right-column form. */}
           <div className="space-y-6">
-            <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
               <Dumbbell
                 size={100}
                 strokeWidth={1.5}
@@ -818,12 +814,12 @@ export function Sport() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
               {/* Card title matches Finance card-title family.
                   Clock icon retained as the visual hook for this
                   card's "timing/consistency" theme. */}
-              <h3 className="text-lg font-extrabold text-gray-900 mb-4 flex items-center gap-2">
-                <Clock size={18} className="text-[#6366f1]" />
+              <h3 className="text-lg font-extrabold text-[#f1f5f9] mb-4 flex items-center gap-2">
+                <Clock size={18} className="text-[#f97316]" />
                 Согласованность тренировок
               </h3>
 
@@ -832,37 +828,37 @@ export function Sport() {
                   was removed so each child sets its own size and the
                   hierarchy doesn't collapse to 12px everywhere. */}
               <div className="space-y-4">
-                <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="text-[13px] font-semibold text-gray-800">
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/5">
+                  <p className="text-[13px] font-semibold text-[#f1f5f9]">
                     Удержание тестостерона
                   </p>
-                  <p className="text-[12px] text-gray-600 mt-1 leading-relaxed">
+                  <p className="text-[12px] text-[#cbd5e1] mt-1 leading-relaxed">
                     Супрафизиологические андрогены требуют регулярной гликолитической нагрузки. Высокие механические веса повышают плотность мышц и помогают избегать задержки жидкости.
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="text-[13px] font-semibold text-gray-800">
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/5">
+                  <p className="text-[13px] font-semibold text-[#f1f5f9]">
                     Вязкость крови
                   </p>
-                  <p className="text-[12px] text-gray-600 mt-1 leading-relaxed">
+                  <p className="text-[12px] text-[#cbd5e1] mt-1 leading-relaxed">
                     При гематокрите 50,6% вязкость крови высокая. Гидратация (4 л/день) и аэробные сессии в зоне 2 (например, 40 минут при 135 уд/мин) — терапевтичны.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
               {/* Left-aligned to match the «Согласованность» card
                   above. The Flame icon is inline before the title
                   (same inline-icon pattern as other right-column
                   card titles) instead of floating above a centered
                   block. */}
-              <h4 className="text-lg font-extrabold text-gray-900 mb-2 flex items-center gap-2">
+              <h4 className="text-lg font-extrabold text-[#f1f5f9] mb-2 flex items-center gap-2">
                 <Flame size={18} className="text-orange-500" />
                 Метаболический статус
               </h4>
-              <p className="text-[12px] text-gray-600 leading-relaxed">
+              <p className="text-[12px] text-[#cbd5e1] leading-relaxed">
                 Суточная норма калорий в тренировочной фазе — около 2850 ккал. Минимизируйте «утешительные» походы в рестораны в периоды застрявших проектов.
               </p>
             </div>

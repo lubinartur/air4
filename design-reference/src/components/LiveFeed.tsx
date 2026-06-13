@@ -103,30 +103,30 @@ function styleFor(item: FeedItem): TypeStyle {
   }
   if (item.type === "upload") {
     return {
-      iconWrap: "bg-blue-50",
-      iconColor: "text-blue-500",
-      pillBg: "bg-blue-50",
-      pillFg: "text-blue-700",
+      iconWrap: "bg-[#f97316]/15",
+      iconColor: "text-[#f97316]",
+      pillBg: "bg-[#f97316]/15",
+      pillFg: "text-[#f97316]",
       label: "ВЫПИСКА",
       Icon: UploadIcon,
     };
   }
   if (item.type === "project_log") {
     return {
-      iconWrap: "bg-purple-50",
-      iconColor: "text-purple-600",
-      pillBg: "bg-purple-50",
-      pillFg: "text-purple-700",
+      iconWrap: "bg-[#f97316]/15",
+      iconColor: "text-[#f97316]",
+      pillBg: "bg-[#f97316]/15",
+      pillFg: "text-[#f97316]",
       label: "ЛОГ ПРОЕКТА",
       Icon: Terminal,
     };
   }
   if (item.type === "observation") {
     return {
-      iconWrap: "bg-indigo-50",
-      iconColor: "text-[#6366F1]",
-      pillBg: "bg-indigo-50",
-      pillFg: "text-[#6366F1]",
+      iconWrap: "bg-[#f97316]/15",
+      iconColor: "text-[#f97316]",
+      pillBg: "bg-[#f97316]/15",
+      pillFg: "text-[#f97316]",
       label: "НАБЛЮДЕНИЕ AIR4",
       Icon: Sparkles,
     };
@@ -366,7 +366,7 @@ export function LiveFeed({
       className={cn(
         "bg-white rounded-[20px] p-6 shadow-[0_2px_16px_rgba(0,0,0,0.06)]",
         cardClickable
-          ? "group/card cursor-pointer border border-transparent hover:border-[#6366F1]/30 hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)] hover:-translate-y-[1px] transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1]/40"
+          ? "group/card cursor-pointer border border-transparent hover:border-[#f97316]/30 hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)] hover:-translate-y-[1px] transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f97316]/40"
           : "transition-all duration-300 hover:shadow-md"
       )}
     >
@@ -377,8 +377,8 @@ export function LiveFeed({
           if a future locale string runs long. */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="shrink-0 w-6 h-6 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center">
-            <Activity size={14} className="fill-blue-100" />
+          <div className="shrink-0 w-6 h-6 rounded-lg bg-[#f97316]/15 text-[#f97316] flex items-center justify-center">
+            <Activity size={14} className="fill-[#f97316]/20" />
           </div>
           <span className="text-lg font-extrabold text-gray-900">
             Активность
@@ -388,7 +388,7 @@ export function LiveFeed({
           <ChevronRight
             size={14}
             strokeWidth={2.5}
-            className="text-gray-300 group-hover/card:text-[#6366F1] transition-colors shrink-0"
+            className="text-gray-300 group-hover/card:text-[#f97316] transition-colors shrink-0"
           />
         )}
       </div>

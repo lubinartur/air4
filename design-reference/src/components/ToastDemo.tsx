@@ -16,7 +16,7 @@ const Toast = ({ id, type, title, body, action, onDismiss }: ToastProps) => {
     success: { border: "border-l-green-500", icon: CheckCircle2, iconColor: "text-green-500" },
     warning: { border: "border-l-amber-500", icon: AlertTriangle, iconColor: "text-amber-500" },
     critical: { border: "border-l-red-500", icon: AlertCircle, iconColor: "text-red-500" },
-    info: { border: "border-l-indigo-500", icon: Info, iconColor: "text-indigo-500" },
+    info: { border: "border-l-[#f97316]", icon: Info, iconColor: "text-[#f97316]" },
   };
 
   const config = configs[type];
@@ -46,13 +46,13 @@ const Toast = ({ id, type, title, body, action, onDismiss }: ToastProps) => {
         </div>
         <div className="space-y-1">
           {type === "info" ? (
-             <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-[0.1em] mb-1">AIR4 ЗАМЕТИЛ</p>
+             <p className="text-[11px] font-bold text-[#f97316] uppercase tracking-[0.1em] mb-1">AIR4 ЗАМЕТИЛ</p>
           ) : (
              <h4 className="text-[14px] font-bold text-[#111827] tracking-tight">{title}</h4>
           )}
           <p className="text-[13px] text-[#6b7280] font-medium leading-relaxed">{body}</p>
           {action && (
-            <button className="text-[13px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors mt-2 block">
+            <button className="text-[13px] font-bold text-[#f97316] hover:text-[#f97316] transition-colors mt-2 block">
               {action}
             </button>
           )}

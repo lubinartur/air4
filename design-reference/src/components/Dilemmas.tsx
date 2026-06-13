@@ -27,6 +27,41 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
+// Domain → Russian label + accent palette (kept in sync with the
+// Patterns page). Tags that aren't known domains fall back to the
+// orange accent with their raw label uppercased.
+const DOMAIN_BADGE: Record<string, { label: string; className: string }> = {
+  finance: {
+    label: "ФИНАНСЫ",
+    className: "bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30",
+  },
+  health: {
+    label: "ЗДОРОВЬЕ",
+    className: "bg-[#22c55e]/15 text-[#22c55e] border-[#22c55e]/30",
+  },
+  projects: {
+    label: "ПРОЕКТЫ",
+    className: "bg-[#a855f7]/15 text-[#a855f7] border-[#a855f7]/30",
+  },
+  life: {
+    label: "ЖИЗНЬ",
+    className: "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30",
+  },
+  personal: {
+    label: "ЛИЧНОЕ",
+    className: "bg-[#ec4899]/15 text-[#ec4899] border-[#ec4899]/30",
+  },
+};
+
+function domainBadge(tag: string): { label: string; className: string } {
+  return (
+    DOMAIN_BADGE[(tag || "").toLowerCase()] ?? {
+      label: tag.toUpperCase(),
+      className: "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30",
+    }
+  );
+}
+
 function isFollowupPending(d: Dilemma): boolean {
   if (!d.followup_due) return false;
   const done = d.followup_done;
@@ -42,15 +77,27 @@ function isFollowupDue(d: Dilemma): boolean {
 function statusBadge(status: string): { label: string; className: string } {
   const s = status.toLowerCase();
   if (s === "open") {
-    return { label: "ОТКРЫТО", className: "bg-blue-50 text-blue-600" };
+    return {
+      label: "ОТКРЫТО",
+      className: "bg-[#3b82f6]/15 text-[#3b82f6] border border-[#3b82f6]/30",
+    };
   }
   if (s === "decided" || s === "closed") {
-    return { label: "РЕШЕНО", className: "bg-green-50 text-green-600" };
+    return {
+      label: "РЕШЕНО",
+      className: "bg-[#22c55e]/15 text-[#22c55e] border border-[#22c55e]/30",
+    };
   }
   if (s === "abandoned") {
-    return { label: "ОТМЕНЕНО", className: "bg-gray-100 text-gray-500" };
+    return {
+      label: "ЗАБРОШЕНО",
+      className: "bg-[#6b7280]/15 text-[#6b7280] border border-[#6b7280]/30",
+    };
   }
-  return { label: s.toUpperCase(), className: "bg-gray-100 text-gray-500" };
+  return {
+    label: s.toUpperCase(),
+    className: "bg-[#6b7280]/15 text-[#6b7280] border border-[#6b7280]/30",
+  };
 }
 
 // Inline follow-up answer form — rendered above each due dilemma so
@@ -90,9 +137,9 @@ function FollowupForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 flex flex-col gap-2 p-3 rounded-xl bg-amber-50/60 border border-amber-100"
+      className="mt-3 flex flex-col gap-2 p-3 rounded-xl bg-[#1e1e2e] border border-white/10"
     >
-      <p className="text-[13px] text-amber-900 font-medium leading-snug">
+      <p className="text-[13px] text-[#f1f5f9] font-medium leading-snug">
         Прошло время — как вышло с этим решением?
       </p>
       <textarea
@@ -101,20 +148,20 @@ function FollowupForm({
         placeholder="Что в итоге произошло?"
         rows={2}
         disabled={saving}
-        className="w-full px-3 py-2 text-[14px] text-gray-900 bg-white border border-gray-200 rounded-lg resize-none focus:outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-100 disabled:opacity-60"
+        className="w-full px-3 py-2 text-[14px] text-[#f1f5f9] bg-[#1e1e2e] border border-white/10 rounded-lg resize-none focus:outline-none focus:border-[#f97316] focus:ring-2 focus:ring-[#f97316]/20 disabled:opacity-60"
       />
       <div className="flex items-center justify-between gap-3">
         {error ? (
-          <span className="text-[12px] text-red-600 font-medium">{error}</span>
+          <span className="text-[12px] text-red-500 font-medium">{error}</span>
         ) : (
-          <span className="text-[12px] text-amber-700/70">
+          <span className="text-[12px] text-[#94a3b8]">
             Ответ сохранится в исход решения
           </span>
         )}
         <button
           type="submit"
           disabled={saving || !text.trim()}
-          className="px-3 py-1.5 text-[13px] font-bold text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:bg-amber-300 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-1.5 text-[13px] font-bold text-white bg-[#f97316] rounded-lg hover:bg-[#ea6a06] disabled:bg-[#f97316]/40 disabled:cursor-not-allowed transition-colors"
         >
           {saving ? "Сохраняем…" : "Записать исход"}
         </button>
@@ -145,8 +192,8 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
   const header = (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div className="flex items-center gap-2.5">
-        <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
-          <Scale size={22} className="fill-violet-100" />
+        <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
+          <Scale size={22} className="fill-[#f97316]/20" />
         </div>
         <div>
           <h1 className={ty.pageTitle}>
@@ -158,10 +205,6 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 bg-violet-50/50 border border-violet-100 px-3.5 py-1.5 rounded-xl">
-        <Sparkles size={14} className="text-violet-600" />
-        <span className="text-xs font-bold text-violet-700">Советник по решениям</span>
-      </div>
     </div>
   );
 
@@ -174,7 +217,7 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
           title="Дилемм пока нет"
           subtext="Стоите перед сложным решением? Опишите его AIR4 в чате."
         />
-        <p className="text-[13px] text-center text-[#9ca3af] font-medium">
+        <p className="text-[13px] text-center text-[#94a3b8] font-medium">
           Обсудите трудное решение с AIR4 в чате — оно появится здесь.
         </p>
       </div>
@@ -186,18 +229,18 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
       {header}
 
       {dueFollowups.length > 0 && (
-        <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-          <h2 className="text-lg font-extrabold text-gray-900 mb-1">
+        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-1">
             Ждут вашего ответа
           </h2>
-          <p className="text-[13px] text-gray-500 mb-5">
+          <p className="text-[13px] text-[#94a3b8] mb-5">
             Решения, по которым подошёл срок подвести итог
           </p>
           <ul className="space-y-4">
             {dueFollowups.map((d) => (
               <li
                 key={d.id}
-                className="p-4 rounded-2xl bg-amber-50/30 border border-amber-100"
+                className="p-4 rounded-2xl bg-[#1e1e2e] border border-white/5"
               >
                 <DilemmaRowContent dilemma={d} />
                 <FollowupForm dilemma={d} onSaved={onRefresh} />
@@ -207,12 +250,12 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
         </div>
       )}
 
-      <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-        <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+        <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
           Ваши дилеммы
         </h2>
         {restList.length === 0 ? (
-          <p className="text-[13px] text-gray-500">
+          <p className="text-[13px] text-[#94a3b8]">
             Все дилеммы перечислены выше.
           </p>
         ) : (
@@ -220,7 +263,7 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
             {restList.map((d) => (
               <li
                 key={d.id}
-                className="p-4 rounded-2xl bg-gray-50/50 border border-gray-50"
+                className="p-4 rounded-2xl bg-[#1e1e2e] border border-white/5"
               >
                 <DilemmaRowContent dilemma={d} />
               </li>
@@ -243,7 +286,7 @@ function DilemmaRowContent({ dilemma: d }: { dilemma: Dilemma }) {
   return (
     <>
       <div className="flex justify-between items-start gap-4 mb-2">
-        <h3 className="text-[15px] font-bold text-gray-900 leading-snug">
+        <h3 className="text-[15px] font-bold text-[#f1f5f9] leading-snug">
           {d.title}
         </h3>
         <span
@@ -257,28 +300,28 @@ function DilemmaRowContent({ dilemma: d }: { dilemma: Dilemma }) {
       </div>
 
       {d.description && (
-        <p className="text-[14px] text-gray-600 leading-relaxed">
+        <p className="text-[14px] text-[#cbd5e1] leading-relaxed">
           {truncate(d.description, 150)}
         </p>
       )}
 
       {d.decision_made && (
-        <div className="mt-3 p-2.5 rounded-lg bg-green-50/60 border border-green-100">
-          <p className="text-[11px] font-bold text-green-700 uppercase tracking-tight mb-0.5">
+        <div className="mt-3 p-2.5 rounded-lg bg-[#1e1e2e] border-l-[3px] border-l-[#f97316]">
+          <p className="text-[11px] font-bold text-[#f97316] uppercase tracking-tight mb-0.5">
             Решение
           </p>
-          <p className="text-[13.5px] text-gray-900 leading-snug">
+          <p className="text-[13.5px] text-[#f1f5f9] leading-snug">
             {d.decision_made}
           </p>
         </div>
       )}
 
       {d.outcome && (
-        <div className="mt-2 p-2.5 rounded-lg bg-indigo-50/60 border border-indigo-100">
-          <p className="text-[11px] font-bold text-indigo-700 uppercase tracking-tight mb-0.5">
+        <div className="mt-2 p-2.5 rounded-lg bg-[#f97316]/15 border border-[#f97316]/30">
+          <p className="text-[11px] font-bold text-[#f97316] uppercase tracking-tight mb-0.5">
             Исход
           </p>
-          <p className="text-[13.5px] text-gray-900 leading-snug">
+          <p className="text-[13.5px] text-[#f1f5f9] leading-snug">
             {d.outcome}
           </p>
         </div>
@@ -286,14 +329,20 @@ function DilemmaRowContent({ dilemma: d }: { dilemma: Dilemma }) {
 
       {tags.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-full bg-violet-50 text-violet-700"
-            >
-              {tag}
-            </span>
-          ))}
+          {tags.map((tag) => {
+            const b = domainBadge(tag);
+            return (
+              <span
+                key={tag}
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md border",
+                  b.className
+                )}
+              >
+                {b.label}
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -320,19 +369,19 @@ function DilemmaTimeline({ dilemma: d }: { dilemma: Dilemma }) {
       : "Итог ещё не подведён";
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#9ca3af]">
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#94a3b8]">
       <TimelineStop
         active
         icon={<Clock size={11} />}
         label={d.created_at ? `Создано ${formatDate(d.created_at)}` : "Создано"}
       />
-      <span className="text-gray-300">→</span>
+      <span className="text-[#64748b]">→</span>
       <TimelineStop
         active={isDecided}
         icon={<CheckCircle2 size={11} />}
         label="Решено"
       />
-      <span className="text-gray-300">→</span>
+      <span className="text-[#64748b]">→</span>
       <TimelineStop
         active={isFollowedUp}
         icon={<Sparkles size={11} />}
@@ -361,8 +410,8 @@ function TimelineStop({
         emphasize
           ? "text-amber-600 font-medium"
           : active
-            ? "text-gray-700 font-medium"
-            : "text-gray-300",
+            ? "text-[#cbd5e1] font-medium"
+            : "text-[#64748b]",
       )}
     >
       {icon}

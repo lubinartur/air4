@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Briefcase, Plus, Sparkles, Target } from "lucide-react";
+import { Briefcase, Plus, Target } from "lucide-react";
 import { cn } from "../lib/utils";
 import { t as ty } from "../lib/typography";
 import { fetchProjects, type GoalItem, type Project } from "../lib/api";
@@ -24,7 +24,7 @@ type GoalTemplate = {
 
 // Hardcoded visual templates until the API exposes per-goal progress.
 const GOAL_TEMPLATES: GoalTemplate[] = [
-  { progress: 60, color: "bg-indigo-600", label: "НА ПУТИ", status: "indigo" },
+  { progress: 60, color: "bg-[#f97316]", label: "НА ПУТИ", status: "indigo" },
   { progress: 30, color: "bg-amber-500", label: "ОТСТАЁТ", status: "amber", alert: true },
   { progress: 40, color: "bg-red-500", label: "ТРЕБУЕТ ВНИМАНИЯ", status: "red" },
   { progress: 17, color: "bg-gray-400", label: "НЕ НАЧАТО", status: "gray" },
@@ -104,8 +104,8 @@ export function Goals({ goals, onNavigate }: Props) {
       {/* Banner */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-green-50 text-green-600 rounded-xl">
-            <Target size={22} className="fill-green-100" />
+          <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
+            <Target size={22} />
           </div>
           <div>
             <h1 className={ty.pageTitle}>
@@ -118,15 +118,10 @@ export function Goals({ goals, onNavigate }: Props) {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 bg-green-50/50 border border-green-100 px-3.5 py-1.5 rounded-xl">
-            <Sparkles size={14} className="text-green-600" />
-            <span className="text-xs font-bold text-green-700">Жизненный советник</span>
-          </div>
-
           <button
             type="button"
             onClick={() => setShowAddHint(true)}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold text-[12px] shadow-md shadow-indigo-500/20 transition-all uppercase tracking-wider"
+            className="flex items-center gap-2 bg-[#f97316] hover:bg-[#ea6a06] text-white px-4 py-2 rounded-xl font-bold text-[12px] shadow-md shadow-[#f97316]/20 transition-all uppercase tracking-wider"
           >
             <Plus size={14} />
             Добавить цель
@@ -138,7 +133,7 @@ export function Goals({ goals, onNavigate }: Props) {
         <motion.p
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-[12px] text-indigo-600 font-medium bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-xl -mt-4"
+          className="text-[12px] text-[#f97316] font-medium bg-[#f97316]/15 border border-[#f97316]/30 px-4 py-2 rounded-xl -mt-4"
         >
           Расскажите AIR4 о цели в чате — она появится здесь.
         </motion.p>
@@ -149,14 +144,14 @@ export function Goals({ goals, onNavigate }: Props) {
         <div className="col-span-3 space-y-6">
           {/* Active Goals Grid */}
           {activeGoals.length === 0 ? (
-            <div className="bg-white rounded-[20px] p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+            <div className="bg-[#13131f] rounded-[20px] p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-green-50 text-green-600 mb-3">
                 <Target size={22} />
               </div>
-              <p className="text-[14px] font-bold text-gray-700">
+              <p className="text-[14px] font-bold text-[#cbd5e1]">
                 Целей пока нет
               </p>
-              <p className="text-[12px] text-gray-400 mt-1">
+              <p className="text-[12px] text-[#94a3b8] mt-1">
                 Расскажите AIR4 о своих целях в чате — они появятся здесь.
               </p>
             </div>
@@ -165,13 +160,13 @@ export function Goals({ goals, onNavigate }: Props) {
               {activeGoals.map((g, i) => (
                 <div
                   key={g.key}
-                  className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative overflow-hidden group"
+                  className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative overflow-hidden group"
                 >
                   <div
                     className={cn(
                       "absolute top-4 left-4 w-2 h-2 rounded-full",
                       g.status === "indigo"
-                        ? "bg-indigo-500"
+                        ? "bg-[#f97316]"
                         : g.status === "amber"
                           ? "bg-amber-500"
                           : g.status === "red"
@@ -181,7 +176,7 @@ export function Goals({ goals, onNavigate }: Props) {
                   />
                   <div className="pl-6">
                     <div className="flex justify-between items-start mb-4 gap-2">
-                      <h3 className="text-[16px] font-bold text-gray-900 leading-snug">
+                      <h3 className="text-[16px] font-bold text-[#f1f5f9] leading-snug">
                         {g.title}
                       </h3>
                       {g.alert && (
@@ -190,7 +185,7 @@ export function Goals({ goals, onNavigate }: Props) {
                         </span>
                       )}
                     </div>
-                    <p className="text-[12px] text-gray-400 font-medium mb-3 uppercase tracking-wide">
+                    <p className="text-[12px] text-[#94a3b8] font-medium mb-3 uppercase tracking-wide">
                       {g.info}
                     </p>
                     {/* Linked projects block — collapses entirely
@@ -199,7 +194,7 @@ export function Goals({ goals, onNavigate }: Props) {
                         goals. */}
                     {g.linkedProjects.length > 0 && (
                       <div className="mb-5 space-y-1.5">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                        <p className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-1">
                           <Briefcase size={10} />
                           Активные проекты
                         </p>
@@ -212,15 +207,15 @@ export function Goals({ goals, onNavigate }: Props) {
                               title={`Перейти к проектам · ${project.name}`}
                               className={cn(
                                 "inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full",
-                                "bg-indigo-50 border border-indigo-100 text-indigo-700",
-                                "hover:bg-indigo-100 hover:border-indigo-200 transition-colors"
+                                "bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316]",
+                                "hover:bg-[#f97316]/10 hover:border-[#f97316]/30 transition-colors"
                               )}
                             >
                               <span
                                 className={cn(
                                   "w-1.5 h-1.5 rounded-full shrink-0",
                                   project.status === "active"
-                                    ? "bg-indigo-500"
+                                    ? "bg-[#f97316]"
                                     : project.status === "stalled"
                                       ? "bg-red-400"
                                       : "bg-gray-300"
@@ -235,7 +230,7 @@ export function Goals({ goals, onNavigate }: Props) {
                       </div>
                     )}
                     <div className="space-y-2">
-                      <div className="h-1 w-full bg-gray-50 rounded-full overflow-hidden">
+                      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${g.progress}%` }}
@@ -249,7 +244,7 @@ export function Goals({ goals, onNavigate }: Props) {
                       <p
                         className={cn(
                           "text-[10px] font-bold uppercase tracking-wider",
-                          g.status === "red" ? "text-red-500" : "text-gray-400"
+                          g.status === "red" ? "text-red-500" : "text-[#94a3b8]"
                         )}
                       >
                         {g.label}
@@ -262,15 +257,15 @@ export function Goals({ goals, onNavigate }: Props) {
           )}
 
           {/* Wishlist */}
-          <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-            <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
               Список желаний
             </h2>
-            <div className="bg-gray-50/50 border border-dashed border-gray-200 rounded-2xl p-6 text-center">
-              <p className="text-[13px] font-medium text-gray-500">
+            <div className="bg-white/5 border border-dashed border-white/5 rounded-2xl p-6 text-center">
+              <p className="text-[13px] font-medium text-[#94a3b8]">
                 Список желаний пуст.
               </p>
-              <p className="text-[12px] text-gray-400 mt-1">
+              <p className="text-[12px] text-[#94a3b8] mt-1">
                 Расскажите AIR4 о своих желаниях в чате.
               </p>
             </div>
@@ -282,7 +277,7 @@ export function Goals({ goals, onNavigate }: Props) {
           {/* AIR4 Observation — unified indigo-card variant shared
               across pages. The inline amber highlight on «Цель по
               книгам» is preserved for narrative emphasis. */}
-          <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+          <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
             <Target
               size={100}
               strokeWidth={1.5}
@@ -311,41 +306,41 @@ export function Goals({ goals, onNavigate }: Props) {
           </div>
 
           {/* Deadlines (hardcoded) */}
-          <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-            <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
               Дедлайны
             </h2>
-            <div className="relative pl-6 space-y-8 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:bg-gray-100">
+            <div className="relative pl-6 space-y-8 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-px before:bg-white/5">
               {[
                 { date: "Дек 2024", name: "10 книг", color: "bg-amber-500" },
-                { date: "Мар 2025", name: "Запуск AIR4", color: "bg-indigo-600" },
+                { date: "Мар 2025", name: "Запуск AIR4", color: "bg-[#f97316]" },
                 { date: "Июн 2025", name: "Поездка в Японию", color: "bg-gray-400" },
                 { date: "Без даты", name: "Цель по % жира", color: "bg-red-500" },
               ].map((t, i) => (
                 <div key={i} className="relative">
                   <div
                     className={cn(
-                      "absolute -left-[27px] top-1.5 w-1.5 h-1.5 rounded-full ring-4 ring-white",
+                      "absolute -left-[27px] top-1.5 w-1.5 h-1.5 rounded-full ring-4 ring-[#13131f]",
                       t.color
                     )}
                   />
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  <p className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-widest">
                     {t.date}
                   </p>
-                  <p className="text-[14px] font-bold text-gray-900 mt-0.5">{t.name}</p>
+                  <p className="text-[14px] font-bold text-[#f1f5f9] mt-0.5">{t.name}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Weekly Focus (hardcoded) */}
-          <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
-            <h2 className="text-lg font-extrabold text-gray-900 mb-6">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
+            <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
               Фокус недели
             </h2>
-            <p className="text-[14px] leading-relaxed text-gray-600 mb-6 font-medium">
+            <p className="text-[14px] leading-relaxed text-[#cbd5e1] mb-6 font-medium">
               «Без отговорок:{" "}
-              <span className="text-indigo-600 font-bold">AIR4 milestone #4</span>{" "}
+              <span className="text-[#f97316] font-bold">AIR4 milestone #4</span>{" "}
               и 2 главы. Больше ничего не важно.»
             </p>
             <ul className="space-y-4">
@@ -355,10 +350,10 @@ export function Goals({ goals, onNavigate }: Props) {
               ].map((item, i) => (
                 <li
                   key={i}
-                  className="flex items-center gap-3 bg-indigo-50/30 p-3 rounded-xl border border-indigo-100/30"
+                  className="flex items-center gap-3 bg-[#f97316]/15 p-3 rounded-xl border border-[#f97316]/30"
                 >
-                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                  <span className="text-[13px] font-bold text-indigo-900">{item.text}</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] shrink-0" />
+                  <span className="text-[13px] font-bold text-[#f97316]">{item.text}</span>
                 </li>
               ))}
             </ul>

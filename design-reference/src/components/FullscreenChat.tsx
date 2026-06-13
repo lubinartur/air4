@@ -44,7 +44,7 @@ type ContextPill = {
 };
 
 const PILL_STYLES: Record<ContextPill["tone"], string> = {
-  blue: "bg-blue-50 text-blue-700 border border-blue-100",
+  blue: "bg-[#f97316]/15 text-[#f97316] border border-[#f97316]/30",
   gray: "bg-gray-100 text-gray-700 border border-gray-200",
   red: "bg-red-50 text-red-700 border border-red-100",
   yellow: "bg-amber-50 text-amber-700 border border-amber-100",
@@ -371,7 +371,7 @@ export function FullscreenChat({
           <button
             type="button"
             onClick={onBack}
-            className="hidden md:flex items-center gap-2 border-[1.5px] border-[#6366f1] text-[#6366f1] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider hover:bg-indigo-50 transition-all shadow-sm bg-white"
+            className="hidden md:flex items-center gap-2 border-[1.5px] border-[#f97316] text-[#f97316] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider hover:bg-[#f97316]/10 transition-all shadow-sm bg-white"
           >
             <ArrowLeft size={16} />
             Назад: {PAGE_LABELS[previousPage] ?? previousPage}
@@ -405,7 +405,7 @@ export function FullscreenChat({
                       </span>
                     )}
                   {msg.role === "assistant" && (
-                    <span className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">
+                    <span className="text-[10px] font-black text-[#f97316] uppercase tracking-[0.2em]">
                       AIR4
                     </span>
                   )}
@@ -414,7 +414,7 @@ export function FullscreenChat({
                       "px-6 py-4 rounded-[12px] text-[15px] leading-relaxed shadow-sm",
                       msg.role === "user"
                         ? "bg-[#f3f4f6] text-[#374151]"
-                        : "bg-white border-l-[4px] border-l-indigo-600 text-[#111827]"
+                        : "bg-white border-l-[4px] border-l-[#f97316] text-[#111827]"
                     )}
                   >
                     {msg.attachment && (
@@ -450,7 +450,7 @@ export function FullscreenChat({
               {(attachment || attachmentError) && (
                 <div className="mb-3 space-y-1.5">
                   {attachment && (
-                    <div className="inline-flex items-center gap-2.5 max-w-full bg-indigo-50 border border-indigo-100 rounded-full pl-1.5 pr-3 py-1.5">
+                    <div className="inline-flex items-center gap-2.5 max-w-full bg-[#f97316]/15 border border-[#f97316]/30 rounded-full pl-1.5 pr-3 py-1.5">
                       {isImageAttachment(attachment) ? (
                         <img
                           src={`data:${attachment.media_type};base64,${attachment.data}`}
@@ -458,20 +458,20 @@ export function FullscreenChat({
                           className="w-7 h-7 rounded-full object-cover"
                         />
                       ) : (
-                        <span className="w-7 h-7 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase flex items-center justify-center">
+                        <span className="w-7 h-7 rounded-full bg-[#f97316] text-white text-[10px] font-black uppercase flex items-center justify-center">
                           PDF
                         </span>
                       )}
-                      <span className="text-[13px] font-semibold text-indigo-700 truncate max-w-[280px]">
+                      <span className="text-[13px] font-semibold text-[#f97316] truncate max-w-[280px]">
                         {attachment.name ?? "файл"}
                       </span>
-                      <span className="text-[11px] text-indigo-500 font-mono">
+                      <span className="text-[11px] text-[#f97316] font-mono">
                         {formatAttachmentSize(attachment)}
                       </span>
                       <button
                         type="button"
                         onClick={handleClearAttachment}
-                        className="ml-1 w-6 h-6 rounded-full hover:bg-indigo-100 text-indigo-600 flex items-center justify-center"
+                        className="ml-1 w-6 h-6 rounded-full hover:bg-[#f97316]/10 text-[#f97316] flex items-center justify-center"
                         aria-label="Убрать вложение"
                         title="Убрать вложение"
                       >
@@ -500,7 +500,7 @@ export function FullscreenChat({
                     if (e.key === "Enter") void handleSend();
                   }}
                   placeholder="Поговорите с AIR4..."
-                  className="w-full bg-gray-50 border-2 border-transparent rounded-full py-4 pl-16 pr-16 text-[16px] focus:outline-none focus:bg-white focus:border-indigo-600 focus:ring-8 focus:ring-indigo-600/5 transition-all shadow-inner"
+                  className="w-full bg-gray-50 border-2 border-transparent rounded-full py-4 pl-16 pr-16 text-[16px] focus:outline-none focus:bg-white focus:border-[#f97316] focus:ring-8 focus:ring-[#f97316]/5 transition-all shadow-inner"
                 />
                 <button
                   type="button"
@@ -515,7 +515,7 @@ export function FullscreenChat({
                   type="button"
                   onClick={() => void handleSend()}
                   disabled={!input.trim() && !attachment}
-                  className="absolute right-3 top-2 bottom-2 aspect-square rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-40 transition-all shadow-md shadow-indigo-500/20"
+                  className="absolute right-3 top-2 bottom-2 aspect-square rounded-full bg-[#f97316] text-white flex items-center justify-center hover:bg-[#ea6a06] disabled:opacity-40 transition-all shadow-md shadow-[#f97316]/20"
                 >
                   <Send size={20} className="ml-0.5" />
                 </button>

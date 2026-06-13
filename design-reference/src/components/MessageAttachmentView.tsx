@@ -88,7 +88,7 @@ export function MessageAttachmentView({
     >
       <FileText
         size={size === "wide" ? 20 : 16}
-        className="shrink-0 text-indigo-600"
+        className="shrink-0 text-[#f97316]"
       />
       <div className="flex flex-col min-w-0">
         <span

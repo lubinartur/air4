@@ -144,18 +144,18 @@ export function ProjectGoalLinks({
               orphan
                 ? "bg-gray-50 border border-gray-200 text-gray-400 italic"
                 : variant === "compact"
-                  ? "bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-100"
-                  : "bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-200"
+                  ? "bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] hover:bg-[#f97316]/10"
+                  : "bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] hover:bg-[#f97316]/10 hover:border-[#f97316]/30"
             )}
           >
             <Target
               size={variant === "compact" ? 10 : 12}
               className={cn(
-                orphan ? "text-gray-300" : "text-indigo-500"
+                orphan ? "text-gray-300" : "text-[#f97316]"
               )}
             />
             {variant === "expanded" && !orphan && (
-              <span className="text-[9px] font-black uppercase tracking-wider text-indigo-400 mr-0.5">
+              <span className="text-[9px] font-black uppercase tracking-wider text-[#f97316] mr-0.5">
                 Цель
               </span>
             )}
@@ -168,7 +168,7 @@ export function ProjectGoalLinks({
                 onClick={(e) => void handleUnlink(e, goal.key)}
                 className={cn(
                   "ml-0.5 inline-flex items-center justify-center w-4 h-4 rounded-full",
-                  "text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100",
+                  "text-[#f97316] hover:text-[#f97316] hover:bg-[#f97316]/10",
                   busyKey === goal.key && "opacity-50"
                 )}
               >
@@ -190,7 +190,7 @@ export function ProjectGoalLinks({
             disabled={catalog.length === 0}
             className={cn(
               "inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors",
-              "border border-dashed border-indigo-200 text-indigo-500 hover:bg-indigo-50 hover:border-indigo-300",
+              "border border-dashed border-[#f97316]/30 text-[#f97316] hover:bg-[#f97316]/10 hover:border-[#f97316]/30",
               "disabled:opacity-40 disabled:cursor-not-allowed"
             )}
             title={
@@ -208,12 +208,12 @@ export function ProjectGoalLinks({
               className={cn(
                 "absolute top-full left-0 mt-2 z-20",
                 "w-[280px] max-h-[260px] overflow-y-auto",
-                "bg-white border border-gray-100 rounded-xl shadow-lg",
+                "bg-[#13131f] border border-white/5 rounded-xl shadow-lg",
                 "p-1.5"
               )}
             >
               {available.length === 0 ? (
-                <p className="px-3 py-2 text-[11px] text-gray-400 italic">
+                <p className="px-3 py-2 text-[11px] text-[#94a3b8] italic">
                   Все доступные цели уже связаны.
                 </p>
               ) : (
@@ -228,24 +228,24 @@ export function ProjectGoalLinks({
                       className={cn(
                         "w-full text-left px-3 py-2 rounded-lg",
                         "flex items-start gap-2 text-[12px]",
-                        "hover:bg-indigo-50 transition-colors",
+                        "hover:bg-white/5 transition-colors",
                         "disabled:opacity-50"
                       )}
                     >
                       <Link2
                         size={12}
-                        className="text-indigo-400 mt-0.5 shrink-0"
+                        className="text-[#f97316] mt-0.5 shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 leading-snug line-clamp-2">
+                        <p className="font-semibold text-[#f1f5f9] leading-snug line-clamp-2">
                           {goal.title}
                         </p>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">
+                        <p className="text-[10px] text-[#94a3b8] uppercase tracking-wider mt-0.5">
                           {goal.source === "profile" ? "из профиля" : key}
                         </p>
                       </div>
                       {busyKey === key && (
-                        <Check size={12} className="text-indigo-400 mt-0.5" />
+                        <Check size={12} className="text-[#f97316] mt-0.5" />
                       )}
                     </button>
                   );

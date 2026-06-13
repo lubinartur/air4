@@ -36,11 +36,11 @@ export function Header({ currentPage }: HeaderProps) {
       {showStrip && (
         <header className="flex items-center justify-between mb-10">
           <div>
-            <h1 className="text-4xl font-black text-[#111827] tracking-tight">
+            <h1 className="text-4xl font-black text-[#f1f5f9] tracking-tight">
               {PAGE_LABELS[currentPage] ?? currentPage}
             </h1>
           </div>
-          <button className="flex items-center gap-2 bg-[#6366f1] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px] shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all uppercase tracking-wider">
+          <button className="flex items-center gap-2 bg-[#f97316] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px] shadow-lg shadow-[#f97316]/20 hover:bg-[#ea6a06] transition-all uppercase tracking-wider">
             <Plus size={18} />
             Добавить событие
           </button>

@@ -70,7 +70,7 @@ export function AIRCheckIn({ onTellInChat, onAnswered }: Props) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8, scale: 0.98 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
-          className="bg-[#6366F1] rounded-[20px] p-6 shadow-xl"
+          className="bg-[#f97316] rounded-[20px] p-6 shadow-xl"
         >
           <div className="flex items-start gap-4">
             <div className="shrink-0 w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white">

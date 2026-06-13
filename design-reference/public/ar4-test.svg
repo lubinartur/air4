@@ -30,7 +30,6 @@
       <stop offset=".6" stop-color="#000" stop-opacity=".8"/>
     </linearGradient>
   </defs>
-  <rect width="182" height="226"/>
   <g>
     <path class="st2" d="M182,0v226h-26v-52h-52V0h26v150h26V0h26Z"/>
     <path class="st1" d="M182,0v226h-26v-52h-52V0h26v150h26V0h26Z"/>

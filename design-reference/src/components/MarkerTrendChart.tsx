@@ -98,7 +98,7 @@ export function MarkerTrendChart({
   if (chartData.length === 0) {
     return (
       <div
-        className="flex items-center justify-center text-[11px] text-gray-400 italic"
+        className="flex items-center justify-center text-[11px] text-[#94a3b8] italic"
         style={{ height }}
       >
         Нет исторических данных для этого маркера.
@@ -117,16 +117,16 @@ export function MarkerTrendChart({
         style={{ height }}
       >
         <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-2xl font-bold text-gray-800">
+          <span className="font-mono text-2xl font-bold text-[#f1f5f9]">
             {only.value}
           </span>
           {unit && (
-            <span className="text-[10px] text-gray-400 font-medium">
+            <span className="text-[10px] text-[#94a3b8] font-medium">
               {unit}
             </span>
           )}
         </div>
-        <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+        <p className="text-[10px] text-[#94a3b8] uppercase tracking-wider">
           {only.label} · единственная точка
         </p>
       </div>
@@ -141,7 +141,7 @@ export function MarkerTrendChart({
           margin={{ top: 8, right: 12, bottom: 4, left: 0 }}
         >
           <CartesianGrid
-            stroke="#f3f4f6"
+            stroke="rgba(255,255,255,0.06)"
             strokeDasharray="3 3"
             vertical={false}
           />
@@ -174,27 +174,29 @@ export function MarkerTrendChart({
           )}
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tick={{ fontSize: 10, fill: "#94a3b8" }}
             tickLine={false}
-            axisLine={{ stroke: "#e5e7eb" }}
+            axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
           />
           <YAxis
             domain={yDomain}
             width={36}
-            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tick={{ fontSize: 10, fill: "#94a3b8" }}
             tickLine={false}
             axisLine={false}
           />
           <Tooltip
             cursor={{
-              stroke: "#c7d2fe",
+              stroke: "rgba(249,115,22,0.4)",
               strokeWidth: 1,
               strokeDasharray: "3 3",
             }}
             contentStyle={{
               fontSize: 11,
               borderRadius: 8,
-              border: "1px solid #e5e7eb",
+              border: "1px solid rgba(255,255,255,0.1)",
+              backgroundColor: "#13131f",
+              color: "#f1f5f9",
               padding: "6px 10px",
             }}
             labelFormatter={(label) => String(label)}
@@ -206,7 +208,7 @@ export function MarkerTrendChart({
           <Line
             type="monotone"
             dataKey="value"
-            stroke="#6366f1"
+            stroke="#f97316"
             strokeWidth={2}
             isAnimationActive={false}
             dot={(props: DotPayload) => {
@@ -240,7 +242,7 @@ export function MarkerTrendChart({
             }}
             activeDot={{
               r: 6,
-              fill: "#6366f1",
+              fill: "#f97316",
               stroke: "#ffffff",
               strokeWidth: 2,
             }}
@@ -275,7 +277,7 @@ export function MarkerTrendLegend({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 text-[10px] text-gray-400",
+        "flex items-center gap-3 text-[10px] text-[#94a3b8]",
         className
       )}
     >

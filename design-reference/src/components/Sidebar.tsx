@@ -33,12 +33,11 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
       }}
     >
       <div className="mb-10">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+        <div className="w-9 h-9 flex items-center justify-center overflow-hidden">
           <img
             src="/ar4-test.svg"
             alt="AIR4"
             className="w-full h-full object-contain"
-            style={{ filter: "brightness(0) invert(1)" }}
           />
         </div>
       </div>

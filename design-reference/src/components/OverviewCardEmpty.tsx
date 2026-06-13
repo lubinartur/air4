@@ -57,15 +57,15 @@ export function OverviewCardEmpty({ type, onAction, compact }: Props) {
         compact ? "py-4" : "py-8"
       )}
     >
-      <div className={cn("rounded-[16px] bg-gray-50 text-[#d1d5db]", compact ? "p-3 mb-3" : "p-5 mb-5")}>
+      <div className={cn("rounded-[16px] bg-white/5 text-[#64748b]", compact ? "p-3 mb-3" : "p-5 mb-5")}>
         <Icon size={compact ? 28 : 40} strokeWidth={1.5} />
       </div>
-      <h3 className={cn("font-bold text-[#111827] leading-tight", compact ? "text-[14px]" : "text-[16px]")}>
+      <h3 className={cn("font-bold text-[#f1f5f9] leading-tight", compact ? "text-[14px]" : "text-[16px]")}>
         {c.title}
       </h3>
       <p
         className={cn(
-          "text-[#9ca3af] font-medium mt-1.5 leading-relaxed max-w-[220px]",
+          "text-[#94a3b8] font-medium mt-1.5 leading-relaxed max-w-[220px]",
           compact ? "text-[12px]" : "text-[13px]"
         )}
       >
@@ -83,7 +83,7 @@ export function OverviewCardEmpty({ type, onAction, compact }: Props) {
             e.stopPropagation();
             onAction();
           }}
-          className="mt-5 flex items-center gap-2 bg-[#6366f1] text-white px-4 py-2 rounded-[10px] font-bold text-[12px] shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all uppercase tracking-wider"
+          className="mt-5 flex items-center gap-2 bg-[#f97316] text-white px-4 py-2 rounded-[10px] font-bold text-[12px] shadow-lg shadow-[#f97316]/20 hover:bg-[#ea6a06] transition-all uppercase tracking-wider"
         >
           {type === "finance" ? <Upload size={14} /> : <Plus size={14} />}
           {c.button}
@@ -93,7 +93,7 @@ export function OverviewCardEmpty({ type, onAction, compact }: Props) {
         <p
           className={cn(
             "mt-4 text-[10px] font-bold uppercase tracking-[0.1em]",
-            c.extraClassName ?? "text-[#9ca3af]"
+            c.extraClassName ?? "text-[#94a3b8]"
           )}
         >
           {c.extra}

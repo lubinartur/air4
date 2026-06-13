@@ -90,7 +90,7 @@ export function EmptyStates() {
             </p>
 
             {card.button && (
-              <button className="mt-6 flex items-center gap-2 bg-[#6366f1] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px] shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all uppercase tracking-wider">
+              <button className="mt-6 flex items-center gap-2 bg-[#f97316] text-white px-5 py-2.5 rounded-[10px] font-bold text-[13px] shadow-lg shadow-[#f97316]/20 hover:bg-[#ea6a06] transition-all uppercase tracking-wider">
                 {card.button === "Загрузить выписку" ? <Upload size={16} /> : <Plus size={16} />}
                 {card.button}
               </button>

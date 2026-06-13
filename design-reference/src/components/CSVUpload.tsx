@@ -106,16 +106,16 @@ export function CSVUpload({ onBack, onViewFinance }: CSVUploadProps) {
           onDrop={onDrop}
           className={cn(
             "w-full bg-white rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] flex flex-col items-center justify-center text-center transition-all cursor-pointer relative overflow-hidden",
-            dragOver && "ring-2 ring-indigo-400"
+            dragOver && "ring-2 ring-[#f97316]"
           )}
         >
           <div
             className={cn(
               "absolute inset-0 border-2 border-dashed rounded-[20px] transition-colors pointer-events-none",
-              dragOver ? "border-indigo-400" : "border-indigo-100"
+              dragOver ? "border-[#f97316]" : "border-[#f97316]/30"
             )}
           />
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 mb-6 relative z-10">
+          <div className="w-16 h-16 rounded-2xl bg-[#f97316]/15 flex items-center justify-center text-[#f97316] mb-6 relative z-10">
             <Upload size={32} />
           </div>
           <h3 className="text-[18px] font-bold text-[#111827] relative z-10">
@@ -167,7 +167,7 @@ export function CSVUpload({ onBack, onViewFinance }: CSVUploadProps) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-[14px] font-bold text-indigo-600">
+          <div className="flex items-center gap-4 text-[14px] font-bold text-[#f97316]">
             <Loader2 size={18} className="animate-spin" />
             <span>AIR4 обрабатывает выписку…</span>
           </div>
@@ -222,7 +222,7 @@ export function CSVUpload({ onBack, onViewFinance }: CSVUploadProps) {
           <button
             type="button"
             onClick={onViewFinance}
-            className="w-full py-4 rounded-[12px] bg-[#6366f1] text-white font-bold text-[14px] uppercase tracking-wider shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-colors"
+            className="w-full py-4 rounded-[12px] bg-[#f97316] text-white font-bold text-[14px] uppercase tracking-wider shadow-lg shadow-[#f97316]/20 hover:bg-[#ea6a06] transition-colors"
           >
             Открыть финансы
           </button>
@@ -235,7 +235,7 @@ export function CSVUpload({ onBack, onViewFinance }: CSVUploadProps) {
               setSelectedFile(null);
               if (inputRef.current) inputRef.current.value = "";
             }}
-            className="w-full py-3 text-[13px] font-bold text-[#6b7280] hover:text-indigo-600 transition-colors"
+            className="w-full py-3 text-[13px] font-bold text-[#6b7280] hover:text-[#f97316] transition-colors"
           >
             Загрузить ещё файл
           </button>

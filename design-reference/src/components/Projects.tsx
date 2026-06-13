@@ -254,9 +254,9 @@ export function Projects({
     }));
     const totalMinutes = totals.reduce((acc, p) => acc + p.minutes, 0);
     const palette = [
-      "bg-indigo-600",
-      "bg-indigo-400",
-      "bg-violet-400",
+      "bg-[#f97316]",
+      "bg-[#f97316]",
+      "bg-[#f97316]",
       "bg-teal-500",
       "bg-amber-500",
       "bg-rose-400",
@@ -530,7 +530,7 @@ export function Projects({
           <div className="flex items-center gap-4">
             <button
               onClick={handleBackToOverview}
-              className="p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-gray-400 hover:text-indigo-600 hover:bg-indigo-50/50 hover:border-indigo-100 transition-all flex items-center justify-center shrink-0"
+              className="p-2.5 bg-white/5 border border-white/5 rounded-xl text-[#94a3b8] hover:text-[#f97316] hover:bg-[#f97316]/10 hover:border-[#f97316]/30 transition-all flex items-center justify-center shrink-0"
               title="Назад к списку"
             >
               <ArrowLeft size={18} />
@@ -548,7 +548,7 @@ export function Projects({
                         ? "bg-green-50 text-green-600"
                         : uiStatus === "STALLED"
                           ? "bg-red-50 text-red-600"
-                          : "bg-gray-100 text-gray-600"
+                          : "bg-white/5 text-[#cbd5e1]"
                     )}
                   >
                     {uiStatus === "ACTIVE"
@@ -589,13 +589,13 @@ export function Projects({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-indigo-50/50 border border-indigo-100 px-4 py-2 rounded-xl">
-            <Clock size={15} className="text-indigo-600" />
+          <div className="flex items-center gap-3 bg-[#f97316]/15 border border-[#f97316]/30 px-4 py-2 rounded-xl">
+            <Clock size={15} className="text-[#f97316]" />
             <div>
-              <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">
+              <p className="text-[9px] font-black text-[#f97316] uppercase tracking-widest">
                 Всего времени
               </p>
-              <p className="font-mono text-sm font-black text-indigo-800 leading-none mt-0.5">
+              <p className="font-mono text-sm font-black text-[#f97316] leading-none mt-0.5">
                 {totalOutput}
               </p>
             </div>
@@ -603,8 +603,8 @@ export function Projects({
         </div>
 
         {detailLoading && (
-          <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-            <p className="text-[14px] text-[#9ca3af]">Загрузка проекта…</p>
+          <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+            <p className="text-[14px] text-[#94a3b8]">Загрузка проекта…</p>
           </div>
         )}
 
@@ -619,13 +619,13 @@ export function Projects({
             {/* Left col-span-2 */}
             <div className="lg:col-span-2 space-y-6">
               {/* Timer */}
-              <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-6">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-6">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-extrabold text-gray-900">
+                    <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                       Активный фокус-таймер
                     </h3>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
+                    <p className="text-[11px] text-[#94a3b8] mt-0.5">
                       Структурированные спринты разработки. Стандартный цикл Pomodoro.
                     </p>
                   </div>
@@ -637,19 +637,19 @@ export function Projects({
                   )}
                 </div>
 
-                <div className="flex flex-col items-center justify-center py-6 bg-gray-50/40 border border-gray-100/50 rounded-2xl relative">
+                <div className="flex flex-col items-center justify-center py-6 bg-white/5 border border-white/5 rounded-2xl relative">
                   {secondsElapsedThisSession > 0 && !timerActive && !showNotesForm && (
-                    <div className="absolute top-4 text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded">
+                    <div className="absolute top-4 text-[10px] font-bold text-[#f97316] bg-[#f97316]/15 px-2 py-0.5 rounded">
                       Пауза: записано {formatCountdown(secondsElapsedThisSession)}
                     </div>
                   )}
 
-                  <div className="text-7xl font-black text-gray-900 font-mono tracking-tight tabular-nums">
+                  <div className="text-7xl font-black text-[#f1f5f9] font-mono tracking-tight tabular-nums">
                     {formatCountdown(timeLeft)}
                   </div>
 
                   {secondsElapsedThisSession > 0 && (
-                    <p className="text-[10px] text-gray-400 font-mono mt-2 uppercase tracking-wider">
+                    <p className="text-[10px] text-[#94a3b8] font-mono mt-2 uppercase tracking-wider">
                       Прошло: {formatCountdown(secondsElapsedThisSession)}
                     </p>
                   )}
@@ -659,7 +659,7 @@ export function Projects({
                       <button
                         onClick={handleStartSession}
                         disabled={sessionBusy || showNotesForm}
-                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2"
+                        className="px-6 py-2.5 bg-[#f97316] hover:bg-[#ea6a06] disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2"
                       >
                         <Play size={14} className="fill-white" />
                         {sessionBusy ? "Запуск…" : "Начать сессию"}
@@ -677,7 +677,7 @@ export function Projects({
                     {(timeLeft !== POMODORO_SECONDS || secondsElapsedThisSession > 0) && !timerActive && !showNotesForm && (
                       <button
                         onClick={handleResetTimer}
-                        className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black text-xs uppercase tracking-wider rounded-xl transition-all"
+                        className="px-4 py-2.5 bg-white/5 hover:bg-white/5 text-[#cbd5e1] font-black text-xs uppercase tracking-wider rounded-xl transition-all"
                       >
                         Сбросить
                       </button>
@@ -696,13 +696,13 @@ export function Projects({
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="bg-indigo-50/50 border border-indigo-100 p-5 rounded-2xl space-y-4 overflow-hidden"
+                      className="bg-[#f97316]/15 border border-[#f97316]/30 p-5 rounded-2xl space-y-4 overflow-hidden"
                     >
                       <div>
-                        <h4 className="text-xs font-black text-indigo-800 uppercase tracking-wider">
+                        <h4 className="text-xs font-black text-[#f97316] uppercase tracking-wider">
                           Сохранить фокус-сессию
                         </h4>
-                        <p className="text-[11px] text-gray-400 mt-1">
+                        <p className="text-[11px] text-[#94a3b8] mt-1">
                           Сервер зафиксирует длительность с начала сессии (пока —{" "}
                           <span className="font-mono">
                             {Math.max(
@@ -723,12 +723,12 @@ export function Projects({
                           value={sessionNotesInput}
                           onChange={(e) => setSessionNotesInput(e.target.value)}
                           disabled={sessionBusy}
-                          className="flex-1 px-4 py-2 bg-white border border-indigo-200/50 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-800 disabled:opacity-50"
+                          className="flex-1 px-4 py-2 bg-[#13131f] border border-[#f97316]/30 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#f97316] text-[#f1f5f9] disabled:opacity-50"
                         />
                         <button
                           type="submit"
                           disabled={sessionBusy}
-                          className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all"
+                          className="px-5 py-2 bg-[#f97316] hover:bg-[#ea6a06] disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all"
                         >
                           {sessionBusy ? "Сохранение…" : "Сохранить запись"}
                         </button>
@@ -739,12 +739,12 @@ export function Projects({
               </div>
 
               {/* Todos */}
-              <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-5">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-5">
                 <div>
-                  <h3 className="text-lg font-extrabold text-gray-900">
+                  <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                     Milestone и чек-лист
                   </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
+                  <p className="text-[11px] text-[#94a3b8] mt-0.5">
                     Определите цели разработки, чтобы прийти к нужному результату.
                   </p>
                 </div>
@@ -756,19 +756,19 @@ export function Projects({
                     value={newTodoText}
                     onChange={(e) => setNewTodoText(e.target.value)}
                     disabled={todoBusy}
-                    className="flex-grow px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all text-gray-800 disabled:opacity-50"
+                    className="flex-grow px-4 py-2 bg-[#13131f] border border-white/10 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#f97316]/50 transition-all text-[#f1f5f9] disabled:opacity-50"
                   />
                   <button
                     type="submit"
                     disabled={todoBusy || !newTodoText.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center"
+                    className="bg-[#f97316] hover:bg-[#ea6a06] disabled:opacity-50 text-white font-black px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center"
                   >
                     <Plus size={14} className="mr-1" />
                     Добавить
                   </button>
                 </form>
 
-                <div className="divide-y divide-gray-50 max-h-[350px] overflow-y-auto pr-1">
+                <div className="divide-y divide-white/5 max-h-[350px] overflow-y-auto pr-1">
                   {todos.length > 0 ? (
                     todos.map((todo) => (
                       <div
@@ -781,8 +781,8 @@ export function Projects({
                             className={cn(
                               "w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0",
                               todo.done
-                                ? "bg-indigo-100 border-indigo-500 text-indigo-600"
-                                : "border-gray-300 hover:border-gray-500 text-transparent"
+                                ? "bg-[#f97316]/20 border-[#f97316] text-[#f97316]"
+                                : "border-white/10 hover:border-white/20 text-transparent"
                             )}
                           >
                             <Check size={12} strokeWidth={3} />
@@ -792,8 +792,8 @@ export function Projects({
                             className={cn(
                               "text-xs font-medium transition-all truncate",
                               todo.done
-                                ? "line-through text-gray-400 italic"
-                                : "text-gray-700"
+                                ? "line-through text-[#94a3b8] italic"
+                                : "text-[#cbd5e1]"
                             )}
                           >
                             {todo.text}
@@ -802,8 +802,8 @@ export function Projects({
                       </div>
                     ))
                   ) : (
-                    <div className="py-8 text-center text-gray-400 text-xs flex flex-col items-center justify-center">
-                      <ListTodo size={24} className="text-gray-300 mb-2" />
+                    <div className="py-8 text-center text-[#94a3b8] text-xs flex flex-col items-center justify-center">
+                      <ListTodo size={24} className="text-[#64748b] mb-2" />
                       Целей пока нет. Добавьте задачу выше, чтобы собрать чек-лист.
                     </div>
                   )}
@@ -817,7 +817,7 @@ export function Projects({
                   shared across Sport, Projects, Goals, Finance,
                   Health. Page-specific "ПРОЕКТ" pill differentiates
                   from the list-view "ПРОЕКТЫ" block. */}
-              <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+              <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
                 <Briefcase
                   size={100}
                   strokeWidth={1.5}
@@ -843,19 +843,19 @@ export function Projects({
               </div>
 
               {/* Activity Log */}
-              <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100 space-y-5">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-5">
                 <div>
-                  <h3 className="text-lg font-extrabold text-gray-900">
+                  <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                     Поток и журнал проекта
                   </h3>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
+                  <p className="text-[11px] text-[#94a3b8] mt-0.5">
                     Ведите журнал milestone'ов, сессий и обычных коммитов.
                   </p>
                 </div>
 
                 <form
                   onSubmit={handleAddActivityLog}
-                  className="space-y-3 p-3 bg-gray-50/50 border border-gray-100 rounded-xl"
+                  className="space-y-3 p-3 bg-white/5 border border-white/5 rounded-xl"
                 >
                   <input
                     type="text"
@@ -864,7 +864,7 @@ export function Projects({
                     value={newLogText}
                     onChange={(e) => setNewLogText(e.target.value)}
                     disabled={logBusy}
-                    className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-800 disabled:opacity-50"
+                    className="w-full px-3 py-1.5 bg-[#13131f] border border-white/10 rounded-lg text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#f97316] text-[#f1f5f9] disabled:opacity-50"
                   />
 
                   <div className="flex items-center justify-between gap-2.5">
@@ -878,9 +878,9 @@ export function Projects({
                             "px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all border",
                             selectedLogType === type
                               ? type === "milestone"
-                                ? "bg-violet-50 text-violet-600 border-violet-200"
-                                : "bg-blue-50 text-blue-600 border-blue-200"
-                              : "bg-white text-gray-400 border-gray-100 hover:text-gray-600"
+                                ? "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30"
+                                : "bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30"
+                              : "bg-[#13131f] text-[#94a3b8] border-white/5 hover:text-[#cbd5e1]"
                           )}
                         >
                           {type === "milestone" ? "MILESTONE" : "ЗАПИСЬ"}
@@ -891,7 +891,7 @@ export function Projects({
                     <button
                       type="submit"
                       disabled={logBusy || !newLogText.trim()}
-                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-colors"
+                      className="bg-[#f97316] hover:bg-[#ea6a06] disabled:opacity-50 text-white font-black px-3 py-1 rounded-lg text-[10px] uppercase tracking-wider transition-colors"
                     >
                       {logBusy ? "…" : "Запись"}
                     </button>
@@ -907,17 +907,17 @@ export function Projects({
                       return (
                         <div
                           key={log.id}
-                          className="text-xs space-y-1 relative pl-3 border-l-2 border-indigo-100/50"
+                          className="text-xs space-y-1 relative pl-3 border-l-2 border-[#f97316]/30"
                         >
                           <div className="flex items-center gap-2">
                             <span
                               className={cn(
                                 "text-[8px] font-black px-1.5 py-0.5 rounded uppercase",
                                 isSession
-                                  ? "bg-indigo-50 text-indigo-600"
+                                  ? "bg-[#f97316]/15 text-[#f97316]"
                                   : isMilestone
-                                    ? "bg-violet-50 text-violet-600"
-                                    : "bg-blue-50 text-blue-600"
+                                    ? "bg-[#f97316]/15 text-[#f97316]"
+                                    : "bg-[#f97316]/15 text-[#f97316]"
                               )}
                             >
                               {label === "SESSION"
@@ -926,18 +926,18 @@ export function Projects({
                                 ? "MILESTONE"
                                 : "ЗАПИСЬ"}
                             </span>
-                            <span className="text-[10px] text-gray-400 font-mono">
+                            <span className="text-[10px] text-[#94a3b8] font-mono">
                               {formatLogTimestamp(log.created_at)}
                             </span>
                           </div>
-                          <p className="text-gray-700 font-medium leading-relaxed whitespace-pre-wrap">
+                          <p className="text-[#cbd5e1] font-medium leading-relaxed whitespace-pre-wrap">
                             {log.note}
                           </p>
                         </div>
                       );
                     })
                   ) : (
-                    <div className="py-6 text-center text-gray-400 italic">
+                    <div className="py-6 text-center text-[#94a3b8] italic">
                       Записей активности пока нет.
                     </div>
                   )}
@@ -958,8 +958,8 @@ export function Projects({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-              <Briefcase size={22} className="fill-indigo-100" />
+            <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
+              <Briefcase size={22} className="fill-[#f97316]/20" />
             </div>
             <div>
               <h1 className={t.pageTitle}>
@@ -972,23 +972,17 @@ export function Projects({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-indigo-50/50 border border-indigo-100 px-3.5 py-1.5 rounded-xl">
-          <Sparkles size={14} className="text-indigo-600" />
-          <span className="text-xs font-bold text-indigo-700">
-            Советник по проектам
-          </span>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left col-span-2 */}
         <div className="lg:col-span-2 space-y-6">
           {/* Directory + Add form */}
-          <div className="bg-white p-5 rounded-[20px] shadow-sm border border-gray-100 space-y-4">
+          <div className="bg-[#13131f] p-5 rounded-[20px] shadow-sm border border-white/5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-extrabold text-gray-900">Каталог проектов</h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">
+                <h3 className="text-lg font-extrabold text-[#f1f5f9]">Каталог проектов</h3>
+                <p className="text-[11px] text-[#94a3b8] mt-0.5">
                   Управляйте целями и активной разработкой.
                 </p>
               </div>
@@ -998,7 +992,7 @@ export function Projects({
                   setShowAddProject((v) => !v);
                   setCreateError(null);
                 }}
-                className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 hover:bg-indigo-100/50 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-[#f97316] font-bold bg-[#f97316]/15 px-3 py-1.5 rounded-lg border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors"
               >
                 {showAddProject ? <X size={14} /> : <Plus size={14} />}
                 {showAddProject ? "Закрыть форму" : "Создать проект"}
@@ -1012,13 +1006,13 @@ export function Projects({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="bg-gray-50 border border-gray-100 p-4 rounded-xl space-y-3 overflow-hidden text-xs"
+                  className="bg-white/5 border border-white/5 p-4 rounded-xl space-y-3 overflow-hidden text-xs"
                 >
-                  <p className="font-bold text-gray-700">Новый проект</p>
+                  <p className="font-bold text-[#cbd5e1]">Новый проект</p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                      <span className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider">
                         Название проекта
                       </span>
                       <input
@@ -1028,12 +1022,12 @@ export function Projects({
                         value={newProjName}
                         onChange={(e) => setNewProjName(e.target.value)}
                         disabled={creating}
-                        className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                        className="p-2 border border-white/10 outline-none rounded bg-[#13131f] text-[#f1f5f9] focus:ring-1 focus:ring-[#f97316] disabled:opacity-50"
                       />
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                      <span className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider">
                         Стартовый статус
                       </span>
                       <select
@@ -1044,7 +1038,7 @@ export function Projects({
                           )
                         }
                         disabled={creating}
-                        className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 disabled:opacity-50"
+                        className="p-2 border border-white/10 outline-none rounded bg-[#13131f] text-[#f1f5f9] disabled:opacity-50"
                       >
                         <option value="ACTIVE">АКТИВЕН</option>
                         <option value="STALLED">ЗАСТРЯЛ</option>
@@ -1054,7 +1048,7 @@ export function Projects({
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                    <span className="text-[10px] text-[#94a3b8] font-bold uppercase tracking-wider">
                       Описание
                     </span>
                     <input
@@ -1063,7 +1057,7 @@ export function Projects({
                       value={newProjDesc}
                       onChange={(e) => setNewProjDesc(e.target.value)}
                       disabled={creating}
-                      className="p-2 border border-gray-200 outline-none rounded bg-white text-gray-800 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                      className="p-2 border border-white/10 outline-none rounded bg-[#13131f] text-[#f1f5f9] focus:ring-1 focus:ring-[#f97316] disabled:opacity-50"
                     />
                   </div>
 
@@ -1075,7 +1069,7 @@ export function Projects({
                     <button
                       type="submit"
                       disabled={creating}
-                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold px-4 py-2 rounded-lg leading-none"
+                      className="bg-[#f97316] hover:bg-[#ea6a06] disabled:opacity-50 text-white font-extrabold px-4 py-2 rounded-lg leading-none"
                     >
                       {creating ? "Сохранение…" : "Создать проект"}
                     </button>
@@ -1086,16 +1080,16 @@ export function Projects({
           </div>
 
           {projectsLoading ? (
-            <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-              <p className="text-[14px] text-[#9ca3af]">Загрузка проектов…</p>
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+              <p className="text-[14px] text-[#94a3b8]">Загрузка проектов…</p>
             </div>
           ) : projectsError ? (
             <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-[12px] text-rose-600">
               {projectsError}
             </div>
           ) : projects.length === 0 ? (
-            <div className="bg-white p-8 rounded-[20px] shadow-sm border border-gray-100 text-center">
-              <p className="text-[13px] text-[#9ca3af]">
+            <div className="bg-[#13131f] p-8 rounded-[20px] shadow-sm border border-white/5 text-center">
+              <p className="text-[13px] text-[#94a3b8]">
                 Проектов пока нет — создайте через форму выше или в чате.
               </p>
             </div>
@@ -1132,17 +1126,17 @@ export function Projects({
                       }
                     }}
                     className={cn(
-                      "group/card bg-white rounded-[20px] p-6 shadow-sm",
+                      "group/card bg-[#13131f] rounded-[20px] p-6 shadow-sm",
                       "flex flex-col md:flex-row md:items-center justify-between gap-6",
                       "cursor-pointer border border-transparent",
-                      "hover:border-[#6366F1]/30 hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)]",
+                      "hover:border-[#f97316]/30 hover:shadow-[0_6px_24px_rgba(0,0,0,0.08)]",
                       "hover:-translate-y-[1px] transition-all duration-150 ease-in-out",
-                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1]/40"
+                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f97316]/40"
                     )}
                   >
                     <div className="flex-1 space-y-2 min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <h3 className="text-base font-black text-gray-900 group-hover/card:text-indigo-600 transition-colors">
+                        <h3 className="text-base font-black text-[#f1f5f9] group-hover/card:text-[#f97316] transition-colors">
                           {project.name}
                         </h3>
 
@@ -1153,7 +1147,7 @@ export function Projects({
                               ? "bg-green-50 text-green-600"
                               : isStalled
                                 ? "bg-red-50 text-red-600"
-                                : "bg-gray-100 text-gray-600"
+                                : "bg-white/5 text-[#cbd5e1]"
                           )}
                         >
                           {uiStatus === "ACTIVE"
@@ -1174,7 +1168,7 @@ export function Projects({
                         // grid. Truncated content gets a CSS ellipsis;
                         // the full text is still accessible to screen
                         // readers via the surrounding aria-label.
-                        <p className="text-xs text-gray-500 leading-relaxed font-medium line-clamp-2">
+                        <p className="text-xs text-[#94a3b8] leading-relaxed font-medium line-clamp-2">
                           {project.description}
                         </p>
                       )}
@@ -1197,9 +1191,9 @@ export function Projects({
                         />
                       )}
 
-                      <div className="flex items-center gap-3 text-[11px] font-bold text-gray-400">
+                      <div className="flex items-center gap-3 text-[11px] font-bold text-[#94a3b8]">
                         <span className="flex items-center gap-1.5">
-                          <Clock size={12} className="text-slate-400" />
+                          <Clock size={12} className="text-[#94a3b8]" />
                           Последняя активность:{" "}
                           {days >= 999 ? (
                             "—"
@@ -1227,14 +1221,14 @@ export function Projects({
                       </div>
                     </div>
 
-                    <div className="flex flex-col md:items-end gap-4 min-w-[210px] pt-4 md:pt-0 border-t md:border-t-0 border-gray-50">
+                    <div className="flex flex-col md:items-end gap-4 min-w-[210px] pt-4 md:pt-0 border-t md:border-t-0 border-white/5">
                       <div className="w-full space-y-1">
-                        <div className="flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        <div className="flex justify-between items-center text-[10px] font-black text-[#94a3b8] uppercase tracking-widest">
                           <span>Импульс</span>
                           <span className="font-mono">{momentum}%</span>
                         </div>
 
-                        <div className="h-2 w-full bg-gray-100 overflow-hidden rounded-full relative">
+                        <div className="h-2 w-full bg-white/5 overflow-hidden rounded-full relative">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${momentum}%` }}
@@ -1242,7 +1236,7 @@ export function Projects({
                             className={cn(
                               "h-full rounded-full transition-all duration-500",
                               momentum > 50
-                                ? "bg-indigo-500"
+                                ? "bg-[#f97316]"
                                 : momentum > 20
                                   ? "bg-amber-400"
                                   : "bg-red-500"
@@ -1261,7 +1255,7 @@ export function Projects({
         {/* Right column */}
         <div className="space-y-6">
           {/* AIR4 advisor — unified indigo-card variant. */}
-          <div className="relative overflow-hidden bg-[#4F46E5] rounded-2xl p-5 shadow-xl">
+          <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
             <Briefcase
               size={100}
               strokeWidth={1.5}
@@ -1296,45 +1290,45 @@ export function Projects({
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
+          <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-extrabold text-gray-900">
+              <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                 Активная сессия
               </h3>
             </div>
 
-            <div className="bg-gray-50/50 p-5 rounded-xl text-center border border-dashed border-gray-200">
-              <p className="text-xs font-bold text-gray-600">Активной сессии нет.</p>
-              <p className="text-[11px] text-gray-400 mt-1 leading-snug">
+            <div className="bg-white/5 p-5 rounded-xl text-center border border-dashed border-white/5">
+              <p className="text-xs font-bold text-[#cbd5e1]">Активной сессии нет.</p>
+              <p className="text-[11px] text-[#94a3b8] mt-1 leading-snug">
                 Откройте проект из каталога и начните отслеживать сессии разработки.
               </p>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-[20px] shadow-sm border border-gray-100">
-            <h3 className="text-lg font-extrabold text-gray-900 mb-2 flex items-center gap-2">
-              <Sparkles size={18} className="text-[#6366f1]" />
+          <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+            <h3 className="text-lg font-extrabold text-[#f1f5f9] mb-2 flex items-center gap-2">
+              <Sparkles size={18} className="text-[#f97316]" />
               Распределение фокуса
             </h3>
 
-            <p className="text-[12px] text-gray-600 leading-relaxed mb-4">
+            <p className="text-[12px] text-[#cbd5e1] leading-relaxed mb-4">
               Относительная доля усилий по активным фокус-расписаниям.
             </p>
 
             {focusDistribution.length === 0 ? (
-              <p className="text-[11px] text-gray-400 italic">
+              <p className="text-[11px] text-[#94a3b8] italic">
                 Запустите фокус-сессию в любом проекте, чтобы наполнить график.
               </p>
             ) : (
               <div className="space-y-4">
                 {focusDistribution.map((fd, i) => (
                   <div key={`${fd.name}-${i}`} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[11px] font-bold text-gray-700">
+                    <div className="flex justify-between items-center text-[11px] font-bold text-[#cbd5e1]">
                       <span className="truncate pr-2">{fd.name}</span>
                       <span className="font-mono">{fd.percentage}%</span>
                     </div>
 
-                    <div className="h-1.5 w-full bg-gray-100 overflow-hidden rounded-full">
+                    <div className="h-1.5 w-full bg-white/5 overflow-hidden rounded-full">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${fd.percentage}%` }}

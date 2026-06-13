@@ -190,7 +190,7 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
   }, [dilemmas]);
 
   const header = (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
           <Scale size={22} className="fill-[#f97316]/20" />
@@ -229,7 +229,7 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
       {header}
 
       {dueFollowups.length > 0 && (
-        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-2">
           <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-1">
             Ждут вашего ответа
           </h2>
@@ -240,7 +240,7 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
             {dueFollowups.map((d) => (
               <li
                 key={d.id}
-                className="p-4 rounded-2xl bg-[#1e1e2e] border border-white/5"
+                className="p-4 rounded-2xl bg-[#1e1e2e] border border-white/5 card-hover"
               >
                 <DilemmaRowContent dilemma={d} />
                 <FollowupForm dilemma={d} onSaved={onRefresh} />
@@ -250,7 +250,7 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
         </div>
       )}
 
-      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-3">
         <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
           Ваши дилеммы
         </h2>
@@ -263,7 +263,7 @@ export function Dilemmas({ dilemmas, onRefresh }: Props) {
             {restList.map((d) => (
               <li
                 key={d.id}
-                className="p-4 rounded-2xl bg-[#1e1e2e] border border-white/5"
+                className="p-4 rounded-2xl bg-[#1e1e2e] border border-white/5 card-hover"
               >
                 <DilemmaRowContent dilemma={d} />
               </li>

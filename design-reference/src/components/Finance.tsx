@@ -1221,7 +1221,7 @@ export function Finance({
           Overview ("Обзор"); the gap before the next card is provided
           by the parent flex-col gap-8 wrapper, so no margin is set
           here. */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
         <div className="flex items-center gap-2.5">
           <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
             <Wallet size={22} />
@@ -1240,7 +1240,7 @@ export function Finance({
           <button
             type="button"
             onClick={() => onPageChange("CSVUpload")}
-            className="flex items-center gap-2 bg-[#f97316] text-white px-4 py-2 rounded-xl font-bold text-[12px] shadow-md shadow-[#f97316]/20 hover:bg-[#ea6a06] transition-all uppercase tracking-wider"
+            className="flex items-center gap-2 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] px-4 py-2 rounded-[10px] font-bold text-[12px] hover:bg-[#f97316]/25 transition-all uppercase tracking-wider"
           >
             <Upload size={14} />
             Загрузить выписку
@@ -1255,7 +1255,7 @@ export function Finance({
       {loading ? (
         <p className="text-[14px] text-[#94a3b8]">Загрузка…</p>
       ) : !hasData ? (
-        <div className="bg-[#13131f] rounded-[20px] p-12 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+        <div className="bg-[#13131f] rounded-[20px] p-12 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center animate-fade-in-up animate-delay-2 card-hover">
           <p className="text-[16px] font-bold text-[#f1f5f9]">Выписки пока не загружены</p>
           <p className="text-[13px] text-[#94a3b8] mt-2">
             Загрузите CSV Swedbank, чтобы увидеть свои финансы.
@@ -1272,7 +1272,7 @@ export function Finance({
       ) : (
         <div className="grid grid-cols-5 gap-6">
           <div className="col-span-3 space-y-6">
-            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] animate-fade-in-up animate-delay-2 card-hover">
               <div className="flex items-center justify-between gap-4 mb-6">
                 <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Срез месяца
@@ -1377,7 +1377,7 @@ export function Finance({
               </div>
             </div>
 
-            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative animate-fade-in-up animate-delay-3 card-hover">
               {categories.length > 0 && <StatusDot color="#ef4444" />}
               <div className="flex items-start justify-between gap-3 mb-6">
                 <h2 className="text-lg font-extrabold text-[#f1f5f9]">
@@ -1443,7 +1443,7 @@ export function Finance({
               )}
             </div>
 
-            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] animate-fade-in-up animate-delay-4 card-hover">
               <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
                 Транзакции
               </h2>
@@ -1513,7 +1513,7 @@ export function Finance({
               the same Finance state already in scope (income, spent,
               freeCapital, fixed costs) — no extra API call needed. */}
           <div className="col-span-2 space-y-6">
-            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl animate-fade-in-up animate-delay-5 card-hover">
               <Wallet
                 size={100}
                 strokeWidth={1.5}
@@ -1548,7 +1548,7 @@ export function Finance({
               </div>
             </div>
 
-            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] animate-fade-in-up animate-delay-5 card-hover">
               <div className="flex items-baseline justify-between gap-3 mb-4">
                 <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Предстоящие платежи
@@ -1616,7 +1616,7 @@ export function Finance({
               )}
             </div>
 
-            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] animate-fade-in-up animate-delay-5 card-hover">
               <div className="flex items-baseline justify-between gap-3 mb-4">
                 <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Подписки · в месяц
@@ -1660,7 +1660,7 @@ export function Finance({
               )}
             </div>
 
-            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+            <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] animate-fade-in-up animate-delay-5 card-hover">
               <div className="flex items-baseline justify-between gap-3 mb-4">
                 <h2 className="text-lg font-extrabold text-[#f1f5f9]">
                   Кредиты и обязательства
@@ -1714,7 +1714,7 @@ export function Finance({
                     return (
                       <li
                         key={o.id}
-                        className="bg-white/5 rounded-xl border border-white/5 p-4 space-y-2"
+                        className="bg-white/5 rounded-xl border border-white/5 p-4 space-y-2 card-hover"
                       >
                         {/* Row 1 — name + monthly payment. Both dark
                             gray-900 so the row reads as one balanced
@@ -1799,7 +1799,7 @@ export function Finance({
         </div>
       )}
 
-      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] animate-fade-in-up animate-delay-5 card-hover">
         <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
           Выписки
         </h2>

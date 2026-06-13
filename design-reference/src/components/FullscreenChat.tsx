@@ -351,36 +351,40 @@ export function FullscreenChat({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f4f5f7] overflow-hidden">
-      <header className="px-4 md:px-8 py-4 md:py-6 bg-white border-b border-gray-100 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center overflow-hidden shadow-lg shadow-black/20">
-            <img src="/ar4-test.svg" className="w-8 h-8" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-none uppercase">
-              AIR4
-            </h1>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
-              Главный агент
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <EnergyStateDropdown />
+    <div className="flex flex-col h-full bg-[#13131f] border-l border-white/[0.06] overflow-hidden">
+      <header className="px-4 md:px-8 py-4 md:py-6 bg-[#13131f] border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between gap-3 shrink-0">
+        <div className="flex-1 flex justify-start min-w-0">
           <button
             type="button"
             onClick={onBack}
-            className="hidden md:flex items-center gap-2 border-[1.5px] border-[#f97316] text-[#f97316] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider hover:bg-[#f97316]/10 transition-all shadow-sm bg-white"
+            className="hidden md:flex items-center gap-2 border border-white/10 text-[#94a3b8] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider bg-white/5 hover:bg-white/10 transition-all shadow-sm"
           >
             <ArrowLeft size={16} />
             Назад: {PAGE_LABELS[previousPage] ?? previousPage}
           </button>
         </div>
+
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center overflow-hidden shadow-lg shadow-black/20">
+            <img src="/ar4-test.svg" className="w-8 h-8" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-[#f1f5f9] tracking-tight leading-none uppercase">
+              AIR4
+            </h1>
+            <p className="text-[10px] font-black text-[#94a3b8] uppercase tracking-[0.2em] mt-1">
+              Главный агент
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 flex justify-end min-w-0">
+          <EnergyStateDropdown />
+        </div>
       </header>
 
       <div className="flex-1 flex min-h-0">
-        <div className="flex-1 flex flex-col min-w-0 bg-white">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#13131f]">
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-12 py-6 md:py-10 space-y-6 md:space-y-10">
             {messages.length === 0 ? (
               <p className="text-[14px] text-[#9ca3af] text-center mt-20">
@@ -413,8 +417,8 @@ export function FullscreenChat({
                     className={cn(
                       "px-6 py-4 rounded-[12px] text-[15px] leading-relaxed shadow-sm",
                       msg.role === "user"
-                        ? "bg-[#f3f4f6] text-[#374151]"
-                        : "bg-white border-l-[4px] border-l-[#f97316] text-[#111827]"
+                        ? "bg-[#252535] text-[#f1f5f9]"
+                        : "bg-[#1e1e2e] text-[#f1f5f9] border-l-[2px] border-l-[#f97316]"
                     )}
                   >
                     {msg.attachment && (
@@ -435,7 +439,7 @@ export function FullscreenChat({
                         ))}
                       </div>
                     ) : msg.content ? (
-                      <div className="prose prose-slate max-w-none">
+                      <div className="prose prose-invert max-w-none">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     ) : null}
@@ -445,7 +449,7 @@ export function FullscreenChat({
             )}
           </div>
 
-          <div className="px-4 md:px-12 py-4 md:py-8 bg-white border-t border-gray-100">
+          <div className="px-4 md:px-12 py-4 md:py-8 bg-[#13131f] border-t border-[rgba(255,255,255,0.05)]">
             <div className="max-w-4xl mx-auto">
               {(attachment || attachmentError) && (
                 <div className="mb-3 space-y-1.5">
@@ -484,7 +488,7 @@ export function FullscreenChat({
                   )}
                 </div>
               )}
-              <div className="relative group">
+              <div className="relative group bg-[#1e1e2e] border border-white/10 rounded-[12px] focus-within:border-[#f97316] transition-colors">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -500,12 +504,12 @@ export function FullscreenChat({
                     if (e.key === "Enter") void handleSend();
                   }}
                   placeholder="Поговорите с AIR4..."
-                  className="w-full bg-gray-50 border-2 border-transparent rounded-full py-4 pl-16 pr-16 text-[16px] focus:outline-none focus:bg-white focus:border-[#f97316] focus:ring-8 focus:ring-[#f97316]/5 transition-all shadow-inner"
+                  className="w-full bg-transparent text-[#f1f5f9] placeholder-[#6b7280] border-0 rounded-[12px] py-3 pl-16 pr-16 text-[16px] focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute left-3 top-2 bottom-2 aspect-square rounded-full bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                  className="absolute left-3 top-2 bottom-2 aspect-square rounded-full bg-transparent text-[#6b7280] flex items-center justify-center hover:bg-white/5 transition-colors"
                   aria-label="Прикрепить файл"
                   title="Прикрепить изображение или PDF"
                 >

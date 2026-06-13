@@ -75,7 +75,7 @@ export function Profile() {
   }, []);
 
   const header = (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
           <User size={22} className="fill-[#f97316]/20" />
@@ -124,7 +124,7 @@ export function Profile() {
       {header}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-2">
           <ProfileField label="Имя" value={profile.name} />
           <ProfileField label="Город" value={profile.city} />
           <ProfileField label="Профессия" value={profile.profession} />
@@ -151,7 +151,7 @@ export function Profile() {
           )}
         </div>
 
-        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+        <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-3">
           <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
             Статистика
           </h2>
@@ -183,7 +183,7 @@ export function Profile() {
         </div>
       </div>
 
-      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+      <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-4">
         <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
           Что AIR4 знает о вас
         </h2>
@@ -196,7 +196,7 @@ export function Profile() {
             {facts.map((fact) => (
               <div
                 key={fact.key}
-                className="p-4 rounded-2xl border border-white/5 bg-white/5"
+                className="p-4 rounded-2xl border border-white/5 bg-white/5 card-hover"
               >
                 <div className="flex justify-between items-start gap-4 mb-2">
                   <h3 className="text-[14px] font-bold text-[#f1f5f9]">

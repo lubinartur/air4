@@ -229,7 +229,7 @@ export function Patterns({
   }, [onRefresh, refreshing]);
 
   const header = (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
           <Repeat size={22} className="fill-[#f97316]/20" />
@@ -307,7 +307,7 @@ export function Patterns({
 
       {/* ============== Cross-sphere insights ============== */}
       {sortedInsights.length > 0 && (
-        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5">
+        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5 card-hover animate-fade-in-up animate-delay-2">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h2 className="text-lg font-extrabold text-[#f1f5f9]">
@@ -340,7 +340,7 @@ export function Patterns({
               return (
                 <li
                   key={`cs-${ins.id}`}
-                  className="p-5 rounded-2xl bg-[#1e1e2e] border border-white/5 space-y-3"
+                  className="p-5 rounded-2xl bg-[#1e1e2e] border border-white/5 space-y-3 card-hover"
                 >
                   <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -404,7 +404,7 @@ export function Patterns({
 
       {/* ============== Hypotheses ============== */}
       {hypotheses.length > 0 ? (
-        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5">
+        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] space-y-5 card-hover animate-fade-in-up animate-delay-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h2 className="text-lg font-extrabold text-[#f1f5f9]">
@@ -455,7 +455,7 @@ export function Patterns({
                 <li
                   key={h.id}
                   className={cn(
-                    "p-4 rounded-2xl border",
+                    "p-4 rounded-2xl border card-hover",
                     stale
                       ? "bg-[#1e1e2e] border-white/5 opacity-75"
                       : "bg-[#1e1e2e] border-white/5"
@@ -531,7 +531,7 @@ export function Patterns({
       ) : (
         // Cross-sphere exists but no hypotheses — still show a slim
         // explainer so the page doesn't look like it's missing a half.
-        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+        <div className="bg-[#13131f] border border-white/5 rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center card-hover animate-fade-in-up animate-delay-3">
           <p className="text-[13px] text-[#94a3b8] font-medium">
             Поведенческих гипотез ещё нет — продолжайте логировать
             активность, AIR4 заметит повторения.

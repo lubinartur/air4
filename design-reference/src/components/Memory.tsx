@@ -120,7 +120,7 @@ export function Memory() {
   const grouped = useMemo(() => groupEventsByDate(filtered), [filtered]);
 
   const header = (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
       <div className="flex items-center gap-2.5">
         <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
           <Brain size={22} className="fill-[#f97316]/20" />
@@ -138,7 +138,7 @@ export function Memory() {
   );
 
   const filterBar = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 animate-fade-in-up animate-delay-2">
       {FILTERS.map((f) => {
         const active = filter === f;
         const count = counts[f] ?? 0;
@@ -214,7 +214,7 @@ export function Memory() {
                 {items.map((event) => (
                   <article
                     key={event.id}
-                    className="bg-[#13131f] rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] flex gap-3"
+                    className="bg-[#13131f] rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] flex gap-3 card-hover"
                   >
                     <div
                       className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-base shrink-0"

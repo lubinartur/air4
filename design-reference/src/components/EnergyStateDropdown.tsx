@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "../lib/utils";
 
 // --- Energy State (AIR4 Советник) ---------------------------------------
@@ -50,7 +51,7 @@ interface EnergyStateDropdownProps {
 }
 
 const DEFAULT_BUTTON_CLASS =
-  "flex items-center gap-2 bg-white border border-gray-100 shadow-sm rounded-full pl-2.5 pr-3 py-2 hover:shadow-md transition-shadow";
+  "flex items-center gap-2 bg-[#1e1e2e] border border-white/10 shadow-sm rounded-full pl-2.5 pr-3 py-2 hover:bg-white/5 transition-colors";
 
 export function EnergyStateDropdown({
   className = "relative",
@@ -162,17 +163,24 @@ export function EnergyStateDropdown({
         <span className="text-[15px] leading-none">
           {dndActive ? "🌙" : current.icon}
         </span>
-        <span className="text-[12px] font-semibold text-gray-700">
+        <span className="text-[12px] font-semibold text-[#94a3b8]">
           AIR4 Советник
         </span>
+        <ChevronDown
+          size={14}
+          className={cn(
+            "text-[#94a3b8] transition-transform",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-gray-100 p-2 text-left z-50"
+          className="absolute right-0 mt-2 w-60 bg-[#1e1e2e] rounded-2xl shadow-xl border border-white/[0.08] p-2 text-left z-50"
         >
-          <p className="px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          <p className="px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#64748b]">
             Режим
           </p>
           {ENERGY_MODES.map((m) => (
@@ -182,15 +190,15 @@ export function EnergyStateDropdown({
               onClick={() => selectMode(m.id)}
               className={cn(
                 "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors",
-                m.id === mode ? "bg-[#f97316]/15" : "hover:bg-gray-50",
+                m.id === mode ? "bg-[#f97316]/15" : "hover:bg-white/5",
               )}
             >
               <span className="text-[15px] leading-none">{m.icon}</span>
               <span className="flex-1">
-                <span className="block text-[13px] font-semibold text-gray-800">
+                <span className="block text-[13px] font-semibold text-[#f1f5f9]">
                   {m.label}
                 </span>
-                <span className="block text-[11px] text-gray-400">{m.desc}</span>
+                <span className="block text-[11px] text-[#94a3b8]">{m.desc}</span>
               </span>
               {m.id === mode && (
                 <span className="text-[#f97316] text-[12px] font-bold">✓</span>
@@ -198,14 +206,14 @@ export function EnergyStateDropdown({
             </button>
           ))}
 
-          <div className="my-2 border-t border-gray-100" />
+          <div className="my-2 border-t border-white/[0.08]" />
 
-          <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+          <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#64748b]">
             Не беспокоить
           </p>
           {dndActive ? (
             <div className="px-2 pb-1">
-              <p className="text-[12px] text-gray-600 mb-1.5">
+              <p className="text-[12px] text-[#94a3b8] mb-1.5">
                 Активно до{" "}
                 {new Date(dndUntil).toLocaleString("ru-RU", {
                   hour: "2-digit",
@@ -229,7 +237,7 @@ export function EnergyStateDropdown({
                   key={opt.id}
                   type="button"
                   onClick={() => applyDnd(opt)}
-                  className="flex-1 text-[11px] font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg py-1.5 transition-colors"
+                  className="flex-1 text-[11px] font-semibold text-[#94a3b8] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg py-1.5 transition-colors"
                 >
                   {opt.label}
                 </button>

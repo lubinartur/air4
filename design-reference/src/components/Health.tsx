@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   CalendarDays,
@@ -269,6 +269,11 @@ export function Health() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
+  // Hidden file input for importing lab-report PDFs. The button in the
+  // page header just opens the native picker; actual import processing is
+  // handled elsewhere (backend pipeline), so this only wires the open.
+  const importInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -398,7 +403,7 @@ export function Health() {
   return (
     <div className="flex flex-col gap-6 pb-12 select-none font-sans">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
@@ -413,6 +418,23 @@ export function Health() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            className="flex items-center gap-2 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] px-4 py-2 rounded-[10px] font-bold text-[12px] hover:bg-[#f97316]/25 transition-all uppercase tracking-wider"
+          >
+            <FileUp size={14} />
+            Импорт анализов
+          </button>
         </div>
       </div>
 
@@ -454,19 +476,19 @@ export function Health() {
 
       {/* Loading / empty / error */}
       {loading && (
-        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 card-hover">
           <p className="text-[14px] text-[#94a3b8]">Загрузка данных…</p>
         </div>
       )}
 
       {!loading && error && (
-        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-red-100">
+        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-red-100 card-hover">
           <p className="text-[13px] text-red-500">{error}</p>
         </div>
       )}
 
       {!loading && !error && checkups.length === 0 && (
-        <div className="bg-[#13131f] p-12 rounded-[20px] shadow-sm border border-white/5 text-center flex flex-col items-center justify-center gap-2">
+        <div className="bg-[#13131f] p-12 rounded-[20px] shadow-sm border border-white/5 text-center flex flex-col items-center justify-center gap-2 card-hover">
           <Info size={36} className="text-[#64748b]" />
           <p className="text-sm font-bold text-[#f1f5f9]">Данных анализов пока нет</p>
           <p className="text-xs text-[#94a3b8] max-w-sm">
@@ -480,7 +502,7 @@ export function Health() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: directory + categories */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-[#13131f] p-5 rounded-[20px] shadow-sm border border-white/5 space-y-4">
+            <div className="bg-[#13131f] p-5 rounded-[20px] shadow-sm border border-white/5 space-y-4 animate-fade-in-up animate-delay-2 card-hover">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-extrabold text-[#f1f5f9]">
@@ -490,16 +512,6 @@ export function Health() {
                     Результаты клинических анализов крови.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  title="Скоро"
-                  className="flex items-center gap-1.5 text-xs text-[#f97316] font-bold bg-[#f97316]/15 px-3 py-1.5 rounded-lg border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <FileUp size={14} />
-                  Импорт анализов
-                </button>
               </div>
 
               <div className="flex flex-col md:flex-row gap-3">
@@ -568,7 +580,7 @@ export function Health() {
                 filteredCategories.map((group) => (
                   <div
                     key={group.category}
-                    className="bg-[#13131f] rounded-[20px] p-6 shadow-sm border border-white/5 hover:shadow-md transition-shadow"
+                    className="bg-[#13131f] rounded-[20px] p-6 shadow-sm border border-white/5 hover:shadow-md transition-shadow card-hover"
                   >
                     {/* Group header — matches Finance card titles
                         (text-lg font-extrabold gray-900). Colored
@@ -605,7 +617,7 @@ export function Health() {
                           <div
                             key={marker.name}
                             onClick={() => setSelectedMarker(marker)}
-                            className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-white/5 px-3 -mx-3 rounded-xl transition-colors group"
+                            className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-white/5 px-3 -mx-3 rounded-xl transition-colors group card-hover"
                           >
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -677,7 +689,7 @@ export function Health() {
                   </div>
                 ))
               ) : (
-                <div className="bg-[#13131f] p-12 text-center rounded-[20px] border border-white/5 shadow-sm text-[#94a3b8] flex flex-col items-center justify-center">
+                <div className="bg-[#13131f] p-12 text-center rounded-[20px] border border-white/5 shadow-sm text-[#94a3b8] flex flex-col items-center justify-center card-hover">
                   <Info size={36} className="text-[#64748b] mb-3" />
                   <p className="text-sm font-semibold">
                     Под выбранные фильтры ничего не нашлось.
@@ -697,7 +709,7 @@ export function Health() {
               stats already computed in scope (`totalOutCount`,
               `totalNormalCount`, `activeGroup.date`). */}
           <div className="space-y-6">
-            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl animate-fade-in-up animate-delay-3 card-hover">
               <Heart
                 size={100}
                 strokeWidth={1.5}
@@ -731,7 +743,7 @@ export function Health() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border-[1.5px] border-[#f97316]/30 relative"
+                  className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border-[1.5px] border-[#f97316]/30 relative card-hover"
                 >
                   <button
                     onClick={() => setSelectedMarker(null)}
@@ -884,7 +896,7 @@ export function Health() {
                   )}
                 </motion.div>
               ) : (
-                <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 text-center py-10 flex flex-col items-center justify-center">
+                <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 text-center py-10 flex flex-col items-center justify-center card-hover">
                   <Info size={32} className="text-[#f97316] mb-3" />
                   <h3 className="text-xs font-bold text-[#f1f5f9]">
                     Панель биомаркера
@@ -898,7 +910,7 @@ export function Health() {
             </AnimatePresence>
 
             {(testo || e2 || shbg) && (
-              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 animate-fade-in-up animate-delay-4 card-hover">
                 {/* Title matches the Finance card-title family but
                     one step smaller (`text-base`) because this card
                     lives in the narrow right column and shares space

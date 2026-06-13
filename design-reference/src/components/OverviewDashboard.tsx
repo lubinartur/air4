@@ -293,7 +293,7 @@ export function OverviewDashboard({
       `}</style>
 
       {/* ---------- Header ---------- */}
-      <div className="mb-6">
+      <div className="mb-6 animate-fade-in-up animate-delay-1">
         <h1 className="text-[28px] font-semibold leading-tight">
           Доброе утро{name ? `, ${name}` : ""}
         </h1>
@@ -306,7 +306,7 @@ export function OverviewDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-5">
         {/* AIRCH INTELLIGENCE hero */}
         <div
-          className="lg:col-span-3 rounded-2xl p-7 flex flex-col justify-between min-h-[230px]"
+          className="lg:col-span-3 rounded-2xl p-7 flex flex-col justify-between min-h-[230px] card-hover animate-fade-in-up animate-delay-2"
           style={{
             background: "linear-gradient(135deg, #1a0a00 0%, #0f0f14 100%)",
           }}
@@ -372,7 +372,7 @@ export function OverviewDashboard({
 
         {/* STATUS sphere */}
         <div
-          className="lg:col-span-2 rounded-2xl p-6 flex flex-col min-h-[230px]"
+          className="lg:col-span-2 rounded-2xl p-6 flex flex-col min-h-[230px] card-hover animate-fade-in-up animate-delay-3"
           style={cardStyle}
         >
           <span className={LABEL_CLASS}>Status</span>
@@ -416,7 +416,7 @@ export function OverviewDashboard({
       {/* ---------- Row 2: Open Loops / Momentum / Memory ---------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* OPEN LOOPS */}
-        <div className="rounded-2xl p-6" style={cardStyle}>
+        <div className="rounded-2xl p-6 card-hover animate-fade-in-up animate-delay-4" style={cardStyle}>
           <div className="flex items-center justify-between mb-4">
             <span className={LABEL_CLASS}>Open Loops</span>
             {openLoops.length > 0 && (
@@ -476,7 +476,7 @@ export function OverviewDashboard({
         </div>
 
         {/* MOMENTUM */}
-        <div className="rounded-2xl p-6" style={cardStyle}>
+        <div className="rounded-2xl p-6 card-hover animate-fade-in-up animate-delay-5" style={cardStyle}>
           <span className={LABEL_CLASS}>Momentum</span>
           <p className="text-[13px] mt-1 mb-4" style={{ color: C.secondary }}>
             Что двигается
@@ -500,7 +500,7 @@ export function OverviewDashboard({
         </div>
 
         {/* AIRCH MEMORY */}
-        <div className="rounded-2xl p-6" style={cardStyle}>
+        <div className="rounded-2xl p-6 card-hover animate-fade-in-up animate-delay-5" style={cardStyle}>
           <div className="flex items-center justify-between mb-1">
             <span className={LABEL_CLASS}>AIRCH Memory</span>
             <button

@@ -55,6 +55,40 @@ function toUiStatus(raw: string): UiStatus {
   return "ACTIVE";
 }
 
+/** Status badge colors (dark-theme tinted fills, no light backgrounds). */
+function statusBadgeStyle(uiStatus: UiStatus): {
+  backgroundColor: string;
+  border: string;
+  color: string;
+} {
+  switch (uiStatus) {
+    case "ACTIVE":
+      return {
+        backgroundColor: "rgba(34,197,94,0.15)",
+        border: "1px solid rgba(34,197,94,0.3)",
+        color: "#22c55e",
+      };
+    case "STALLED":
+      return {
+        backgroundColor: "rgba(249,115,22,0.15)",
+        border: "1px solid rgba(249,115,22,0.3)",
+        color: "#f97316",
+      };
+    case "COMPLETED":
+      return {
+        backgroundColor: "rgba(59,130,246,0.15)",
+        border: "1px solid rgba(59,130,246,0.3)",
+        color: "#3b82f6",
+      };
+    default:
+      return {
+        backgroundColor: "rgba(107,114,128,0.15)",
+        border: "1px solid rgba(107,114,128,0.3)",
+        color: "#6b7280",
+      };
+  }
+}
+
 /** Days since updated_at → momentum percentage (step function per spec). */
 function momentumFromDays(days: number): number {
   if (days <= 3) return 100;
@@ -526,7 +560,7 @@ export function Projects({
             matches the list view header and the rest of the app's
             page-header pattern. The right-hand "Всего времени" pill
             still provides its own contained chrome. */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
           <div className="flex items-center gap-4">
             <button
               onClick={handleBackToOverview}
@@ -542,14 +576,8 @@ export function Projects({
                 </h1>
                 {detail && (
                   <span
-                    className={cn(
-                      "text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider",
-                      uiStatus === "ACTIVE"
-                        ? "bg-green-50 text-green-600"
-                        : uiStatus === "STALLED"
-                          ? "bg-red-50 text-red-600"
-                          : "bg-white/5 text-[#cbd5e1]"
-                    )}
+                    className="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider"
+                    style={statusBadgeStyle(uiStatus)}
                   >
                     {uiStatus === "ACTIVE"
                       ? "АКТИВЕН"
@@ -619,7 +647,7 @@ export function Projects({
             {/* Left col-span-2 */}
             <div className="lg:col-span-2 space-y-6">
               {/* Timer */}
-              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-6">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-6 card-hover animate-fade-in-up animate-delay-2">
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-extrabold text-[#f1f5f9]">
@@ -739,7 +767,7 @@ export function Projects({
               </div>
 
               {/* Todos */}
-              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-5">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-5 card-hover animate-fade-in-up animate-delay-3">
                 <div>
                   <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                     Milestone и чек-лист
@@ -817,7 +845,7 @@ export function Projects({
                   shared across Sport, Projects, Goals, Finance,
                   Health. Page-specific "ПРОЕКТ" pill differentiates
                   from the list-view "ПРОЕКТЫ" block. */}
-              <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
+              <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl card-hover animate-fade-in-up animate-delay-4">
                 <Briefcase
                   size={100}
                   strokeWidth={1.5}
@@ -843,7 +871,7 @@ export function Projects({
               </div>
 
               {/* Activity Log */}
-              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-5">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-5 card-hover animate-fade-in-up animate-delay-5">
                 <div>
                   <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                     Поток и журнал проекта
@@ -955,7 +983,7 @@ export function Projects({
   return (
     <div className="flex flex-col gap-6 pb-12 select-none font-sans">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-[#f97316]/15 text-[#f97316] rounded-xl">
@@ -978,7 +1006,7 @@ export function Projects({
         {/* Left col-span-2 */}
         <div className="lg:col-span-2 space-y-6">
           {/* Directory + Add form */}
-          <div className="bg-[#13131f] p-5 rounded-[20px] shadow-sm border border-white/5 space-y-4">
+          <div className="bg-[#13131f] p-5 rounded-[20px] shadow-sm border border-white/5 space-y-4 card-hover animate-fade-in-up animate-delay-2">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-extrabold text-[#f1f5f9]">Каталог проектов</h3>
@@ -1099,8 +1127,6 @@ export function Projects({
                 const uiStatus = toUiStatus(project.status);
                 const days = daysSince(project.updated_at);
                 const momentum = momentumFromDays(days);
-                const isActive = uiStatus === "ACTIVE";
-                const isStalled = uiStatus === "STALLED";
                 const totalSeconds = (project.total_sessions_minutes ?? 0) * 60;
 
                 // Whole card is the affordance — the explicit
@@ -1126,6 +1152,7 @@ export function Projects({
                       }
                     }}
                     className={cn(
+                      "card-hover",
                       "group/card bg-[#13131f] rounded-[20px] p-6 shadow-sm",
                       "flex flex-col md:flex-row md:items-center justify-between gap-6",
                       "cursor-pointer border border-transparent",
@@ -1141,14 +1168,8 @@ export function Projects({
                         </h3>
 
                         <span
-                          className={cn(
-                            "text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider",
-                            isActive
-                              ? "bg-green-50 text-green-600"
-                              : isStalled
-                                ? "bg-red-50 text-red-600"
-                                : "bg-white/5 text-[#cbd5e1]"
-                          )}
+                          className="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider"
+                          style={statusBadgeStyle(uiStatus)}
                         >
                           {uiStatus === "ACTIVE"
                             ? "АКТИВЕН"
@@ -1255,7 +1276,7 @@ export function Projects({
         {/* Right column */}
         <div className="space-y-6">
           {/* AIR4 advisor — unified indigo-card variant. */}
-          <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
+          <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl card-hover animate-fade-in-up animate-delay-3">
             <Briefcase
               size={100}
               strokeWidth={1.5}
@@ -1290,7 +1311,7 @@ export function Projects({
             </div>
           </div>
 
-          <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+          <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 card-hover animate-fade-in-up animate-delay-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-extrabold text-[#f1f5f9]">
                 Активная сессия
@@ -1305,7 +1326,7 @@ export function Projects({
             </div>
           </div>
 
-          <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+          <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 card-hover animate-fade-in-up animate-delay-5">
             <h3 className="text-lg font-extrabold text-[#f1f5f9] mb-2 flex items-center gap-2">
               <Sparkles size={18} className="text-[#f97316]" />
               Распределение фокуса

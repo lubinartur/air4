@@ -18,7 +18,7 @@ export function Settings() {
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-white/5 text-[#cbd5e1] rounded-xl">
             <SettingsIcon size={22} className="fill-white/10" />
@@ -43,7 +43,7 @@ export function Settings() {
         {/* Left Column */}
         <div className="col-span-3 space-y-6">
           {/* Card 1 - AIR4 Character */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-2">
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-8">Характер AIR4</h2>
             <div className="space-y-6">
               <div className="flex justify-between items-end">
@@ -64,14 +64,14 @@ export function Settings() {
           </div>
 
           {/* Card 2 - Privacy Mode */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-3">
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-8">Режим приватности</h2>
             <div className="space-y-3">
               {privacyModes.map((mode) => (
                 <div 
                   key={mode.id}
                   className={cn(
-                    "p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group",
+                    "p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group card-hover",
                     mode.active ? "border-[#f97316] bg-[#13131f] shadow-sm" : "border-white/5 bg-white/5 hover:border-white/10"
                   )}
                 >
@@ -92,7 +92,7 @@ export function Settings() {
           </div>
 
           {/* Card 3 - Language */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] flex items-center justify-between">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] flex items-center justify-between card-hover animate-fade-in-up animate-delay-4">
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em]">Язык</h2>
             <div className="flex bg-white/5 p-1 rounded-xl">
               <button className="px-6 py-2 rounded-lg bg-[#f97316] text-white font-black text-[12px] shadow-sm uppercase tracking-widest">RU</button>
@@ -101,7 +101,7 @@ export function Settings() {
           </div>
 
           {/* Card 4 - Notifications */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-5">
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-6">Уведомления</h2>
             <div className="space-y-4">
               {notifications.map((n, i) => (
@@ -125,7 +125,7 @@ export function Settings() {
         {/* Right Column */}
         <div className="col-span-2 space-y-6">
           {/* Card 5 - Profile */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-5">
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-6">Профиль</h2>
             <div className="space-y-4 mb-8">
               <div className="flex justify-between items-baseline py-1 border-b border-white/5">
@@ -151,7 +151,7 @@ export function Settings() {
           </div>
 
           {/* Card 6 - Data & Memory */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-5">
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-6 whitespace-nowrap overflow-hidden text-ellipsis">База данных</h2>
             <div className="flex items-center gap-3 mb-8">
               <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#94a3b8]">
@@ -177,7 +177,7 @@ export function Settings() {
           </div>
 
           {/* Card 7 - About */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-5">
             <div className="flex justify-between items-start mb-6">
                <div>
                   <h3 className="text-[18px] font-black text-[#f1f5f9]">AIR4</h3>

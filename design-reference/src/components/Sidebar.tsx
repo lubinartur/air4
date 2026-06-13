@@ -14,7 +14,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
   const navButtonClass = (active: boolean) =>
     cn(
-      "p-2 rounded-[10px] transition-colors group relative",
+      "p-2 rounded-[10px] transition-all duration-200 ease-out hover:scale-110 group relative",
       active
         ? "text-[#f97316] bg-[#f97316]/15"
         : "text-white/40 hover:text-white hover:bg-white/10",
@@ -27,7 +27,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
   return (
     <aside
-      className="w-16 flex flex-col items-center py-6 shrink-0 my-2 ml-2 rounded-[20px] h-[calc(100vh-16px)]"
+      className="w-16 flex flex-col items-center py-6 shrink-0 my-2 ml-2 rounded-[20px] h-[calc(100vh-16px)] border-r border-white/[0.06]"
       style={{
         background: "#13131f",
       }}

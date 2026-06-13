@@ -31,10 +31,10 @@ const GOAL_TEMPLATES: GoalTemplate[] = [
 ];
 
 function goalInfo(goal: GoalItem): string {
-  if (goal.source === "facts" && goal.key) {
-    return `из ${goal.key.replace(/_/g, " ")}`;
-  }
-  return goal.source === "profile" ? "из профиля" : `источник: ${goal.source}`;
+  // Profile-derived goals get a friendly Russian label. Fact/other sources
+  // carry raw technical keys (e.g. "fitness_goal_muscle_gain") that don't
+  // read well in Russian, so they're hidden rather than shown verbatim.
+  return goal.source === "profile" ? "из профиля" : "";
 }
 
 export function Goals({ goals, onNavigate }: Props) {
@@ -102,7 +102,7 @@ export function Goals({ goals, onNavigate }: Props) {
   return (
     <div className="flex flex-col gap-8 pb-10">
       {/* Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
         <div className="flex items-center gap-2.5">
           <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
             <Target size={22} />
@@ -144,7 +144,7 @@ export function Goals({ goals, onNavigate }: Props) {
         <div className="col-span-3 space-y-6">
           {/* Active Goals Grid */}
           {activeGoals.length === 0 ? (
-            <div className="bg-[#13131f] rounded-[20px] p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center">
+            <div className="bg-[#13131f] rounded-[20px] p-8 shadow-[0_2px_12px_rgba(0,0,0,0.08)] text-center card-hover animate-fade-in-up animate-delay-2">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-green-50 text-green-600 mb-3">
                 <Target size={22} />
               </div>
@@ -160,7 +160,7 @@ export function Goals({ goals, onNavigate }: Props) {
               {activeGoals.map((g, i) => (
                 <div
                   key={g.key}
-                  className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative overflow-hidden group"
+                  className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative overflow-hidden group card-hover"
                 >
                   <div
                     className={cn(
@@ -179,15 +179,12 @@ export function Goals({ goals, onNavigate }: Props) {
                       <h3 className="text-[16px] font-bold text-[#f1f5f9] leading-snug">
                         {g.title}
                       </h3>
-                      {g.alert && (
-                        <span className="bg-red-50 text-red-500 text-[10px] font-bold px-1.5 py-0.5 rounded tracking-tighter shrink-0">
-                          ОТСТАЁТ
-                        </span>
-                      )}
                     </div>
-                    <p className="text-[12px] text-[#94a3b8] font-medium mb-3 uppercase tracking-wide">
-                      {g.info}
-                    </p>
+                    {g.info && (
+                      <p className="text-[12px] text-[#94a3b8] font-medium mb-3 uppercase tracking-wide">
+                        {g.info}
+                      </p>
+                    )}
                     {/* Linked projects block — collapses entirely
                         when no projects reference this goal so the
                         card height stays consistent for unlinked
@@ -257,7 +254,7 @@ export function Goals({ goals, onNavigate }: Props) {
           )}
 
           {/* Wishlist */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-3">
             <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
               Список желаний
             </h2>
@@ -277,7 +274,7 @@ export function Goals({ goals, onNavigate }: Props) {
           {/* AIR4 Observation — unified indigo-card variant shared
               across pages. The inline amber highlight on «Цель по
               книгам» is preserved for narrative emphasis. */}
-          <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
+          <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl card-hover animate-fade-in-up animate-delay-4">
             <Target
               size={100}
               strokeWidth={1.5}
@@ -306,7 +303,7 @@ export function Goals({ goals, onNavigate }: Props) {
           </div>
 
           {/* Deadlines (hardcoded) */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-5">
             <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
               Дедлайны
             </h2>
@@ -334,7 +331,7 @@ export function Goals({ goals, onNavigate }: Props) {
           </div>
 
           {/* Weekly Focus (hardcoded) */}
-          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative">
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] relative card-hover animate-fade-in-up animate-delay-5">
             <h2 className="text-lg font-extrabold text-[#f1f5f9] mb-6">
               Фокус недели
             </h2>

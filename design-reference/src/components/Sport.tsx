@@ -378,7 +378,7 @@ export function Sport() {
   return (
     <div className="flex flex-col gap-6 pb-12 select-none font-sans">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up animate-delay-1">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2.5 bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] rounded-xl">
@@ -398,7 +398,7 @@ export function Sport() {
       </div>
 
       {loading && (
-        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+        <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 card-hover">
           <p className="text-[14px] text-[#94a3b8]">Загрузка спортивных данных…</p>
         </div>
       )}
@@ -410,7 +410,7 @@ export function Sport() {
             {/* Bento metric cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Weight card */}
-              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between group transition-all relative">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between group transition-all relative animate-fade-in-up animate-delay-2 card-hover">
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <p className={t.cardLabel}>Вес</p>
@@ -454,7 +454,7 @@ export function Sport() {
               </div>
 
               {/* Height card */}
-              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between transition-all">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between transition-all animate-fade-in-up animate-delay-3 card-hover">
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <p className={t.cardLabel}>Рост</p>
@@ -479,7 +479,7 @@ export function Sport() {
               </div>
 
               {/* BMI card */}
-              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between transition-all">
+              <div className="bg-[#13131f] p-6 rounded-[20px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-white/5 flex flex-col justify-between transition-all animate-fade-in-up animate-delay-4 card-hover">
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <p className={t.cardLabel}>
@@ -514,7 +514,7 @@ export function Sport() {
             </div>
 
             {/* Weight Trajectory */}
-            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 animate-fade-in-up animate-delay-5 card-hover">
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-lg font-extrabold text-[#f1f5f9]">Динамика веса</h3>
@@ -586,7 +586,7 @@ export function Sport() {
             </div>
 
             {/* Workout history (read-only — workouts are imported from Coaich) */}
-            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-4">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 space-y-4 animate-fade-in-up animate-delay-5 card-hover">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-extrabold text-[#f1f5f9] flex items-center gap-2">
@@ -723,7 +723,7 @@ export function Sport() {
                         key={w.id}
                         type="button"
                         onClick={() => setActiveWorkoutId(w.id)}
-                        className="w-full text-left py-3 flex justify-between items-center group hover:bg-white/5 px-2 rounded-lg transition-all"
+                        className="w-full text-left py-3 flex justify-between items-center group hover:bg-white/5 px-2 rounded-lg transition-all card-hover"
                       >
                         <div className="flex items-center gap-3">
                           <div
@@ -783,7 +783,7 @@ export function Sport() {
               the Overview AIR4 Advisor card visual language in a
               more compact (p-5, text-[14px]) right-column form. */}
           <div className="space-y-6">
-            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl">
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#1a0a00_0%,#0f0f14_100%)] border border-[#f97316]/30 rounded-2xl p-5 shadow-xl animate-fade-in-up animate-delay-5 card-hover">
               <Dumbbell
                 size={100}
                 strokeWidth={1.5}
@@ -814,7 +814,7 @@ export function Sport() {
               </div>
             </div>
 
-            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 animate-fade-in-up animate-delay-5 card-hover">
               {/* Card title matches Finance card-title family.
                   Clock icon retained as the visual hook for this
                   card's "timing/consistency" theme. */}
@@ -848,7 +848,7 @@ export function Sport() {
               </div>
             </div>
 
-            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5">
+            <div className="bg-[#13131f] p-6 rounded-[20px] shadow-sm border border-white/5 animate-fade-in-up animate-delay-5 card-hover">
               {/* Left-aligned to match the «Согласованность» card
                   above. The Flame icon is inline before the title
                   (same inline-icon pattern as other right-column

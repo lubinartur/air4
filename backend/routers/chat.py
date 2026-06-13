@@ -21,6 +21,7 @@ from routers.recommendation import air4_mode_instruction, normalize_air4_mode
 from schemas import ChatAttachment, ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
 from services.body_extractor import extract_body_data
 from services.chat_history import fetch_recent_chat_messages, save_exchange
+from services.interviewer import get_interview_question, get_pending_question
 from services.llm_client import chat, chat_stream
 from services.llm_client_shared import call_claude
 from services.unified_extractor import extract_all
@@ -716,6 +717,26 @@ def _build_morning_context(conn) -> str:
     return "\n".join(lines)
 
 
+async def _maybe_interview_question(conn) -> str | None:
+    """Occasionally surface an interview question inside the morning brief.
+
+    Reuses the interview service, which enforces a 3-day cooldown
+    (`COOLDOWN_DAYS`) based on the most recent `interview_answers` row —
+    so a question is only generated once the last one is older than 3
+    days. A previously generated but still-unanswered question is reused
+    instead of creating a new one. Never raises — a failure here just
+    means the brief ships without a question.
+    """
+    try:
+        pending = get_pending_question(conn)
+        if pending:
+            return pending.get("question")
+        return await get_interview_question(conn, _api_key())
+    except Exception:
+        logger.exception("morning-brief: interview question lookup failed")
+        return None
+
+
 @router.get("/chat/morning-brief", response_model=MorningBriefOut)
 async def morning_brief() -> MorningBriefOut:
     """AIR4 speaks first if the user hasn't written anything today.
@@ -746,8 +767,14 @@ async def morning_brief() -> MorningBriefOut:
     # cache miss — it is never cached separately.
     with get_db() as conn:
         context = _build_morning_context(conn)
+        interview_question = await _maybe_interview_question(conn)
 
     prompt = _MORNING_BRIEF_PROMPT.format(context=context)
+    if interview_question:
+        prompt += (
+            f"\n\nВ конце добавь один вопрос: {interview_question}\n"
+            "Вплети его естественно, не как анкету."
+        )
     try:
         message = (await call_claude(prompt, max_tokens=300)).strip()
     except Exception:

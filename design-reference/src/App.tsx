@@ -384,13 +384,13 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#1a1a2e]">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
 
       <main
         className={cn(
-          "flex-1 flex flex-col min-w-0 bg-[#f4f5f7]",
-          currentPage !== "Chat" ? "p-8 overflow-y-auto" : "overflow-hidden"
+          "flex-1 flex flex-col min-w-0 overflow-y-auto bg-[#1a1a2e]",
+          currentPage !== "Chat" ? "px-8 pt-8 pb-0" : "overflow-hidden"
         )}
       >
         {currentPage !== "Chat" && <Header currentPage={currentPage} />}

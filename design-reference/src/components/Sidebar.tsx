@@ -8,55 +8,63 @@ interface SidebarProps {
   isCollapsed?: boolean;
 }
 
-export function Sidebar({ currentPage, onPageChange, isCollapsed }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const topNav = NAVIGATION.slice(0, -1);
   const bottomNav = NAVIGATION.slice(-1);
 
+  const navButtonClass = (active: boolean) =>
+    cn(
+      "p-2 rounded-[10px] transition-colors group relative",
+      active
+        ? "text-[#f97316] bg-[#f97316]/15"
+        : "text-white/40 hover:text-white hover:bg-white/10",
+    );
+
+  const tooltipClass =
+    "absolute left-12 bg-[#1a1a24] border border-[#2a2a3a] text-[#f1f5f9] " +
+    "text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none " +
+    "transition-opacity whitespace-nowrap z-50";
+
   return (
-    <aside className={cn(
-      "h-screen flex flex-col items-center py-8 bg-white border-r border-gray-50 shrink-0 transition-all duration-300",
-      isCollapsed ? "w-12" : "w-20"
-    )}>
+    <aside
+      className="w-16 flex flex-col items-center py-6 shrink-0 my-2 ml-2 rounded-[20px] h-[calc(100vh-16px)]"
+      style={{
+        background: "#13131f",
+      }}
+    >
       <div className="mb-10">
-         <div className={cn(
-           "rounded-2xl bg-black flex items-center justify-center overflow-hidden shadow-lg shadow-black/20 transition-all",
-           isCollapsed ? "w-8 h-8" : "w-10 h-10"
-         )}>
-           <img src="/ar4-test.svg" alt="AIR4" className="w-full h-full object-contain" />
-         </div>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden">
+          <img
+            src="/ar4-test.svg"
+            alt="AIR4"
+            className="w-full h-full object-contain"
+            style={{ filter: "brightness(0) invert(1)" }}
+          />
+        </div>
       </div>
-      <div className="flex-1 flex flex-col gap-8">
+
+      <div className="flex-1 flex flex-col gap-2">
         {topNav.map(({ id, Icon }) => (
           <button
             key={id}
             onClick={() => onPageChange(id)}
-            className={cn(
-              "p-2 rounded-lg transition-colors group relative",
-              currentPage === id ? "text-accent bg-indigo-50" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-            )}
+            className={navButtonClass(currentPage === id)}
           >
-            <Icon size={isCollapsed ? 20 : 24} />
-            <span className="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-              {PAGE_LABELS[id] ?? id}
-            </span>
+            <Icon size={20} />
+            <span className={tooltipClass}>{PAGE_LABELS[id] ?? id}</span>
           </button>
         ))}
       </div>
-      
-      <div className="flex flex-col gap-8 pb-4">
+
+      <div className="flex flex-col gap-2 pb-2">
         {bottomNav.map(({ id, Icon }) => (
           <button
             key={id}
             onClick={() => onPageChange(id)}
-            className={cn(
-              "p-2 rounded-lg transition-colors group relative",
-              currentPage === id ? "text-accent bg-indigo-50" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
-            )}
+            className={navButtonClass(currentPage === id)}
           >
-            <Icon size={isCollapsed ? 20 : 24} />
-            <span className="absolute left-14 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-              {PAGE_LABELS[id] ?? id}
-            </span>
+            <Icon size={20} />
+            <span className={tooltipClass}>{PAGE_LABELS[id] ?? id}</span>
           </button>
         ))}
       </div>

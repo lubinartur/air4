@@ -11,8 +11,15 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    background-color: #1a1a2e;
+  }
+
   body {
-    @apply font-sans antialiased text-[#141414] bg-white;
+    @apply font-sans antialiased text-[#141414];
   }
 }
 
@@ -41,5 +48,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .air4-fade-chunk { animation: none; }
+}
+
+html, body, #root {
+  background-color: #1a1a2e !important;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 

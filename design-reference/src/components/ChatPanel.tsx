@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
-import { Maximize2, Paperclip, RefreshCw, Send, X } from "lucide-react";
+import { ArrowRight, Maximize2, Paperclip, RefreshCw, X } from "lucide-react";
 import { Message, MessageAttachment, Page } from "../types";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -20,7 +20,6 @@ import {
   readFileAsAttachment,
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
-import { EnergyStateDropdown } from "./EnergyStateDropdown";
 
 interface ChatPanelProps {
   currentPage: Page;
@@ -295,18 +294,13 @@ export function ChatPanel({
       key={key}
       className={cn("flex flex-col gap-1.5", msg.role === "user" ? "items-end" : "items-start")}
     >
-      {msg.role === "assistant" && (
-        <span className="text-[11px] font-bold text-[#9ca3af] uppercase tracking-wider ml-1">
-          AIR4
-        </span>
-      )}
       <div
-        className={cn(
-          "max-w-[90%] px-4 py-2.5 rounded-[12px] text-[14px] leading-relaxed shadow-sm transition-all",
+        className="max-w-[90%] px-4 py-2.5 rounded-[12px] text-[14px] leading-relaxed text-[#f1f5f9] transition-all"
+        style={
           msg.role === "user"
-            ? "bg-[#f3f4f6] text-[#374151]"
-            : "bg-white border-l-[4px] border-l-indigo-600 text-[#111827]"
-        )}
+            ? { background: "#2a1a0a" }
+            : { background: "#1e1e2e", borderLeft: "2px solid #f97316" }
+        }
       >
         {msg.attachment && (
           <MessageAttachmentView
@@ -326,7 +320,7 @@ export function ChatPanel({
             ))}
           </div>
         ) : msg.content ? (
-          <div className="prose prose-sm prose-slate break-words">
+          <div className="prose prose-sm prose-invert break-words">
             <ReactMarkdown>{msg.content}</ReactMarkdown>
           </div>
         ) : null}
@@ -335,30 +329,54 @@ export function ChatPanel({
   );
 
   return (
-    <aside className="w-80 h-screen bg-chat border-l border-gray-100 shadow-[-10px_0_30px_rgba(0,0,0,0.02)] flex flex-col shrink-0">
-      <header className="p-5 border-b border-gray-50 flex items-center justify-between gap-3">
-        <EnergyStateDropdown className="relative shrink-0 min-w-0" />
-        <div className="shrink-0 flex items-center gap-3">
+    <aside
+      className="w-[340px] flex flex-col shrink-0 my-2 mr-2 rounded-[20px] overflow-hidden h-[calc(100vh-16px)]"
+      style={{
+        background: "#13131f",
+      }}
+    >
+      <header
+        className="px-5 py-4 border-b flex items-center justify-between gap-3 bg-transparent"
+        style={{ borderColor: "rgba(255,255,255,0.06)" }}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-[13px] shrink-0"
+            style={{ backgroundColor: "#f97316" }}
+          >
+            A4
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[14px] font-semibold text-[#f1f5f9]">
+                AIR4
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            </div>
+            <span className="text-[11px] text-[#64748b]">AI Advisor · Online</span>
+          </div>
+        </div>
+        <div className="shrink-0 flex items-center gap-1">
           {onRefreshObservations && (
             <button
               type="button"
               onClick={onRefreshObservations}
               disabled={observationsRefreshing}
-              className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] hover:text-indigo-600 disabled:opacity-40 transition-colors"
+              className="flex items-center justify-center p-1.5 rounded-lg text-[#6b7280] hover:text-[#f97316] hover:bg-white/5 disabled:opacity-40 transition-colors"
               title="Сгенерировать наблюдения"
+              aria-label="Сгенерировать наблюдения"
             >
               <RefreshCw
-                size={12}
+                size={16}
                 className={cn(observationsRefreshing && "animate-spin")}
               />
-              Обновить
             </button>
           )}
           {onExpand && (
             <button
               type="button"
               onClick={onExpand}
-              className="flex items-center justify-center p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+              className="flex items-center justify-center p-1.5 rounded-lg text-[#6b7280] hover:text-[#f97316] hover:bg-white/5 transition-colors"
               title="Раскрыть чат"
               aria-label="Раскрыть чат"
             >
@@ -370,11 +388,17 @@ export function ChatPanel({
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6">
         {interviewQuestion && (
-          <div className="rounded-2xl bg-indigo-50/70 border border-indigo-100 p-4 space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-indigo-600">
+          <div
+            className="rounded-2xl p-4 space-y-2 border"
+            style={{
+              background: "linear-gradient(135deg, #1a0a00 0%, #0f0f14 100%)",
+              borderColor: "rgba(249,115,22,0.3)",
+            }}
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f97316]">
               AIR4 хочет узнать тебя лучше
             </p>
-            <p className="text-[14px] leading-relaxed text-[#111827]">
+            <p className="text-[14px] leading-relaxed text-[#f1f5f9]">
               {interviewQuestion}
             </p>
           </div>
@@ -383,18 +407,24 @@ export function ChatPanel({
         {previewBubble && renderBubble(previewBubble, "preview")}
         {isLoading && (
           <div className="flex gap-1 px-1">
-            <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-            <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-            <div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" />
+            <div className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.3s]" />
+            <div className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.15s]" />
+            <div className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce" />
           </div>
         )}
       </div>
 
-      <div className="p-5 bg-chat border-t border-gray-100">
+      <div
+        className="p-4 border-t"
+        style={{
+          borderColor: "rgba(249,115,22,0.12)",
+          backgroundColor: "#0f0f14",
+        }}
+      >
         {(attachment || attachmentError) && (
           <div className="mb-2 space-y-1.5">
             {attachment && (
-              <div className="inline-flex items-center gap-2 max-w-full bg-indigo-50 border border-indigo-100 rounded-full pl-1 pr-2 py-1">
+              <div className="inline-flex items-center gap-2 max-w-full bg-[#1a1a24] border border-[#2a2a3a] rounded-full pl-1 pr-2 py-1">
                 {isImageAttachment(attachment) ? (
                   <img
                     src={`data:${attachment.media_type};base64,${attachment.data}`}
@@ -402,20 +432,20 @@ export function ChatPanel({
                     className="w-6 h-6 rounded-full object-cover"
                   />
                 ) : (
-                  <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-[9px] font-black uppercase flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-full bg-[#f97316] text-white text-[9px] font-black uppercase flex items-center justify-center">
                     PDF
                   </span>
                 )}
-                <span className="text-[11px] font-semibold text-indigo-700 truncate max-w-[160px]">
+                <span className="text-[11px] font-semibold text-[#e2e8f0] truncate max-w-[160px]">
                   {attachment.name ?? "файл"}
                 </span>
-                <span className="text-[10px] text-indigo-500 font-mono">
+                <span className="text-[10px] text-[#94a3b8] font-mono">
                   {formatAttachmentSize(attachment)}
                 </span>
                 <button
                   type="button"
                   onClick={handleClearAttachment}
-                  className="ml-1 w-5 h-5 rounded-full hover:bg-indigo-100 text-indigo-600 flex items-center justify-center"
+                  className="ml-1 w-5 h-5 rounded-full hover:bg-white/10 text-[#94a3b8] flex items-center justify-center"
                   aria-label="Убрать вложение"
                   title="Убрать вложение"
                 >
@@ -424,11 +454,11 @@ export function ChatPanel({
               </div>
             )}
             {attachmentError && (
-              <p className="text-[11px] text-red-500">{attachmentError}</p>
+              <p className="text-[11px] text-red-400">{attachmentError}</p>
             )}
           </div>
         )}
-        <div className="relative group">
+        <div className="flex items-center gap-2 rounded-full bg-[#1a1a24] border border-[#2a2a3a] pl-2 pr-1.5 py-1.5 focus-within:border-[#f97316]/50 transition-colors">
           <input
             ref={fileInputRef}
             type="file"
@@ -436,6 +466,16 @@ export function ChatPanel({
             onChange={handleFileChange}
             className="hidden"
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="shrink-0 text-[#6b7280] hover:text-[#f97316] disabled:opacity-30 transition-colors h-8 w-8 flex items-center justify-center rounded-full"
+            aria-label="Прикрепить файл"
+            title="Прикрепить изображение или PDF"
+          >
+            <Paperclip size={16} />
+          </button>
           <input
             type="text"
             value={input}
@@ -444,28 +484,19 @@ export function ChatPanel({
               if (e.key === "Enter") handleSend();
             }}
             placeholder="Поговорите с AIR4..."
-            className="w-full bg-white border border-gray-100 rounded-[24px] py-3 pl-12 pr-12 text-sm focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/5 transition-all shadow-sm"
+            className="flex-1 min-w-0 bg-transparent border-0 text-sm text-white placeholder:text-[#4b5563] focus:outline-none"
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
-            className="absolute left-3 top-2 text-gray-400 hover:text-accent disabled:opacity-30 transition-colors h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-50"
-            aria-label="Прикрепить файл"
-            title="Прикрепить изображение или PDF"
-          >
-            <Paperclip size={16} />
-          </button>
           <button
             type="button"
             onClick={handleSend}
             disabled={(!input.trim() && !attachment) || isLoading}
-            className="absolute right-4 top-2 text-gray-400 hover:text-accent disabled:opacity-30 transition-colors h-8 w-8 flex items-center justify-center rounded-full hover:bg-gray-50"
+            className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-[#f97316] text-white disabled:opacity-30 hover:bg-[#ea6a06] transition-colors"
+            aria-label="Отправить"
           >
-            <Send size={16} />
+            <ArrowRight size={16} />
           </button>
         </div>
-        <p className="text-[10px] text-center text-[#9ca3af] mt-4 uppercase tracking-[0.1em] font-bold">
+        <p className="text-[10px] text-center text-[#64748b] mt-3 uppercase tracking-[0.1em] font-bold">
           Говори правду. Помогай решать.
         </p>
       </div>

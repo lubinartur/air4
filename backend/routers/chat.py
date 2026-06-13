@@ -21,12 +21,10 @@ from routers.recommendation import air4_mode_instruction, normalize_air4_mode
 from schemas import ChatAttachment, ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
 from services.body_extractor import extract_body_data
 from services.chat_history import fetch_recent_chat_messages, save_exchange
-from services.decision_extractor import extract_decisions
-from services.event_extractor import extract_events
-from services.fact_extractor import extract_facts
 from services.llm_client import chat, chat_stream
 from services.llm_client_shared import call_claude
-from services.workout_extractor import extract_workout, format_workout_footer
+from services.unified_extractor import extract_all
+from services.workout_extractor import format_workout_footer
 from services.prompts import (
     build_system_context,
     get_health_checkups_context,
@@ -235,6 +233,9 @@ async def _run_post_chat_extractors(
     saved_workout: dict[str, Any] | None = None
     if not user_messages:
         return recurring_from_facts, saved_workout
+    # body_extractor stays separate — it's rule-based (no LLM), so it
+    # doesn't contribute to the 429 problem and runs regardless of the
+    # API key being set.
     try:
         with get_db() as conn:
             await extract_body_data(user_messages, conn)
@@ -242,32 +243,17 @@ async def _run_post_chat_extractors(
         logger.exception("Background body extraction failed")
     if not api_key.strip():
         return recurring_from_facts, saved_workout
+    # Unified extractor: ONE Haiku call replaces the previous four
+    # sequential LLM calls (events + workout + facts + decisions), which
+    # were tripping Anthropic 429 rate limits. Wrapped so a failure here
+    # never breaks the user's chat reply.
     try:
         with get_db() as conn:
-            await extract_events(user_messages, conn, api_key)
+            result = await extract_all(user_messages, conn, api_key)
+        saved_workout = result.get("workout")
+        recurring_from_facts = result.get("recurring_updated") or []
     except Exception:
-        logger.exception("Background event extraction failed")
-    try:
-        with get_db() as conn:
-            saved_workout = await extract_workout(user_messages, conn, api_key)
-    except Exception:
-        logger.exception("Background workout extraction failed")
-    try:
-        with get_db() as conn:
-            _saved, recurring_from_facts = await extract_facts(
-                user_messages, conn, api_key
-            )
-    except Exception:
-        logger.exception("Background fact extraction failed")
-    # Decision Memory layer: detect "решил / выбрал / буду делать" and
-    # auto-create a dilemma with followup_due = today + 14d. Wrapped
-    # in its own try/except so a failure here can never mask the
-    # earlier extractors or break the user's chat reply.
-    try:
-        with get_db() as conn:
-            await extract_decisions(user_messages, conn, api_key)
-    except Exception:
-        logger.exception("Background decision extraction failed")
+        logger.exception("Background unified extraction failed")
     return recurring_from_facts, saved_workout
 
 

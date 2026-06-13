@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
-import { Send, ArrowLeft, MessageSquare, Paperclip, X } from "lucide-react";
+import { Send, ArrowLeft, Paperclip, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
@@ -354,8 +354,8 @@ export function FullscreenChat({
     <div className="flex flex-col h-full bg-[#f4f5f7] overflow-hidden">
       <header className="px-4 md:px-8 py-4 md:py-6 bg-white border-b border-gray-100 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-            <MessageSquare size={24} />
+          <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center overflow-hidden shadow-lg shadow-black/20">
+            <img src="/ar4-test.svg" className="w-8 h-8" />
           </div>
           <div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tight leading-none uppercase">

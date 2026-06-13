@@ -20,6 +20,7 @@ import {
   readFileAsAttachment,
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
+import { EnergyStateDropdown } from "./EnergyStateDropdown";
 
 interface ChatPanelProps {
   currentPage: Page;
@@ -336,15 +337,7 @@ export function ChatPanel({
   return (
     <aside className="w-80 h-screen bg-chat border-l border-gray-100 shadow-[-10px_0_30px_rgba(0,0,0,0.02)] flex flex-col shrink-0">
       <header className="p-5 border-b border-gray-50 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="relative shrink-0">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-            <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-20" />
-          </div>
-          <span className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#9ca3af] truncate">
-            AIR4 Советник
-          </span>
-        </div>
+        <EnergyStateDropdown className="relative shrink-0 min-w-0" />
         <div className="shrink-0 flex items-center gap-3">
           {onRefreshObservations && (
             <button
@@ -365,11 +358,11 @@ export function ChatPanel({
             <button
               type="button"
               onClick={onExpand}
-              className="flex items-center justify-center text-[#9ca3af] hover:text-indigo-600 transition-colors"
+              className="flex items-center justify-center p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
               title="Раскрыть чат"
               aria-label="Раскрыть чат"
             >
-              <Maximize2 size={12} />
+              <Maximize2 size={18} />
             </button>
           )}
         </div>

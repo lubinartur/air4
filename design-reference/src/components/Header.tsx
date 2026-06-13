@@ -1,7 +1,6 @@
 import { Plus } from "lucide-react";
 import { Page } from "../types";
 import { PAGE_LABELS } from "../constants";
-import { EnergyStateDropdown } from "./EnergyStateDropdown";
 
 interface HeaderProps {
   currentPage: Page;
@@ -25,21 +24,15 @@ const PAGES_WITH_OWN_HEADER = [
 ];
 
 export function Header({ currentPage }: HeaderProps) {
-  // The energy-state control is part of the persistent app chrome, so
-  // it renders on every page (it's fixed-position and doesn't affect
-  // layout flow). The decorative title strip below keeps its original
-  // behavior: hidden on CSVUpload and on pages that render their own
-  // inline header.
+  // The decorative title strip is hidden on CSVUpload and on pages that
+  // render their own inline header. The energy-state control now lives in
+  // ChatPanel (desktop) and FullscreenChat — no longer in this header.
   const showStrip =
     currentPage !== "CSVUpload" &&
     !PAGES_WITH_OWN_HEADER.includes(currentPage);
 
   return (
     <>
-      <EnergyStateDropdown
-        className="fixed top-5 right-6 z-50"
-        buttonClassName="flex items-center gap-2 bg-white border border-gray-100 shadow-sm rounded-full pl-2.5 pr-3 py-1.5 hover:shadow-md transition-shadow"
-      />
       {showStrip && (
         <header className="flex items-center justify-between mb-10">
           <div>

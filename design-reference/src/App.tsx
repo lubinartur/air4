@@ -69,7 +69,14 @@ export default function App() {
   // Mobile = viewport < 768px. On mobile we render ONLY the FullscreenChat
   // (no sidebar, no routing). Desktop behavior is untouched. The resize
   // listener keeps this in sync if the window crosses the breakpoint.
-  const [isMobile, setIsMobile] = useState(false);
+  // Initialise from the real viewport width so the very first paint on a
+  // phone already takes the mobile branch. With the old `useState(false)`
+  // default the first render was always the desktop tree, which mounts
+  // Header's fixed-position (z-50) EnergyStateDropdown — on mobile that
+  // floated over the chat until the effect flipped the flag.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 768
+  );
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();

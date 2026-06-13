@@ -19,9 +19,11 @@ export function Sidebar({ currentPage, onPageChange, isCollapsed }: SidebarProps
     )}>
       <div className="mb-10">
          <div className={cn(
-           "rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-500/20 transition-all",
-           isCollapsed ? "w-8 h-8 text-[10px]" : "w-10 h-10"
-         )}>A4</div>
+           "rounded-2xl bg-black flex items-center justify-center overflow-hidden shadow-lg shadow-black/20 transition-all",
+           isCollapsed ? "w-8 h-8" : "w-10 h-10"
+         )}>
+           <img src="/ar4-test.svg" alt="AIR4" className="w-full h-full object-contain" />
+         </div>
       </div>
       <div className="flex-1 flex flex-col gap-8">
         {topNav.map(({ id, Icon }) => (

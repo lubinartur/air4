@@ -35,12 +35,12 @@ const DND_OPTIONS: { id: string; label: string; ms: number | "evening" }[] = [
 ];
 
 function readStoredMode(): EnergyMode {
-  if (typeof window === "undefined") return "normal";
+  if (typeof window === "undefined") return "jarvis";
   const raw = window.localStorage.getItem(ENERGY_STORAGE_KEY);
   if (raw === "quiet" || raw === "normal" || raw === "active" || raw === "jarvis") {
     return raw;
   }
-  return "normal";
+  return "jarvis";
 }
 
 interface EnergyStateDropdownProps {
@@ -58,7 +58,7 @@ export function EnergyStateDropdown({
   buttonClassName = DEFAULT_BUTTON_CLASS,
 }: EnergyStateDropdownProps) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<EnergyMode>("normal");
+  const [mode, setMode] = useState<EnergyMode>("jarvis");
   const [dndUntil, setDndUntil] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 

@@ -309,19 +309,27 @@ export function ChatPanel({
             className={msg.content ? "mb-2" : undefined}
           />
         )}
-        {msg.role === "assistant" && msg.isStreaming && msg.chunks ? (
-          // Streaming render: each SSE delta is its own <span> so the
-          // CSS fade-in keyframe runs once per chunk as it lands.
-          <div className="break-words whitespace-pre-wrap">
-            {msg.chunks.map((chunk, i) => (
-              <span key={i} className="air4-fade-chunk">
-                {chunk}
-              </span>
-            ))}
+        {msg.role === "assistant" && msg.isStreaming && !msg.content ? (
+          // Nothing streamed yet — animated typing placeholder.
+          <div className="air4-typing" aria-label="AIR4 печатает">
+            <span />
+            <span />
+            <span />
           </div>
         ) : msg.content ? (
-          <div className="prose prose-sm prose-invert break-words">
+          // Render markdown live (even mid-stream) so the text never jumps
+          // from raw `**`/`---` syntax to styled when streaming ends. A
+          // blinking caret shows the reply is still being written.
+          <div
+            className={cn(
+              "prose prose-sm prose-invert break-words",
+              msg.role === "assistant" && msg.isStreaming && "air4-streaming",
+            )}
+          >
             <ReactMarkdown>{msg.content}</ReactMarkdown>
+            {msg.role === "assistant" && msg.isStreaming && (
+              <span className="air4-caret" aria-hidden="true" />
+            )}
           </div>
         ) : null}
       </div>

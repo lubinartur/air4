@@ -352,8 +352,27 @@ export function FullscreenChat({
 
   return (
     <div className="flex flex-col h-full bg-[#13131f] border-l border-white/[0.06] overflow-hidden">
-      <header className="px-4 md:px-8 py-4 md:py-6 bg-[#13131f] border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between gap-3 shrink-0">
-        <div className="flex-1 flex justify-start min-w-0">
+      <header className="px-4 md:px-8 py-3 md:py-6 bg-[#13131f] border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between gap-3 shrink-0">
+        {/* Left: logo + title */}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#1e1e2e] to-black ring-1 ring-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-lg shadow-black/30">
+            <img src="/ar4-test.svg" className="w-7 h-7" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl md:text-2xl font-black text-[#f1f5f9] tracking-tight leading-none uppercase">
+                AIR4
+              </h1>
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shrink-0" />
+            </div>
+            <p className="text-[10px] font-black text-[#94a3b8] uppercase tracking-[0.2em] mt-1 truncate">
+              Главный агент
+            </p>
+          </div>
+        </div>
+
+        {/* Right: back (desktop only) + mode */}
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={onBack}
@@ -362,23 +381,6 @@ export function FullscreenChat({
             <ArrowLeft size={16} />
             Назад: {PAGE_LABELS[previousPage] ?? previousPage}
           </button>
-        </div>
-
-        <div className="flex items-center gap-4 shrink-0">
-          <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center overflow-hidden shadow-lg shadow-black/20">
-            <img src="/ar4-test.svg" className="w-8 h-8" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-[#f1f5f9] tracking-tight leading-none uppercase">
-              AIR4
-            </h1>
-            <p className="text-[10px] font-black text-[#94a3b8] uppercase tracking-[0.2em] mt-1">
-              Главный агент
-            </p>
-          </div>
-        </div>
-
-        <div className="flex-1 flex justify-end min-w-0">
           <EnergyStateDropdown />
         </div>
       </header>
@@ -415,7 +417,7 @@ export function FullscreenChat({
                   )}
                   <div
                     className={cn(
-                      "px-6 py-4 rounded-[12px] text-[15px] leading-relaxed shadow-sm",
+                      "px-6 py-4 rounded-[12px] text-[15px] leading-[1.6] tracking-[-0.01em] md:leading-relaxed md:tracking-normal break-words whitespace-pre-wrap shadow-sm",
                       msg.role === "user"
                         ? "bg-[#252535] text-[#f1f5f9]"
                         : "bg-[#1e1e2e] text-[#f1f5f9] border-l-[2px] border-l-[#f97316]"
@@ -428,19 +430,33 @@ export function FullscreenChat({
                         className={msg.content ? "mb-3" : undefined}
                       />
                     )}
-                    {msg.role === "assistant" && msg.isStreaming && msg.chunks ? (
-                      // Streaming render — each SSE delta is its own
-                      // <span> so the CSS keyframe runs once per chunk.
-                      <div className="break-words whitespace-pre-wrap">
-                        {msg.chunks.map((chunk, idx) => (
-                          <span key={idx} className="air4-fade-chunk">
-                            {chunk}
-                          </span>
-                        ))}
+                    {msg.role === "assistant" &&
+                    msg.isStreaming &&
+                    !msg.content ? (
+                      // Nothing streamed yet — animated typing placeholder
+                      // so the bubble never appears empty.
+                      <div className="air4-typing" aria-label="AIR4 печатает">
+                        <span />
+                        <span />
+                        <span />
                       </div>
                     ) : msg.content ? (
-                      <div className="prose prose-invert max-w-none">
+                      // Render markdown live (even mid-stream) so the text is
+                      // always formatted and never "jumps" from raw `**` /
+                      // `---` syntax to styled once streaming ends. A blinking
+                      // caret signals the reply is still being written.
+                      <div
+                        className={cn(
+                          "prose prose-invert max-w-none break-words whitespace-pre-wrap",
+                          msg.role === "assistant" &&
+                            msg.isStreaming &&
+                            "air4-streaming",
+                        )}
+                      >
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        {msg.role === "assistant" && msg.isStreaming && (
+                          <span className="air4-caret" aria-hidden="true" />
+                        )}
                       </div>
                     ) : null}
                   </div>

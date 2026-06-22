@@ -8,9 +8,9 @@
 
 ---
 
-## Текущий статус: Sprint 13 завершён
+## Текущий статус: Sprint 13 завершён (полный редизайн)
 
-**Дата:** 13 июня 2026
+**Дата:** 14 июня 2026
 **Фаза:** Phase 6.5 — Real Usage Validation
 
 Все основные модули работают: Finance, Memory, Projects, Health, Analysis, Observations, Chat со стримингом. Добавлен workout_extractor для логирования тренировок через чат. Почищено 140 дублей событий (634 → 494). Проведён полный аудит кода.
@@ -498,6 +498,50 @@ sqlite3 backend/data/air4.db "SELECT date, type, source FROM workouts ORDER BY d
 ### Данные
 - Загружена выписка Swedbank 10 мая — 10 июня 2026
 - Доход цикла: €4040 (зарплата €3800 + премия €240)
+
+---
+
+## Sprint 13 (продолжение) — Dark Theme & Overview Redesign (13-14 июня 2026)
+
+### Frontend — полный редизайн
+
+**Overview (OverviewDashboard.tsx) — новая структура:**
+- Тёмная тема #0f0f14 фон, #13131f карточки
+- Hero блок AIRCH INTELLIGENCE с градиентом #1a0a00 → #0f0f14
+- STATUS блок с анимированной CSS сферой (morph + float + glow)
+- OPEN LOOPS — непрочитанные observations с бейджами по дням
+- MOMENTUM — активные проекты + тренировки с прогресс барами
+- AIRCH MEMORY — последние 5 user_facts
+
+**Сайдбар (Sidebar.tsx):**
+- Только иконки, ширина 64px
+- Фон #13131f, скруглённые углы 20px, отступ 8px
+- Активная иконка #f97316
+
+**Чат (ChatPanel.tsx + FullscreenChat.tsx):**
+- Тёмная тема #13131f
+- Сообщения AIR4: градиент #1a0a00 → #0f0f14, border-left #f97316
+- Сообщения пользователя: #252535
+- Оранжевая кнопка отправки
+
+**Все страницы — тёмная тема:**
+- Finance, Health, Sport, Projects, Goals, Memory, Dilemmas, Patterns, Profile, Settings
+- Акцент везде #f97316 вместо indigo
+- Цветные бейджи доменов: Finance=синий, Health=зелёный, Projects=фиолетовый, Life=оранжевый
+- Бейджи статусов: Норма/Активен=зелёный, Открыто=синий, Решено=зелёный
+- Убраны кнопки советников со всех страниц
+- Иконки страниц в оранжевом стиле
+
+**Анимации:**
+- fadeInUp на карточках с задержками
+- Page transitions при смене страниц
+- card-hover lift эффект
+- Сфера: morph + float + glow CSS анимации
+
+**PWA:**
+- Новый логотип ar4-test.svg
+- icon-192.png и icon-512.png
+- manifest.json
 
 ---
 

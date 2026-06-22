@@ -21,6 +21,13 @@ from routers.recommendation import air4_mode_instruction, normalize_air4_mode
 from schemas import ChatAttachment, ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
 from services.body_extractor import extract_body_data
 from services.chat_history import fetch_recent_chat_messages, save_exchange
+from services.followup_extractor import (
+    extract_followup,
+    get_pending_followups_for_today,
+    mark_followups_sent,
+    mark_sent_followups_answered,
+)
+from services.identity_extractor import extract_identity
 from services.interviewer import get_interview_question, get_pending_question
 from services.llm_client import chat, chat_stream
 from services.llm_client_shared import call_claude
@@ -258,6 +265,42 @@ async def _run_post_chat_extractors(
     return recurring_from_facts, saved_workout
 
 
+def _schedule_identity_extraction(user_messages: list[str], api_key: str) -> None:
+    """Fire-and-forget identity insight extraction after a chat turn."""
+    if not user_messages or not api_key.strip():
+        return
+    message = user_messages[-1].strip()
+    if not message:
+        return
+
+    async def _run() -> None:
+        try:
+            with get_db() as conn:
+                await extract_identity(message, conn, api_key)
+        except Exception:
+            logger.exception("Background identity extraction failed")
+
+    asyncio.create_task(_run())
+
+
+def _schedule_followup_extraction(user_messages: list[str], api_key: str) -> None:
+    """Fire-and-forget follow-up extraction after a chat turn."""
+    if not user_messages or not api_key.strip():
+        return
+    message = user_messages[-1].strip()
+    if not message:
+        return
+
+    async def _run() -> None:
+        try:
+            with get_db() as conn:
+                await extract_followup(message, conn, api_key)
+        except Exception:
+            logger.exception("Background followup extraction failed")
+
+    asyncio.create_task(_run())
+
+
 def _merge_recurring_updates(
     correction_updates: list[dict[str, Any]],
     extractor_updates: list[dict[str, Any]],
@@ -340,6 +383,7 @@ def _persist_exchange(
                 page=page,
                 attachment=attachment,
             )
+            mark_sent_followups_answered(conn)
     except Exception:
         logger.exception("Failed to persist chat exchange")
 
@@ -509,6 +553,8 @@ async def chat_endpoint(
             _persist_exchange(
                 message, assistant_text, body.current_page, attachment=attachment
             )
+            _schedule_identity_extraction(user_messages, api_key)
+            _schedule_followup_extraction(user_messages, api_key)
 
             all_updates = _merge_recurring_updates(
                 updates,
@@ -547,6 +593,8 @@ async def chat_endpoint(
     _persist_exchange(
         message, response_text, body.current_page, attachment=attachment
     )
+    _schedule_identity_extraction(user_messages, api_key)
+    _schedule_followup_extraction(user_messages, api_key)
     all_updates = _merge_recurring_updates(
         updates,
         _merge_recurring_updates(obligation_updates, fact_recurring),
@@ -768,8 +816,14 @@ async def morning_brief() -> MorningBriefOut:
     with get_db() as conn:
         context = _build_morning_context(conn)
         interview_question = await _maybe_interview_question(conn)
+        pending_followups = get_pending_followups_for_today(conn)
 
     prompt = _MORNING_BRIEF_PROMPT.format(context=context)
+    followup_ids: list[int] = []
+    if pending_followups:
+        prompt += f"\n\nПомни спросить: {pending_followups[0]['question']}"
+        prompt += "\nВплети этот follow-up вопрос естественно в бриф."
+        followup_ids = [int(pending_followups[0]["id"])]
     if interview_question:
         prompt += (
             f"\n\nВ конце добавь один вопрос: {interview_question}\n"
@@ -785,6 +839,13 @@ async def morning_brief() -> MorningBriefOut:
         # Nothing useful to say (no key or model error) — stay silent
         # rather than injecting an empty bubble.
         return MorningBriefOut(should_show=False)
+
+    if followup_ids:
+        try:
+            with get_db() as conn:
+                mark_followups_sent(conn, followup_ids)
+        except Exception:
+            logger.exception("morning-brief: failed to mark followups sent")
 
     _morning_brief_cache[cache_key] = {
         "message": message,

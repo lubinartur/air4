@@ -109,3 +109,79 @@ html, body, #root {
   .card-hover:hover { transform: none; }
 }
 
+/* ---------- Streaming caret + typing placeholder ---------- *
+ * Shown while an assistant reply is streaming so the bubble reads as a
+ * live "typing" surface instead of snapping from raw text to formatted. */
+
+@keyframes air4Blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.air4-caret {
+  display: inline-block;
+  width: 6px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: #f97316;
+  border-radius: 1px;
+  animation: air4Blink 1s step-end infinite;
+}
+
+@keyframes air4TypingDot {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+.air4-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 0;
+}
+.air4-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #94a3b8;
+  animation: air4TypingDot 1.2s ease-in-out infinite;
+}
+.air4-typing span:nth-child(2) { animation-delay: 0.18s; }
+.air4-typing span:nth-child(3) { animation-delay: 0.36s; }
+
+/* While streaming, softly fade the bottom edge of the text so each new
+ * line "materialises" from transparent instead of popping in hard. The
+ * mask is removed the instant the reply finishes (class is toggled off). */
+.air4-streaming {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 1.3em),
+    rgba(0, 0, 0, 0.35) calc(100% - 0.5em),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 1.3em),
+    rgba(0, 0, 0, 0.35) calc(100% - 0.5em),
+    transparent 100%
+  );
+}
+
+/* Each freshly rendered token wrapper eases in (opacity + tiny rise). */
+@keyframes air4TokenIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.air4-stream-body {
+  animation: air4TokenIn 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .air4-caret { animation: none; }
+  .air4-typing span { animation: none; opacity: 0.6; }
+  .air4-streaming { -webkit-mask-image: none; mask-image: none; }
+  .air4-stream-body { animation: none; }
+}
+

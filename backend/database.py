@@ -321,6 +321,33 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     created_at      TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS spaces (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL,
+    icon        TEXT DEFAULT '✦',
+    created_at  TEXT DEFAULT (datetime('now')),
+    last_active TEXT
+);
+
+CREATE TABLE IF NOT EXISTS identity_model (
+    id              INTEGER PRIMARY KEY,
+    category        TEXT NOT NULL,
+    insight         TEXT NOT NULL,
+    confidence      REAL DEFAULT 0.5,
+    evidence_count  INTEGER DEFAULT 1,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS followups (
+    id              INTEGER PRIMARY KEY,
+    event_text      TEXT NOT NULL,
+    followup_date   TEXT NOT NULL,
+    question        TEXT NOT NULL,
+    status          TEXT DEFAULT 'pending',
+    created_at      TEXT DEFAULT (datetime('now'))
+);
+
 -- Categorization memory. Every confirmed user correction on a
 -- transaction's category lands here as a merchant pattern → category
 -- rule, so subsequent uploads auto-apply the same mapping instead of
@@ -371,6 +398,9 @@ CREATE INDEX IF NOT EXISTS idx_health_checkups_marker ON health_checkups(marker_
 CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(is_active);
 CREATE INDEX IF NOT EXISTS idx_obligations_active ON obligations(is_active);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_spaces_last_active ON spaces(last_active);
+CREATE INDEX IF NOT EXISTS idx_identity_model_updated ON identity_model(updated_at);
+CREATE INDEX IF NOT EXISTS idx_followups_date_status ON followups(followup_date, status);
 -- Audit follow-ups: support feed/timeline/summary hot paths.
 -- transactions(upload_id, account_iban) — joins with `uploads`, per-IBAN
 -- filtering in summary_loader and the cycles router. events/observations

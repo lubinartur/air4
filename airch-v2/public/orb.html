@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000000;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="blob_canvas"></canvas>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.152.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.152.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+    class Noise {
+      constructor(seed = 42) {
+        this.grad3 = [
+          [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],
+          [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
+          [0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1],
+        ];
+        const p = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) p[i] = i;
+        let s = seed;
+        for (let i = 255; i > 0; i--) {
+          s = (s * 16807) % 2147483647;
+          const j = s % (i + 1);
+          [p[i], p[j]] = [p[j], p[i]];
+        }
+        this.perm = new Uint8Array(512);
+        for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+      }
+      fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+      lerp(t, a, b) { return a + t * (b - a); }
+      dot(g, x, y, z) { return g[0]*x + g[1]*y + g[2]*z; }
+      perlin3(x, y, z) {
+        const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+        x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+        const u = this.fade(x), v = this.fade(y), w = this.fade(z);
+        const A = this.perm[X] + Y, AA = this.perm[A] + Z, AB = this.perm[A + 1] + Z;
+        const B = this.perm[X + 1] + Y, BA = this.perm[B] + Z, BB = this.perm[B + 1] + Z;
+        const g = this.grad3;
+        return this.lerp(w,
+          this.lerp(v,
+            this.lerp(u, this.dot(g[this.perm[AA] % 12], x, y, z), this.dot(g[this.perm[BA] % 12], x-1, y, z)),
+            this.lerp(u, this.dot(g[this.perm[AB] % 12], x, y-1, z), this.dot(g[this.perm[BB] % 12], x-1, y-1, z))
+          ),
+          this.lerp(v,
+            this.lerp(u, this.dot(g[this.perm[AA+1] % 12], x, y, z-1), this.dot(g[this.perm[BA+1] % 12], x-1, y, z-1)),
+            this.lerp(u, this.dot(g[this.perm[AB+1] % 12], x, y-1, z-1), this.dot(g[this.perm[BB+1] % 12], x-1, y-1, z-1))
+          )
+        );
+      }
+    }
+    const noise = new Noise();
+
+    const config = {
+      useHDR: true,
+      blob: {
+        geometry: { segments: 256, scale: 1 },
+        material: {
+          flatShading: false,
+          wireframe: false,
+          color: '#ff8a10',
+          roughness: 0.25,
+          metalness: 0.75,
+        },
+      },
+      camera: { z: 4.85, y: 0, x: 0 },
+      lighting1: {
+        color: '#ffa2a2',
+        intensity: 3,
+        distance: 30,
+        decay: 2,
+        pos: { x: 0, y: 0, z: 15 },
+      },
+      lighting2: {
+        color: '#08088e',
+        intensity: 3,
+        distance: 86,
+        decay: 2,
+        pos: { x: 0, y: 0, z: -15 },
+      },
+      ambient: { color: '#ffffff', intensity: 0 },
+      noise: {
+        roughness: 2,
+        is_perlin: true,
+        distortion: { x: 1.5, y: 0.8, z: 1.1 },
+        speed: { x: 0, y: -1, z: 1 },
+      },
+      bloom: { strength: 1, threshold: 0.1, radius: 1 },
+    };
+
+    const canvas = document.getElementById('blob_canvas');
+    let composer, blob;
+
+    function getSize() {
+      const w = window.innerWidth || canvas.clientWidth || 160;
+      const h = window.innerHeight || canvas.clientHeight || 160;
+      return { w: Math.max(w, 1), h: Math.max(h, 1) };
+    }
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setClearColor(0x000000, 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+
+    const hdrEquirect = new RGBELoader()
+      .setPath('https://assets.codepen.io/1692350/')
+      .load('istockphoto-1314573738-612x612.hdr', () => {
+        hdrEquirect.mapping = THREE.EquirectangularReflectionMapping;
+        if (config.useHDR) scene.environment = hdrEquirect;
+      });
+
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+    camera.position.set(config.camera.x, config.camera.y, config.camera.z);
+
+    const lighting1 = new THREE.PointLight(
+      config.lighting1.color,
+      config.lighting1.intensity,
+      config.lighting1.distance,
+    );
+    lighting1.decay = config.lighting1.decay;
+    lighting1.position.set(config.lighting1.pos.x, config.lighting1.pos.z, config.lighting1.pos.y);
+    scene.add(lighting1);
+
+    const lighting2 = new THREE.PointLight(
+      config.lighting2.color,
+      config.lighting2.intensity,
+      config.lighting2.distance,
+    );
+    lighting2.decay = config.lighting2.decay;
+    lighting2.position.set(config.lighting2.pos.x, config.lighting2.pos.z, config.lighting2.pos.y);
+    scene.add(lighting2);
+
+    scene.add(new THREE.AmbientLight(config.ambient.color, config.ambient.intensity));
+
+    function updateBlob() {
+      if (blob) {
+        scene.remove(blob);
+        blob.geometry.dispose();
+      }
+
+      const blob_geo = new THREE.SphereGeometry(
+        config.blob.geometry.scale,
+        config.blob.geometry.segments,
+        config.blob.geometry.segments,
+      );
+      const textureLoader = new THREE.TextureLoader();
+      const surf_imp = textureLoader.load('https://assets.codepen.io/1692350/pattern6.png');
+      surf_imp.wrapT = THREE.RepeatWrapping;
+      surf_imp.wrapS = THREE.RepeatWrapping;
+      surf_imp.repeat.set(2, 2);
+
+      const blob_mat = new THREE.MeshStandardMaterial({
+        color: config.blob.material.color,
+        wireframe: config.blob.material.wireframe,
+        flatShading: config.blob.material.flatShading,
+        roughness: config.blob.material.roughness,
+        metalness: config.blob.material.metalness,
+        roughnessMap: surf_imp,
+      });
+
+      blob = new THREE.Mesh(blob_geo, blob_mat);
+      scene.add(blob);
+    }
+
+    updateBlob();
+
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const afterimagePass = new AfterimagePass();
+    afterimagePass.uniforms.damp.value = 0.93;
+    composer.addPass(afterimagePass);
+
+    const { w, h } = getSize();
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 1.5, 0.4, 0.85);
+    bloomPass.threshold = config.bloom.threshold;
+    bloomPass.strength = config.bloom.strength;
+    bloomPass.radius = config.bloom.radius;
+    composer.addPass(bloomPass);
+
+    function onResize() {
+      const { w, h } = getSize();
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
+      composer.setSize(w, h);
+      bloomPass.resolution.set(w, h);
+    }
+
+    window.addEventListener('resize', onResize);
+    onResize();
+
+    function update() {
+      const time = performance.now() * 0.001;
+      const k = config.noise.roughness;
+      const position = blob.geometry.attributes.position;
+      const vector = new THREE.Vector3();
+
+      for (let i = 0; i < position.count; i++) {
+        const p = vector.fromBufferAttribute(position, i);
+        p.normalize().multiplyScalar(
+          1 + 0.3 * noise.perlin3(
+            (p.x * config.noise.distortion.x) * k + (time * config.noise.speed.x),
+            (p.y * config.noise.distortion.y) * k + (time * config.noise.speed.y),
+            (p.z * config.noise.distortion.z) * k + (time * config.noise.speed.z),
+          ),
+        );
+        position.setXYZ(i, vector.x, vector.y, vector.z);
+      }
+
+      blob.geometry.computeVertexNormals();
+      position.needsUpdate = true;
+    }
+
+    function animate() {
+      update();
+      composer.render();
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>

@@ -672,3 +672,50 @@ class InterviewAnswerIn(BaseModel):
 
 class InterviewAnswerOut(BaseModel):
     saved: bool
+
+
+class SpaceSuggestMessageIn(BaseModel):
+    role: str
+    content: str
+
+
+class SpaceSuggestIn(BaseModel):
+    messages: list[SpaceSuggestMessageIn] = Field(default_factory=list)
+
+
+class SpaceSuggestOut(BaseModel):
+    suggest: bool
+    name: str | None = None
+    reason: str | None = None
+
+
+class SpaceIn(BaseModel):
+    name: str
+    icon: str | None = None
+
+
+class SpaceOut(BaseModel):
+    id: int
+    name: str
+    icon: str
+    created_at: str | None = None
+    last_active: str | None = None
+
+
+class IdentityOut(BaseModel):
+    id: int
+    category: str
+    insight: str
+    confidence: float
+    evidence_count: int
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class FollowupOut(BaseModel):
+    id: int
+    event_text: str
+    followup_date: str
+    question: str
+    status: str
+    created_at: str | None = None

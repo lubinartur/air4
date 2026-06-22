@@ -29,15 +29,18 @@ from routers import (
     events,
     feed,
     finance_recurring,
+    followups,
     goals,
     health,
     hypotheses,
+    identity,
     insights,
     interview,
     observations,
     profile,
     projects,
     recommendation,
+    spaces,
     summary,
     transactions,
     upload,
@@ -68,6 +71,7 @@ app.include_router(insights.router, prefix="/api", tags=["insights"])
 app.include_router(transactions.router, prefix="/api", tags=["transactions"])
 app.include_router(category_rules.router, prefix="/api", tags=["finance"])
 app.include_router(projects.router, prefix="/api", tags=["projects"])
+app.include_router(spaces.router, prefix="/api", tags=["spaces"])
 app.include_router(dilemmas.router, prefix="/api", tags=["dilemmas"])
 app.include_router(observations.router, prefix="/api", tags=["observations"])
 app.include_router(cross_sphere.router, prefix="/api", tags=["cross-sphere"])
@@ -78,8 +82,10 @@ app.include_router(events.router, prefix="/api", tags=["events"])
 app.include_router(goals.router, prefix="/api", tags=["goals"])
 app.include_router(finance_recurring.router, prefix="/api", tags=["finance"])
 app.include_router(hypotheses.router, prefix="/api", tags=["hypotheses"])
+app.include_router(identity.router, prefix="/api", tags=["identity"])
 app.include_router(interview.router, prefix="/api", tags=["interview"])
 app.include_router(feed.router, prefix="/api", tags=["feed"])
+app.include_router(followups.router, prefix="/api", tags=["followups"])
 app.include_router(recommendation.router, prefix="/api/air4", tags=["recommendation"])
 
 

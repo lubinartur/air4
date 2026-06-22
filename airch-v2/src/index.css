@@ -124,6 +124,77 @@
   background: rgba(249, 115, 22, 0.05);
 }
 
+.identity-btn {
+  margin: 0 12px 4px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: calc(100% - 24px);
+  text-align: left;
+}
+
+.identity-btn:hover,
+.identity-btn.selected {
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.identity-page {
+  position: relative;
+  z-index: 1;
+}
+
+.identity-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
+.identity-card-body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.identity-category {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 8px;
+}
+
+.identity-insight {
+  flex: 1;
+  font-size: 15px;
+  color: #f1f5f9;
+  line-height: 1.5;
+}
+
+.identity-confidence {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.identity-footer,
+.identity-empty {
+  color: rgba(255, 255, 255, 0.35);
+}
+
 .chat-input-wrapper {
   position: relative;
   margin: 0 auto 32px;
@@ -376,6 +447,52 @@
 .space-suggestion button:last-of-type:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .app-sidebar {
+    display: none;
+  }
+
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .chat-messages {
+    padding: 16px;
+    padding-bottom: 100px;
+  }
+
+  .message-airch,
+  .message-user {
+    max-width: 85%;
+    font-size: 15px;
+  }
+
+  .chat-input-wrapper {
+    margin: 0 auto;
+    max-width: none;
+  }
+
+  .chat-input-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    padding: 12px 16px;
+    background: #0a0a0f;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .space-data-panel {
+    display: none;
+  }
+
+  .space-chat {
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

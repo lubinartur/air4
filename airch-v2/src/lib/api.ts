@@ -1,5 +1,6 @@
 import type {
   ChatHistoryResponse,
+  IdentityInsight,
   MorningBriefResponse,
   Space,
   SpaceSuggestion,
@@ -183,6 +184,12 @@ export const api = {
     })
     const row = await parseJson<SpaceApiRow>(response)
     return mapSpace(row)
+  },
+
+  getIdentity: async (): Promise<IdentityInsight[]> => {
+    const response = await fetch(`${BASE}/identity`)
+    const data = await parseJson<IdentityInsight[]>(response)
+    return Array.isArray(data) ? data : []
   },
 
   getSummary: async (): Promise<Summary> => {

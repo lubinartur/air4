@@ -40,6 +40,16 @@ export type SpaceSuggestion = {
   reason?: string
 }
 
+export type IdentityInsight = {
+  id: number
+  category: string
+  insight: string
+  confidence: number
+  evidence_count: number
+  created_at?: string | null
+  updated_at?: string | null
+}
+
 export type Profile = Record<string, unknown>
 
 export type Summary = Record<string, unknown>

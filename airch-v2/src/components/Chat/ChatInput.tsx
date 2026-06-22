@@ -25,7 +25,7 @@ export function ChatInput({
   }
 
   return (
-    <div className="shrink-0 px-6 pt-2">
+    <div className="chat-input-container shrink-0 px-6 pt-2">
       <div className="chat-input-wrapper">
         <div className="chat-input-inner">
           <textarea

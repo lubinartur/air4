@@ -36,14 +36,14 @@ export function SpaceShell({ space, onOrbStateChange }: Props) {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="min-h-0 flex-1 border-b border-border lg:border-b-0 lg:border-r">
+        <div className="space-chat min-h-0 flex-1 border-b border-border lg:border-b-0 lg:border-r">
           <ChatWindow
             page={`space:${space.id}`}
             compact
             onOrbStateChange={onOrbStateChange}
           />
         </div>
-        <aside className="hidden w-80 shrink-0 overflow-y-auto bg-card/30 p-4 lg:block">
+        <aside className="space-data-panel hidden w-80 shrink-0 overflow-y-auto bg-card/30 p-4 lg:block">
           <p className="text-xs uppercase tracking-wide text-muted">Данные Space</p>
           <p className="mt-3 text-sm text-muted">
             AIRCH сформирует контекст этого Space по мере разговора.

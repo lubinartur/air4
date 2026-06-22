@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChatWindow } from './components/Chat/ChatWindow'
+import { IdentityPage } from './components/IdentityPage'
 import { AirchOrb, type OrbState } from './components/Neural/AirchOrb'
 import { SpacesList } from './components/Spaces/SpacesList'
 import { SpaceShell } from './components/Spaces/SpaceShell'
 import { api } from './lib/api'
 import type { Space } from './types'
 
+type AppPage = 'chat' | 'identity'
+
 export default function App() {
+  const [activePage, setActivePage] = useState<AppPage>('chat')
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
   const [spaces, setSpaces] = useState<Space[]>([])
   const [spacesLoading, setSpacesLoading] = useState(true)
@@ -32,6 +36,22 @@ export default function App() {
   const handleSpaceCreated = (space: Space) => {
     setSpaces((prev) => [...prev, space])
     setSelectedSpaceId(space.id)
+    setActivePage('chat')
+  }
+
+  const handleSelectSpace = (id: string | null) => {
+    setSelectedSpaceId(id)
+    setActivePage('chat')
+  }
+
+  const handleOpenIdentity = () => {
+    setActivePage('identity')
+    setSelectedSpaceId(null)
+  }
+
+  const handleOpenChat = () => {
+    setActivePage('chat')
+    setSelectedSpaceId(null)
   }
 
   return (
@@ -50,13 +70,21 @@ export default function App() {
             spaces={spaces ?? []}
             loading={spacesLoading}
             selectedId={selectedSpaceId}
-            onSelect={setSelectedSpaceId}
+            onSelect={handleSelectSpace}
           />
         </div>
 
         <button
           type="button"
-          onClick={() => setSelectedSpaceId(null)}
+          onClick={handleOpenIdentity}
+          className={`identity-btn ${activePage === 'identity' ? 'selected' : ''}`}
+        >
+          ◎ Что обо мне знает
+        </button>
+
+        <button
+          type="button"
+          onClick={handleOpenChat}
           className="new-space-btn"
         >
           + Новый Space
@@ -69,6 +97,8 @@ export default function App() {
             space={selectedSpace}
             onOrbStateChange={setOrbState}
           />
+        ) : activePage === 'identity' ? (
+          <IdentityPage />
         ) : (
           <ChatWindow
             onOrbStateChange={setOrbState}

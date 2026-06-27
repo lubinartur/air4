@@ -341,13 +341,14 @@ def _analyze_finance_vs_projects(data: _AnalyzerData) -> list[_Insight]:
             + min(0.3, weeks_sample / 24),
         )
         weeks_of_data = max(4, len(weekly_total))
-        prefix = _tier_prefix(confidence, weeks_of_data)
         title = f"Траты ↑ когда «{project['name']}» буксует"
         description = (
-            f"{prefix} траты в недели без активности по «{project['name']}» "
-            f"в среднем на {delta_pct}% выше, чем в недели с фокус-сессиями "
-            f"(€{stall_avg:.0f}/нед vs €{active_avg:.0f}/нед, выборка "
-            f"{weeks_sample} нед)."
+            f"Когда «{project['name']}» стоит, траты €{stall_avg:.0f}/нед — на {delta_pct}% "
+            f"больше чем €{active_avg:.0f}/нед с фокус-сессиями (выборка {weeks_sample} нед). "
+            f"Без проекта в фокусе деньги часто уходят в импульсные траты вместо прогресса. "
+            f"Я бы на этой неделе заблокировал 2 часа на «{project['name']}» — одна сессия "
+            f"обычно снимает и спенд. "
+            f"Сегодня: открой проект и запиши один следующий шаг на 30 минут."
         )
         insights.append(
             _Insight(
@@ -414,11 +415,14 @@ def _analyze_health_vs_projects(data: _AnalyzerData) -> list[_Insight]:
     # Confidence scales with how many projects are affected and how
     # long the drought has run.
     confidence = min(0.85, 0.4 + 0.1 * len(affected) + min(0.25, drought_days / 30))
-    prefix = _tier_prefix(confidence)
     names = ", ".join(f"«{a['project_name']}»" for a in affected)
+    max_stall = max(a["days_stalled"] for a in affected)
     description = (
-        f"{prefix} {drought_days}-дневный пропуск тренировок совпадает с "
-        f"замедлением: {names}. Часто тело и работа замолкают одновременно."
+        f"Уже {drought_days} дней без тренировок — и {names} "
+        f"замолкли до {max_stall} дней одновременно. "
+        f"Тело и работа часто падают вместе: без движения падает энергия и фокус на проекты. "
+        f"Я бы вернул минимум — 20 минут лёгкой активности, без перфекционизма. "
+        f"Сегодня: поставь таймер на 20 минут и сделай любую тренировку или прогулку."
     )
     return [
         _Insight(
@@ -500,14 +504,16 @@ def _analyze_finance_vs_health(data: _AnalyzerData) -> list[_Insight]:
     confidence = min(
         0.85, 0.35 + min(0.25, (ratio - _SPEND_SPIKE_RATIO) * 0.5) + min(0.25, len(bad_markers) / 5)
     )
-    prefix = _tier_prefix(confidence)
     marker_list = ", ".join(bad_markers[:3])
     if len(bad_markers) > 3:
         marker_list += f" и ещё {len(bad_markers) - 3}"
+    save_per_day = bad_avg - base_avg
     description = (
-        f"{prefix} в недели перед плохими маркерами ({marker_list}) "
-        f"рестораны в среднем на {delta_pct}% выше — €{bad_avg:.0f}/день "
-        f"против €{base_avg:.0f}/день в нормальные периоды."
+        f"Перед плохими маркерами ({marker_list}) рестораны €{bad_avg:.0f}/день — "
+        f"на {delta_pct}% выше нормы €{base_avg:.0f}/день. "
+        f"Когда здоровье проседает, удобная еда часто заменяет режим — и это бьёт по двум фронтам сразу. "
+        f"Я бы на неделю переключился на готовку дома и сократил рестораны хотя бы на €{save_per_day:.0f}/день. "
+        f"Сегодня: спланируй один простой ужин дома вместо ресторана."
     )
     return [
         _Insight(
@@ -560,14 +566,16 @@ def _analyze_projects_overload(data: _AnalyzerData) -> list[_Insight]:
     confidence = min(
         0.85, 0.45 + 0.07 * (len(stalled) - _MIN_OVERLOAD_PROJECTS + 1) + min(0.25, avg_days / 30)
     )
-    prefix = _tier_prefix(confidence)
     names = ", ".join(f"«{s['project_name']}»" for s in stalled[:4])
     if len(stalled) > 4:
         names += f" и ещё {len(stalled) - 4}"
+    max_days = max(s["days_stalled"] for s in stalled)
     description = (
-        f"{prefix} {len(stalled)} активных проекта застряли одновременно "
-        f"({names}). Средний возраст молчания — {int(avg_days)} дней. "
-        "Возможно, перегрузка или потеря фокуса."
+        f"{len(stalled)} проекта — {names} — не двигались {int(avg_days)}–{max_days} дней "
+        f"одновременно, это распыление а не случайность. "
+        f"Держать {len(stalled)} незавершённых проектов дороже чем кажется: ни один не движется. "
+        f"Я бы сегодня выбрал один — закрыл или дал конкретный следующий шаг. "
+        f"Сегодня: открой каждый и за 5 минут реши — active или archive."
     )
     return [
         _Insight(

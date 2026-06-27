@@ -19,6 +19,7 @@ const PAGES_WITH_OWN_HEADER = [
   "Dilemmas",
   "Patterns",
   "Memory",
+  "Observer",
   "Profile",
   "Settings",
 ];

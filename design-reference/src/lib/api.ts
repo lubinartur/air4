@@ -220,9 +220,38 @@ export type Recommendation = {
   state: RecommendationState;
 };
 
+export type RecommendationDomain = "finance" | "projects" | "health";
+
+export type DomainRecommendation = {
+  domain: RecommendationDomain;
+  title: string;
+  summary: string;
+  action: string;
+  generated_at: string;
+};
+
+export type DomainRecommendations = {
+  finance: DomainRecommendation;
+  projects: DomainRecommendation;
+  health: DomainRecommendation;
+};
+
+export type ChatAgent = RecommendationDomain;
+
+export type ChatLaunchRequest = {
+  message: string;
+  agent?: ChatAgent;
+  autoSend?: boolean;
+};
+
 /** AIR4's single "what to do now" recommendation for the Overview. */
 export async function fetchRecommendation(): Promise<Recommendation> {
   return apiFetch<Recommendation>("/api/air4/recommendation");
+}
+
+/** Three domain recommendations for the Overview AIRCH Intelligence block. */
+export async function fetchDomainRecommendations(): Promise<DomainRecommendations> {
+  return apiFetch<DomainRecommendations>("/api/air4/recommendations");
 }
 
 /** Summary for Overview KPIs/chart: latest cycle that has transactions. */
@@ -363,6 +392,8 @@ export async function streamChat(
     message: string;
     history: Array<{ role: string; content: string }>;
     current_page?: string | null;
+    surface?: string | null;
+    agent?: ChatAgent | null;
     /** Optional file payload. When set, the backend forwards it to
      *  Claude as either an image or document content block. */
     file_data?: string;
@@ -1430,4 +1461,70 @@ export function formatCategoryLabel(key: string): string {
   // unchanged since they don't match `\w` — overrides above are the
   // right place for those labels.
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export type ObserverStatus = {
+  enabled: boolean;
+  running: boolean;
+};
+
+export type ObserverEvent = {
+  id: number;
+  app_name: string;
+  window_title: string | null;
+  duration_seconds: number;
+  domain: string | null;
+  project_hint: string | null;
+  observed_at: string | null;
+};
+
+export type ObserverTodayByApp = {
+  app: string;
+  window: string;
+  minutes: number;
+  project_hint: string;
+};
+
+export type ObserverToday = {
+  date: string;
+  total_minutes: number;
+  by_domain: Record<
+    string,
+    { minutes: number; events: ObserverEvent[] }
+  >;
+  by_app: ObserverTodayByApp[];
+  recent: ObserverEvent[];
+};
+
+export async function fetchObserverStatus(): Promise<ObserverStatus> {
+  const res = await fetch("/api/observer/status");
+  if (!res.ok) throw new Error("Failed to load observer status");
+  return res.json();
+}
+
+export async function toggleObserver(enabled: boolean): Promise<ObserverStatus> {
+  const res = await fetch("/api/observer/toggle", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) throw new Error("Failed to toggle observer");
+  return res.json();
+}
+
+export async function fetchObserverToday(): Promise<ObserverToday> {
+  const res = await fetch("/api/observer/today");
+  if (!res.ok) throw new Error("Failed to load observer today");
+  return res.json();
+}
+
+export async function fetchObserverLog(
+  days = 7,
+  limit = 50
+): Promise<ObserverEvent[]> {
+  const res = await fetch(
+    `/api/observer/log?days=${days}&limit=${limit}`
+  );
+  if (!res.ok) throw new Error("Failed to load observer log");
+  return res.json();
 }

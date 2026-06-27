@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
-import { ArrowRight, Maximize2, Paperclip, RefreshCw, X } from "lucide-react";
+import { ArrowUp, Maximize2, Paperclip, RefreshCw, X } from "lucide-react";
 import { Message, MessageAttachment, Page } from "../types";
 import { cn } from "../lib/utils";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import {
   fetchChatHistory,
   fetchInterviewQuestion,
   streamChat,
   submitInterviewAnswer,
+  type ChatAgent,
+  type ChatLaunchRequest,
   type ChatResponseMeta,
   type Observation,
 } from "../lib/api";
@@ -21,14 +23,51 @@ import {
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
 
+/** Soft assistant markdown — no rules, no underlines, medium-weight bold. */
+const assistantMarkdownComponents: Components = {
+  hr: () => null,
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  strong: ({ children }) => (
+    <strong className="font-medium text-[#e5e5e5]">{children}</strong>
+  ),
+  em: ({ children }) => <span>{children}</span>,
+  u: ({ children }) => <span>{children}</span>,
+  a: ({ children, href }) => (
+    <a
+      href={href}
+      className="text-[#f97316] no-underline decoration-0 hover:opacity-90"
+      target="_blank"
+      rel="noreferrer"
+    >
+      {children}
+    </a>
+  ),
+  h1: ({ children }) => (
+    <p className="mb-2 font-medium text-[#e5e5e5]">{children}</p>
+  ),
+  h2: ({ children }) => (
+    <p className="mb-2 font-medium text-[#e5e5e5]">{children}</p>
+  ),
+  h3: ({ children }) => (
+    <p className="mb-2 font-medium text-[#e5e5e5]">{children}</p>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-2 last:mb-0 list-disc pl-4 space-y-1">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-2 last:mb-0 list-decimal pl-4 space-y-1">{children}</ol>
+  ),
+  li: ({ children }) => <li className="leading-[1.5]">{children}</li>,
+};
+
 interface ChatPanelProps {
   currentPage: Page;
   observation?: Observation | null;
   observationsRefreshing?: boolean;
   onRefreshObservations?: () => void;
   onMessageSent?: (meta?: ChatResponseMeta) => void;
-  pendingMessage?: string | null;
-  onPendingMessageConsumed?: () => void;
+  pendingChatRequest?: ChatLaunchRequest | null;
+  onPendingChatRequestConsumed?: () => void;
   onExpand?: () => void;
 }
 
@@ -38,18 +77,22 @@ export function ChatPanel({
   observationsRefreshing = false,
   onRefreshObservations,
   onMessageSent,
-  pendingMessage,
-  onPendingMessageConsumed,
+  pendingChatRequest,
+  onPendingChatRequestConsumed,
   onExpand,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionAgent, setSessionAgent] = useState<ChatAgent | undefined>();
   const [interviewQuestion, setInterviewQuestion] = useState<string | null>(null);
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sendMessageRef = useRef<
+    (text: string, options?: { agent?: ChatAgent }) => Promise<void>
+  >(() => Promise.resolve());
 
   useEffect(() => {
     saveChatHistory(messages);
@@ -93,10 +136,16 @@ export function ChatPanel({
   }, [messages, isLoading]);
 
   useEffect(() => {
-    if (!pendingMessage) return;
-    setInput(pendingMessage);
-    onPendingMessageConsumed?.();
-  }, [pendingMessage, onPendingMessageConsumed]);
+    if (!pendingChatRequest) return;
+    const { message, agent, autoSend } = pendingChatRequest;
+    onPendingChatRequestConsumed?.();
+    if (agent) setSessionAgent(agent);
+    if (autoSend) {
+      void sendMessageRef.current(message, { agent });
+      return;
+    }
+    setInput(message);
+  }, [pendingChatRequest, onPendingChatRequestConsumed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,17 +195,26 @@ export function ChatPanel({
   };
 
   const handleSend = async () => {
-    // Allow send when there is either text OR a file (file-only turns
-    // get a placeholder caption "(см. вложение)" on the backend).
     if (isLoading) return;
     if (!input.trim() && !attachment) return;
+    await sendMessage(input.trim());
+  };
 
-    const text = input.trim();
-    const pendingInterview = interviewQuestion;
+  const sendMessage = async (
+    text: string,
+    options?: { agent?: ChatAgent },
+  ) => {
+    if (isLoading) return;
     const outgoingAttachment = attachment;
+    if (!text.trim() && !outgoingAttachment) return;
+
+    const activeAgent = options?.agent ?? sessionAgent;
+    if (options?.agent) setSessionAgent(options.agent);
+
+    const pendingInterview = interviewQuestion;
     const userMessage: Message = {
       role: "user",
-      content: text,
+      content: text.trim(),
       attachment: outgoingAttachment ?? undefined,
     };
     setMessages((prev) => [...prev, userMessage]);
@@ -169,7 +227,7 @@ export function ChatPanel({
       setInterviewQuestion(null);
       try {
         await Promise.race([
-          submitInterviewAnswer(pendingInterview, text),
+          submitInterviewAnswer(pendingInterview, text.trim()),
           new Promise<never>((_, reject) =>
             setTimeout(
               () => reject(new Error("interview answer timeout (5s)")),
@@ -182,10 +240,6 @@ export function ChatPanel({
       }
     }
 
-    // Pre-allocate an empty assistant bubble (in streaming mode) so deltas
-    // can append into it in place. `historyBeforeAssistant` is the
-    // LLM-visible context (no placeholder), captured before the empty
-    // bubble is pushed.
     const historyBeforeAssistant = messages;
     setMessages((prev) => [
       ...prev,
@@ -208,9 +262,11 @@ export function ChatPanel({
     try {
       await streamChat(
         {
-          message: text,
+          message: text.trim(),
           history: historyBeforeAssistant,
           current_page: currentPage,
+          surface: activeAgent ? "dialogue" : undefined,
+          agent: activeAgent,
           ...(outgoingAttachment
             ? {
                 file_data: outgoingAttachment.data,
@@ -222,9 +278,6 @@ export function ChatPanel({
         {
           onDelta: (delta) => {
             receivedAny = true;
-            // Append the delta as its own chunk so the renderer can
-            // wrap it in an animated span. `content` is kept in sync
-            // for persistence + the post-stream markdown render.
             setMessages((prev) => {
               if (prev.length === 0) return prev;
               const last = prev[prev.length - 1];
@@ -260,47 +313,43 @@ export function ChatPanel({
               }
         );
       } else {
-        // Clear streaming state so the bubble switches from per-chunk
-        // animated spans to its final ReactMarkdown render.
         finalizeLast((last) => ({
           ...last,
           isStreaming: false,
           chunks: undefined,
         }));
       }
-
-      onMessageSent?.({ recurring_updated: meta?.recurring_updated });
+      onMessageSent?.(meta);
     } catch (error) {
-      console.error("Chat Error:", error);
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        const failureBubble: Message = {
-          role: "assistant",
-          content: "AIR4 не в сети. Соединение не установлено.",
-          isStreaming: false,
-        };
-        if (!last || last.role !== "assistant" || last.content) {
-          return [...prev, failureBubble];
-        }
-        return [...prev.slice(0, -1), failureBubble];
-      });
+      console.error("Chat send failed:", error);
+      finalizeLast((last) => ({
+        ...last,
+        content: last.content || "Не удалось отправить сообщение.",
+        isStreaming: false,
+        chunks: undefined,
+      }));
     } finally {
       setIsLoading(false);
     }
   };
 
+  sendMessageRef.current = sendMessage;
+
   const renderBubble = (msg: Message, key: string | number) => (
     <div
       key={key}
-      className={cn("flex flex-col gap-1.5", msg.role === "user" ? "items-end" : "items-start")}
+      className={cn(
+        "flex flex-col gap-1",
+        msg.role === "user" ? "items-end self-end" : "items-start self-start",
+      )}
     >
       <div
-        className="max-w-[90%] px-4 py-2.5 rounded-[12px] text-[14px] leading-relaxed text-[#f1f5f9] transition-all"
-        style={
+        className={cn(
+          "text-[14px] leading-[1.5] break-words",
           msg.role === "user"
-            ? { background: "#2a1a0a" }
-            : { background: "#1e1e2e", borderLeft: "2px solid #f97316" }
-        }
+            ? "max-w-[75%] px-3.5 py-2.5 rounded-[18px] rounded-br-[4px] bg-white/[0.08] text-[#e5e5e5]"
+            : "max-w-[85%] px-3.5 py-2.5 rounded-[18px] rounded-bl-[4px] bg-[#1e1e2e] text-[#e5e5e5]",
+        )}
       >
         {msg.attachment && (
           <MessageAttachmentView
@@ -310,43 +359,37 @@ export function ChatPanel({
           />
         )}
         {msg.role === "assistant" && msg.isStreaming && !msg.content ? (
-          // Nothing streamed yet — animated typing placeholder.
           <div className="air4-typing" aria-label="AIR4 печатает">
             <span />
             <span />
             <span />
           </div>
         ) : msg.content ? (
-          // Render markdown live (even mid-stream) so the text never jumps
-          // from raw `**`/`---` syntax to styled when streaming ends. A
-          // blinking caret shows the reply is still being written.
-          <div
-            className={cn(
-              "prose prose-sm prose-invert break-words",
-              msg.role === "assistant" && msg.isStreaming && "air4-streaming",
-            )}
-          >
-            <ReactMarkdown>{msg.content}</ReactMarkdown>
-            {msg.role === "assistant" && msg.isStreaming && (
-              <span className="air4-caret" aria-hidden="true" />
-            )}
-          </div>
+          msg.role === "user" ? (
+            <span className="whitespace-pre-wrap">{msg.content}</span>
+          ) : (
+            <div
+              className={cn(
+                "air4-chat-panel-md break-words [&_*]:no-underline",
+                msg.isStreaming && "air4-streaming",
+              )}
+            >
+              <ReactMarkdown components={assistantMarkdownComponents}>
+                {msg.content}
+              </ReactMarkdown>
+              {msg.isStreaming && (
+                <span className="air4-caret" aria-hidden="true" />
+              )}
+            </div>
+          )
         ) : null}
       </div>
     </div>
   );
 
   return (
-    <aside
-      className="w-[340px] flex flex-col shrink-0 my-2 mr-2 rounded-[20px] overflow-hidden h-[calc(100vh-16px)]"
-      style={{
-        background: "#13131f",
-      }}
-    >
-      <header
-        className="px-5 py-4 border-b flex items-center justify-between gap-3 bg-transparent"
-        style={{ borderColor: "rgba(255,255,255,0.06)" }}
-      >
+    <aside className="w-[340px] flex flex-col shrink-0 overflow-hidden rounded-2xl h-[calc(100vh-16px)] bg-[#13131f] border border-white/[0.08] mt-2 mb-2 mr-2 ml-0">
+      <header className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden">
             <img
@@ -357,12 +400,12 @@ export function ChatPanel({
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-[14px] font-semibold text-[#f1f5f9]">
-                AIR4
-              </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              <span className="text-[14px] font-bold text-white">AIR4</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
             </div>
-            <span className="text-[11px] text-[#64748b]">AI Advisor · Online</span>
+            <span className="text-[11px] text-[#666666]">
+              AI Advisor · Online
+            </span>
           </div>
         </div>
         <div className="shrink-0 flex items-center gap-1">
@@ -395,41 +438,27 @@ export function ChatPanel({
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-6">
+      <div
+        ref={scrollRef}
+        className="air4-chat-scroll flex-1 overflow-y-auto flex flex-col gap-3 px-4 py-5 min-h-0"
+      >
         {interviewQuestion && (
           <div
-            className="rounded-2xl p-4 space-y-2 border"
-            style={{
-              background: "linear-gradient(135deg, #1a0a00 0%, #0f0f14 100%)",
-              borderColor: "rgba(249,115,22,0.3)",
-            }}
+            className="self-start max-w-[85%] rounded-[18px] rounded-bl-[4px] p-3.5 space-y-1.5 border border-[#f97316]/30 bg-[#1e1e2e]"
           >
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-[#f97316]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#f97316]">
               AIR4 хочет узнать тебя лучше
             </p>
-            <p className="text-[14px] leading-relaxed text-[#f1f5f9]">
+            <p className="text-[14px] leading-relaxed text-[#e5e5e5]">
               {interviewQuestion}
             </p>
           </div>
         )}
         {messages.map((msg, i) => renderBubble(msg, i))}
         {previewBubble && renderBubble(previewBubble, "preview")}
-        {isLoading && (
-          <div className="flex gap-1 px-1">
-            <div className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.3s]" />
-            <div className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.15s]" />
-            <div className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce" />
-          </div>
-        )}
       </div>
 
-      <div
-        className="p-4 border-t"
-        style={{
-          borderColor: "rgba(249,115,22,0.12)",
-          backgroundColor: "#0f0f14",
-        }}
-      >
+      <div className="px-4 py-3 border-t border-white/[0.06] shrink-0 bg-[#13131f]">
         {(attachment || attachmentError) && (
           <div className="mb-2 space-y-1.5">
             {attachment && (
@@ -467,7 +496,7 @@ export function ChatPanel({
             )}
           </div>
         )}
-        <div className="flex items-center gap-2 rounded-full bg-[#1a1a24] border border-[#2a2a3a] pl-2 pr-1.5 py-1.5 focus-within:border-[#f97316]/50 transition-colors">
+        <div className="flex items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -479,11 +508,11 @@ export function ChatPanel({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
-            className="shrink-0 text-[#6b7280] hover:text-[#f97316] disabled:opacity-30 transition-colors h-8 w-8 flex items-center justify-center rounded-full"
+            className="shrink-0 text-[#666666] hover:text-[#f97316] disabled:opacity-30 transition-colors h-9 w-9 flex items-center justify-center rounded-full"
             aria-label="Прикрепить файл"
             title="Прикрепить изображение или PDF"
           >
-            <Paperclip size={16} />
+            <Paperclip size={18} />
           </button>
           <input
             type="text"
@@ -493,21 +522,18 @@ export function ChatPanel({
               if (e.key === "Enter") handleSend();
             }}
             placeholder="Поговорите с AIR4..."
-            className="flex-1 min-w-0 bg-transparent border-0 text-sm text-white placeholder:text-[#4b5563] focus:outline-none"
+            className="flex-1 min-w-0 rounded-full border border-white/[0.08] bg-white/[0.06] px-4 py-2.5 text-[14px] text-white placeholder:text-[#666666] focus:outline-none focus:border-[#f97316]/40"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={(!input.trim() && !attachment) || isLoading}
-            className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-[#f97316] text-white disabled:opacity-30 hover:bg-[#ea6a06] transition-colors"
+            className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-[#f97316] text-white disabled:opacity-30 hover:brightness-110 transition-all"
             aria-label="Отправить"
           >
-            <ArrowRight size={16} />
+            <ArrowUp size={18} strokeWidth={2.5} />
           </button>
         </div>
-        <p className="text-[10px] text-center text-[#64748b] mt-3 uppercase tracking-[0.1em] font-bold">
-          Говори правду. Помогай решать.
-        </p>
       </div>
     </aside>
   );

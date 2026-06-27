@@ -8,6 +8,7 @@ import {
   Repeat,
   Scale,
   Brain,
+  Eye,
   User,
   Settings,
 } from "lucide-react";
@@ -23,6 +24,7 @@ export const NAVIGATION: { id: Page; Icon: any }[] = [
   { id: "Dilemmas", Icon: Scale },
   { id: "Patterns", Icon: Repeat },
   { id: "Memory", Icon: Brain },
+  { id: "Observer", Icon: Eye },
   { id: "Profile", Icon: User },
   { id: "Settings", Icon: Settings },
 ];
@@ -43,6 +45,7 @@ export const PAGE_LABELS: Record<Page, string> = {
   Dilemmas: "Дилеммы",
   Patterns: "Паттерны",
   Memory: "Память",
+  Observer: "Наблюдения",
   Profile: "Профиль",
   Settings: "Настройки",
   Chat: "Чат",

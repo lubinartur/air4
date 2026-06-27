@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS user_profile (
     context         TEXT,
     timezone        TEXT DEFAULT 'UTC',
     air4_mode       TEXT DEFAULT 'normal',
+    observer_enabled INTEGER DEFAULT 1,
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 );
@@ -362,6 +363,16 @@ CREATE TABLE IF NOT EXISTS followups (
 -- confirmations always seed at 1.0. `times_applied` is bumped each
 -- time `apply_category_rules` lands a hit so we can later expose the
 -- most-effective rules in the UI.
+CREATE TABLE IF NOT EXISTS observer_events (
+    id              INTEGER PRIMARY KEY,
+    app_name        TEXT NOT NULL,
+    window_title    TEXT,
+    duration_seconds INTEGER NOT NULL,
+    domain          TEXT,
+    project_hint    TEXT,
+    observed_at     TEXT DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS category_rules (
     id             INTEGER PRIMARY KEY,
     pattern        TEXT NOT NULL,
@@ -412,6 +423,7 @@ CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
 CREATE INDEX IF NOT EXISTS idx_observations_created_at ON observations(created_at);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_updated_at ON subscriptions(updated_at);
 CREATE INDEX IF NOT EXISTS idx_user_facts_updated_at ON user_facts(updated_at);
+CREATE INDEX IF NOT EXISTS idx_observer_date ON observer_events(observed_at);
 """
 
 
@@ -480,6 +492,9 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
                 "WHERE air4_mode IS NULL OR TRIM(air4_mode) = ''"
             )
             set_meta(conn, "air4_mode_migration_done", "1")
+        _ensure_columns(
+            conn, "user_profile", [("observer_enabled", "INTEGER DEFAULT 1")]
+        )
 
     if "user_facts" in tables:
         _ensure_columns(

@@ -1,8 +1,38 @@
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { User, Shield, Globe, Bell, Database, Info, Lock, ChevronRight, AlertTriangle, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { User, Shield, Globe, Bell, Database, Info, Lock, ChevronRight, AlertTriangle, Settings as SettingsIcon, Sparkles, Eye } from "lucide-react";
+import { fetchObserverStatus, toggleObserver } from "../lib/api";
 import { cn } from "../lib/utils";
 
 export function Settings() {
+  const [observerEnabled, setObserverEnabled] = useState(true);
+  const [observerRunning, setObserverRunning] = useState(false);
+  const [observerToggling, setObserverToggling] = useState(false);
+
+  useEffect(() => {
+    fetchObserverStatus()
+      .then((s) => {
+        setObserverEnabled(s.enabled);
+        setObserverRunning(s.running);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleObserverToggle = async () => {
+    const next = !observerEnabled;
+    setObserverToggling(true);
+    try {
+      await toggleObserver(next);
+      const status = await fetchObserverStatus();
+      setObserverEnabled(status.enabled);
+      setObserverRunning(status.running);
+    } catch {
+      /* keep state */
+    } finally {
+      setObserverToggling(false);
+    }
+  };
+
   const privacyModes = [
     { id: "local", title: "Полностью локально", desc: "Только Ollama. Ничего не покидает устройство.", status: "green", active: true },
     { id: "smart", title: "Умный режим", desc: "Сложные рассуждения через Claude API. Анонимизируется перед отправкой.", status: "gray", active: false },
@@ -42,6 +72,49 @@ export function Settings() {
       <div className="grid grid-cols-5 gap-6">
         {/* Left Column */}
         <div className="col-span-3 space-y-6">
+          {/* Card — Observer */}
+          <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-2">
+            <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-6 flex items-center gap-2">
+              <Eye size={14} />
+              Наблюдение
+            </h2>
+            <div className="flex justify-between items-center py-2">
+              <div className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    "w-2 h-2 rounded-full shrink-0",
+                    observerRunning
+                      ? "bg-[#22c55e] animate-pulse"
+                      : "bg-white/20",
+                  )}
+                />
+                <div>
+                  <p className="text-[14px] font-bold text-[#f1f5f9]">Наблюдение</p>
+                  <p className="text-[11px] text-[#94a3b8] font-medium mt-0.5">
+                    Отслеживание активных приложений на macOS
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={observerToggling}
+                onClick={handleObserverToggle}
+                className={cn(
+                  "w-10 h-5 rounded-full relative transition-all cursor-pointer shrink-0",
+                  observerEnabled ? "bg-[#22c55e]" : "bg-white/10",
+                  observerToggling && "opacity-50",
+                )}
+              >
+                <div
+                  className={cn(
+                    "absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm",
+                    observerEnabled ? "left-6" : "left-1",
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Card 1 - AIR4 Character */}
           <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] card-hover animate-fade-in-up animate-delay-2">
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-8">Характер AIR4</h2>

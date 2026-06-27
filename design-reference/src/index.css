@@ -6,8 +6,8 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
   --color-accent: #f97316;
-  --color-surface: #f8f8f8;
-  --color-chat: #f9fafb;
+  --color-surface: #0f0f14;
+  --color-chat: #0f0f14;
 }
 
 @layer base {
@@ -15,11 +15,11 @@
   body,
   #root {
     height: 100%;
-    background-color: #1a1a2e;
+    background-color: #0f0f14;
   }
 
   body {
-    @apply font-sans antialiased text-[#141414];
+    @apply font-sans antialiased text-[#f1f5f9];
   }
 }
 
@@ -107,6 +107,50 @@ html, body, #root {
     opacity: 1;
   }
   .card-hover:hover { transform: none; }
+}
+
+/* ---------- Chat panel scrollbar + bubble prose ---------- */
+
+.air4-chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.06);
+}
+
+.air4-chat-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.air4-chat-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.air4-chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+.air4-chat-prose.prose-invert {
+  --tw-prose-body: #e5e5e5;
+  --tw-prose-headings: #f1f5f9;
+  --tw-prose-bold: #f1f5f9;
+  --tw-prose-links: #f97316;
+}
+
+.air4-chat-prose.prose-invert :where(p):not(:where([class~="not-prose"] *)) {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+}
+
+.air4-chat-prose.prose-invert :where(p):last-child:not(:where([class~="not-prose"] *)) {
+  margin-bottom: 0;
+}
+
+.air4-chat-panel-md {
+  text-decoration: none;
+}
+
+.air4-chat-panel-md :where(a, u, ins) {
+  text-decoration: none !important;
 }
 
 /* ---------- Streaming caret + typing placeholder ---------- *

@@ -48,6 +48,9 @@ class ChatIn(BaseModel):
     message: str
     history: list[dict[str, Any]] = Field(default_factory=list)
     current_page: str | None = None
+    # Optional routing for Overview → chat handoff (domain-focused dialogue).
+    surface: str | None = None
+    agent: str | None = None  # finance | projects | health
     # Optional file upload. JSON over `/api/chat` so the streaming
     # path stays unchanged; multipart would force a parallel codepath
     # without buying anything for ≤10 MB payloads.

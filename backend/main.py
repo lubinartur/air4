@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -20,7 +21,7 @@ logging.basicConfig(
     force=True,
 )
 
-from database import get_db, init_db
+from database import DB_PATH, get_db, init_db
 from routers import (
     category_rules,
     chat,
@@ -37,6 +38,7 @@ from routers import (
     insights,
     interview,
     observations,
+    observer,
     profile,
     projects,
     recommendation,
@@ -47,6 +49,7 @@ from routers import (
 )
 from services.cross_sphere_analyzer import run_cross_sphere_analysis
 from services.observation_engine import generate_observations
+from services.observer import is_observer_enabled, start_observer_thread, stop_observer
 
 load_dotenv()
 
@@ -74,6 +77,7 @@ app.include_router(projects.router, prefix="/api", tags=["projects"])
 app.include_router(spaces.router, prefix="/api", tags=["spaces"])
 app.include_router(dilemmas.router, prefix="/api", tags=["dilemmas"])
 app.include_router(observations.router, prefix="/api", tags=["observations"])
+app.include_router(observer.router, prefix="/api", tags=["observer"])
 app.include_router(cross_sphere.router, prefix="/api", tags=["cross-sphere"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(health.router, prefix="/api", tags=["health"])
@@ -169,6 +173,11 @@ async def startup() -> None:
     if _observation_task is None or _observation_task.done():
         _observation_task = asyncio.create_task(_run_observation_scheduler())
 
+    if sys.platform == "darwin" and is_observer_enabled(str(DB_PATH)):
+        db_path = str(DB_PATH.resolve())
+        print(f"👁 Observer db path: {db_path}")
+        start_observer_thread(db_path)
+
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
@@ -180,6 +189,7 @@ async def shutdown() -> None:
         except (asyncio.CancelledError, Exception):
             pass
         _observation_task = None
+    stop_observer()
 
 
 @app.get("/health")

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { ChatPanel } from "./components/ChatPanel";
 import { Header } from "./components/Header";
@@ -11,6 +12,8 @@ import { Dilemmas } from "./components/Dilemmas";
 import { Patterns } from "./components/Patterns";
 import { Memory } from "./components/Memory";
 import { Settings } from "./components/Settings";
+import { ObserverPage } from "./components/Observer";
+import { pageFromPath, pathFromPage } from "./lib/navigation";
 import { EmptyStates } from "./components/EmptyStates";
 import { Profile } from "./components/Profile";
 import { ToastDemo } from "./components/ToastDemo";
@@ -33,6 +36,7 @@ import {
   fetchCrossSphereInsights,
   generateObservations,
   pickDisplayObservation,
+  type ChatLaunchRequest,
   type ChatResponseMeta,
   type Summary,
   type Project,
@@ -47,7 +51,15 @@ import {
 } from "./lib/api";
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<Page>("Overview");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentPage = pageFromPath(location.pathname);
+  const setCurrentPage = useCallback(
+    (page: Page) => {
+      navigate(pathFromPage(page));
+    },
+    [navigate],
+  );
   const [summary, setSummary] = useState<Summary | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [dilemmas, setDilemmas] = useState<Dilemma[]>([]);
@@ -62,8 +74,13 @@ export default function App() {
   >([]);
   const [observationsRefreshing, setObservationsRefreshing] = useState(false);
   const [overviewLoading, setOverviewLoading] = useState(true);
-  const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null);
-  const [previousPage, setPreviousPage] = useState<Page>("Overview");
+  const [pendingChatRequest, setPendingChatRequest] =
+    useState<ChatLaunchRequest | null>(null);
+  const [previousPage, setPreviousPage] = useState<Page>(() =>
+    pageFromPath(
+      typeof window !== "undefined" ? window.location.pathname : "/",
+    ),
+  );
   const [financeRefreshTick, setFinanceRefreshTick] = useState(0);
 
   // Mobile = viewport < 768px. On mobile we render ONLY the FullscreenChat
@@ -84,8 +101,18 @@ export default function App() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const openChatWithMessage = useCallback((text: string) => {
-    setPendingChatMessage(text);
+  useEffect(() => {
+    const bg = "#0f0f14";
+    document.documentElement.style.backgroundColor = bg;
+    document.body.style.backgroundColor = bg;
+    return () => {
+      document.documentElement.style.backgroundColor = "";
+      document.body.style.backgroundColor = "";
+    };
+  }, []);
+
+  const openChatWithMessage = useCallback((request: ChatLaunchRequest) => {
+    setPendingChatRequest(request);
   }, []);
 
   const loadObservations = useCallback(async (tryGenerateIfStale = false) => {
@@ -367,7 +394,7 @@ export default function App() {
   // Mobile: chat-only experience — no sidebar, no page routing.
   if (isMobile) {
     return (
-      <div className="flex h-screen overflow-hidden bg-[#f4f5f7]">
+      <div className="flex h-screen overflow-hidden bg-[#0f0f14]">
         <FullscreenChat
           onBack={() => {}}
           previousPage={previousPage}
@@ -384,12 +411,12 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#1a1a2e]">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0f0f14]">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
 
       <main
         className={cn(
-          "flex-1 flex flex-col min-w-0 overflow-y-auto bg-[#1a1a2e]",
+          "flex-1 flex flex-col min-w-0 overflow-y-auto bg-[#0f0f14]",
           currentPage !== "Chat" ? "px-8 pt-8 pb-0" : "overflow-hidden"
         )}
       >
@@ -416,6 +443,8 @@ export default function App() {
                   dilemmas={dilemmas}
                   facts={facts}
                   onMessageSent={handleMessageSent}
+                  pendingChatRequest={pendingChatRequest}
+                  onPendingChatRequestConsumed={() => setPendingChatRequest(null)}
                 />
               ) : currentPage === "Overview" ? (
                 <OverviewDashboard
@@ -463,6 +492,8 @@ export default function App() {
                 />
               ) : currentPage === "Memory" ? (
                 <Memory />
+              ) : currentPage === "Observer" ? (
+                <ObserverPage />
               ) : currentPage === "Settings" ? (
                 <Settings />
               ) : currentPage === "EmptyStates" ? (
@@ -496,8 +527,8 @@ export default function App() {
           observationsRefreshing={observationsRefreshing}
           onRefreshObservations={refreshObservations}
           onMessageSent={handleMessageSent}
-          pendingMessage={pendingChatMessage}
-          onPendingMessageConsumed={() => setPendingChatMessage(null)}
+          pendingChatRequest={pendingChatRequest}
+          onPendingChatRequestConsumed={() => setPendingChatRequest(null)}
           onExpand={() => setCurrentPage("Chat")}
         />
       )}

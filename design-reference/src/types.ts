@@ -8,6 +8,7 @@ export type Page =
   | "Patterns"
   | "Dilemmas"
   | "Memory"
+  | "Observer"
   | "Settings"
   | "Chat"
   | "CSVUpload"

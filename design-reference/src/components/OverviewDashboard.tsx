@@ -1,14 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import {
+  ArrowRight,
+  ArrowUp,
+  Dumbbell,
+  Info,
+  Sparkles,
+} from "lucide-react";
+import {
+  fetchDomainRecommendations,
+  fetchEvents,
+  fetchHypotheses,
+  fetchMonthlyFixed,
   fetchProfile,
-  fetchRecommendation,
+  fetchSubscriptions,
   hasFinanceData,
   type BodyMetric,
+  type ChatLaunchRequest,
   type CrossSphereInsight,
   type Dilemma,
+  type DomainRecommendation,
+  type DomainRecommendations,
   type Observation,
   type Project,
-  type Recommendation,
   type Summary,
   type UserFact,
   type Workout,
@@ -16,9 +29,6 @@ import {
 import { daysSince } from "../lib/format";
 import { Page } from "../types";
 
-// The Props shape is kept identical to what App.tsx passes so the
-// redesign is a drop-in replacement. Only a subset is used by the new
-// dark layout; the rest stays in the type for compatibility.
 type Props = {
   summary: Summary | null;
   projects: Project[];
@@ -32,82 +42,102 @@ type Props = {
   pendingFollowups: Dilemma[];
   activeProjects: Project[];
   onPageChange: (page: Page) => void;
-  onOpenChatWithMessage: (text: string) => void;
+  onOpenChatWithMessage: (request: ChatLaunchRequest) => void;
 };
 
-// --- Design tokens -------------------------------------------------------
 const C = {
-  bg: "#1a1a2e",
+  bg: "#0f0f14",
   card: "#13131f",
-  border: "rgba(255,255,255,0.05)",
+  border: "rgba(255,255,255,0.06)",
   primary: "#f1f5f9",
-  secondary: "#94a3b8",
+  muted: "#666666",
   label: "#64748b",
   orange: "#f97316",
   green: "#22c55e",
-  yellow: "#eab308",
-  red: "#ef4444",
   gray: "#6b7280",
 };
 
 const LABEL_CLASS =
   "text-[11px] uppercase tracking-[0.08em] text-[#64748b] font-semibold";
 
-type SphereStatus = "stable" | "attention" | "critical" | "neutral";
+const METRIC_VALUE_CLASS =
+  "text-[36px] font-semibold text-white leading-none tabular-nums tracking-tight";
 
-const STATUS_DOT: Record<SphereStatus, string> = {
-  stable: C.green,
-  attention: C.yellow,
-  critical: C.red,
-  neutral: C.gray,
+const METRIC_SUFFIX_CLASS = "text-[20px] font-normal text-[#666666]";
+
+const METRIC_CAPTION_CLASS = "text-[12px] mt-1.5 text-[#666666]";
+
+const META_LABEL_CLASS = "text-[12px] text-[#666666]";
+
+const CARD_FOOTER_CLASS = "text-[12px] font-medium mt-auto pt-4";
+
+const SECONDARY_LABEL_CLASS =
+  "text-[12px] font-medium text-[#666666] mb-2 mt-5";
+
+const DOMAIN_ORDER: Array<keyof DomainRecommendations> = [
+  "finance",
+  "projects",
+  "health",
+];
+
+const DOMAIN_CHAT_PREFIX: Record<DomainRecommendation["domain"], string> = {
+  finance: "Давай разберём финансовую ситуацию",
+  projects: "Давай разберём проекты",
+  health: "Давай разберём спорт и здоровье",
 };
 
-// --- Status derivations (mirror the previous Overview logic) -------------
-function financeStatus(summary: Summary | null): SphereStatus {
-  if (!summary || !hasFinanceData(summary)) return "neutral";
+const WEEK_GOAL = 4;
+
+function buildDomainChatRequest(
+  reco: DomainRecommendation,
+): ChatLaunchRequest {
+  const prefix = DOMAIN_CHAT_PREFIX[reco.domain];
+  return {
+    message: `${prefix}: ${reco.summary}`,
+    agent: reco.domain,
+    autoSend: true,
+  };
+}
+
+function pluralWeekThings(n: number): string {
+  const last = n % 10;
+  const teen = n % 100;
+  if (last === 1 && teen !== 11) return "вещь";
+  if (last >= 2 && last <= 4 && (teen < 12 || teen > 14)) return "вещи";
+  return "вещей";
+}
+
+function pluralOpenQuestions(n: number): string {
+  const last = n % 10;
+  const teen = n % 100;
+  if (last === 1 && teen !== 11) return "открытый вопрос";
+  if (last >= 2 && last <= 4 && (teen < 12 || teen > 14))
+    return "открытых вопроса";
+  return "открытых вопросов";
+}
+
+function truncateChars(text: string, max: number): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+function stripTodayPrefix(action: string): string {
+  return action
+    .replace(/^Сегодня:\s*/i, "")
+    .replace(/\s*сегодня$/i, "")
+    .trim();
+}
+
+function freeCapitalAmount(summary: Summary | null): number | null {
+  if (!summary || !hasFinanceData(summary)) return null;
   const income =
     (summary.total_income ?? 0) + (summary.other_incoming?.amount ?? 0);
-  if (income <= 0) return "neutral";
-  const free = income - (summary.total_spent ?? 0);
-  if (free > 0) return "stable";
-  if (free === 0) return "attention";
-  return "critical";
+  return income - (summary.total_spent ?? 0);
 }
 
-function healthStatus(daysSinceWorkout: number | null): SphereStatus {
-  if (daysSinceWorkout == null) return "neutral";
-  if (daysSinceWorkout > 7) return "critical";
-  if (daysSinceWorkout >= 4) return "attention";
-  return "stable";
-}
-
-function projectsStatus(stalled: number, active: number): SphereStatus {
-  if (active === 0) return "neutral";
-  if (stalled >= active) return "critical";
-  if (stalled > 1) return "attention";
-  return "stable";
-}
-
-function memoryStatus(factCount: number): SphereStatus {
-  if (factCount === 0) return "neutral";
-  if (factCount >= 8) return "stable";
-  return "attention";
-}
-
-// Open-loop tone by age in days: >14 red, >7 orange, else yellow.
-function loopTone(days: number): { dot: string; badge: string } {
-  if (days > 14)
-    return { dot: C.red, badge: "bg-red-500/15 text-red-400" };
-  if (days > 7)
-    return { dot: C.orange, badge: "bg-orange-500/15 text-orange-400" };
-  return { dot: C.yellow, badge: "bg-yellow-500/15 text-yellow-400" };
-}
-
-// Momentum bar color: >60 green, 30..60 orange, <30 red.
-function barColor(pct: number): string {
-  if (pct > 60) return C.green;
-  if (pct >= 30) return C.orange;
-  return C.red;
+function formatEuroDisplay(amount: number): string {
+  return `${Math.round(amount).toLocaleString("en-US")} €`;
 }
 
 function projectMomentum(updatedAt: string | null | undefined): number {
@@ -118,34 +148,139 @@ function projectMomentum(updatedAt: string | null | undefined): number {
   return Math.max(60, 95 - days * 8);
 }
 
-function factEmoji(key: string, value: string): string {
-  const s = `${key} ${value}`.toLowerCase();
-  if (/ducati|moto|bike|байк|мотоц/.test(s)) return "🏍️";
-  if (/tesla|car|авто|машин/.test(s)) return "🚗";
-  if (/project|проект|air4|\bos\b|код|dev|програм/.test(s)) return "💻";
-  if (/gym|workout|train|трен|sport|спорт|fit|сил/.test(s)) return "🏋️";
-  if (/food|diet|eat|пит|еда|готов/.test(s)) return "🍳";
-  if (/family|wife|husband|жен|муж|семь|partner|alisa|алиса|дет/.test(s))
-    return "👨‍👩‍👧";
-  if (/money|finance|фин|invest|salary|зарплат|доход/.test(s)) return "💰";
-  if (/goal|цель|план|ambition/.test(s)) return "🎯";
-  if (/travel|путеш|trip/.test(s)) return "✈️";
-  if (/music|музык/.test(s)) return "🎵";
-  if (/work|job|карьер|работ/.test(s)) return "💼";
-  return "🧠";
+function progressFillColor(pct: number): string {
+  return pct >= 70 ? C.green : C.orange;
 }
 
-function capitalize(s: string): string {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+function Card({
+  className = "",
+  onClick,
+  children,
+}: {
+  className?: string;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  const base = `rounded-[20px] p-6 border border-white/[0.06] flex flex-col h-full ${
+    onClick
+      ? "cursor-pointer transition-[border-color] duration-200 hover:border-[rgba(249,115,22,0.3)]"
+      : ""
+  }`;
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${base} text-left w-full ${className}`}
+        style={{ backgroundColor: C.card }}
+      >
+        {children}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={`${base} ${className}`}
+      style={{ backgroundColor: C.card }}
+    >
+      {children}
+    </div>
+  );
 }
 
-function pluralThings(n: number): string {
-  const last = n % 10;
-  const teen = n % 100;
-  if (last === 1 && teen !== 11) return "вещь требует";
-  if (last >= 2 && last <= 4 && (teen < 12 || teen > 14))
-    return "вещи требуют";
-  return "вещей требуют";
+function DetailLink({
+  onClick,
+}: {
+  onClick: (e: MouseEvent) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(e);
+      }}
+      className="text-[12px] transition-colors duration-200"
+      style={{ color: C.muted }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.color = C.orange;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = C.muted;
+      }}
+    >
+      Подробнее ›
+    </button>
+  );
+}
+
+function ProgressBar({ pct, color, className = "" }: { pct: number; color?: string; className?: string }) {
+  const fill = color ?? progressFillColor(pct);
+  return (
+    <div className={`h-1 rounded-[2px] overflow-hidden bg-white/[0.08] ${className}`}>
+      <div
+        className="h-full rounded-[2px] transition-all duration-500"
+        style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: fill }}
+      />
+    </div>
+  );
+}
+
+function TileHeader({
+  label,
+  onDetail,
+  trailing,
+}: {
+  label: string;
+  onDetail: (e: MouseEvent) => void;
+  trailing?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-1.5">
+        <span className={LABEL_CLASS}>{label}</span>
+        {trailing}
+      </div>
+      <DetailLink onClick={onDetail} />
+    </div>
+  );
+}
+
+function MetricValue({
+  children,
+  suffix,
+}: {
+  children: ReactNode;
+  suffix?: ReactNode;
+}) {
+  return (
+    <p className={METRIC_VALUE_CLASS}>
+      {children}
+      {suffix != null && (
+        <span className={METRIC_SUFFIX_CLASS}> {suffix}</span>
+      )}
+    </p>
+  );
+}
+
+function StatusDot({
+  color,
+  label,
+}: {
+  color: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-[12px]" style={{ color: C.muted }}>
+      <span
+        className="w-2 h-2 rounded-full shrink-0"
+        style={{ backgroundColor: color }}
+      />
+      <span>{label}</span>
+    </div>
+  );
 }
 
 export function OverviewDashboard({
@@ -156,31 +291,64 @@ export function OverviewDashboard({
   onPageChange,
   onOpenChatWithMessage,
 }: Props) {
-  // --- Self-contained async data (Promise.allSettled, never throws) ---
-  const [recommendation, setRecommendation] = useState<Recommendation | null>(
-    null,
-  );
+  const [recommendations, setRecommendations] =
+    useState<DomainRecommendations | null>(null);
   const [recoLoading, setRecoLoading] = useState(true);
   const [name, setName] = useState<string | null>(null);
   const [facts, setFacts] = useState<UserFact[]>([]);
-  const [factsLoading, setFactsLoading] = useState(true);
+  const [activeSubsCount, setActiveSubsCount] = useState(0);
+  const [monthlyFixedTotal, setMonthlyFixedTotal] = useState<number | null>(null);
+  const [eventsTotal, setEventsTotal] = useState(0);
+  const [confirmedPatterns, setConfirmedPatterns] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setRecoLoading(true);
-    setFactsLoading(true);
 
-    void Promise.allSettled([fetchRecommendation(), fetchProfile()]).then(
-      ([recoRes, profileRes]) => {
+    void Promise.allSettled([
+      fetchDomainRecommendations(),
+      fetchProfile(),
+      fetchSubscriptions(),
+      fetchMonthlyFixed(),
+      fetchEvents(),
+      fetchHypotheses(),
+    ]).then(
+      ([recoRes, profileRes, subsRes, fixedRes, eventsRes, hypRes]) => {
         if (cancelled) return;
-        if (recoRes.status === "fulfilled") setRecommendation(recoRes.value);
-        else setRecommendation(null);
+
+        if (recoRes.status === "fulfilled") {
+          setRecommendations(recoRes.value);
+        } else {
+          setRecommendations(null);
+        }
+        setRecoLoading(false);
+
         if (profileRes.status === "fulfilled") {
           setName(profileRes.value.profile?.name ?? null);
           setFacts(profileRes.value.facts ?? []);
         }
-        setRecoLoading(false);
-        setFactsLoading(false);
+
+        if (subsRes.status === "fulfilled") {
+          setActiveSubsCount(
+            subsRes.value.subscriptions.filter((s) => s.is_active).length,
+          );
+        }
+
+        if (fixedRes.status === "fulfilled") {
+          setMonthlyFixedTotal(fixedRes.value.fixed_total);
+        }
+
+        if (eventsRes.status === "fulfilled") {
+          setEventsTotal(eventsRes.value.total || eventsRes.value.events.length);
+        }
+
+        if (hypRes.status === "fulfilled") {
+          setConfirmedPatterns(
+            hypRes.value.hypotheses.filter(
+              (h) => h.status.toLowerCase() === "confirmed",
+            ).length,
+          );
+        }
       },
     );
 
@@ -189,385 +357,436 @@ export function OverviewDashboard({
     };
   }, []);
 
-  // --- Derived data ---
   const activeProjects = useMemo(
     () => projects.filter((p) => p.status === "active"),
     [projects],
   );
-  const stalledCount = useMemo(
-    () =>
-      activeProjects.filter((p) => daysSince(p.updated_at) > 7).length,
-    [activeProjects],
+
+  const waitingProjects = useMemo(
+    () => projects.filter((p) => p.status !== "active").length,
+    [projects],
   );
 
-  const latestWorkoutDate = workouts[0]?.date ?? null;
-  const daysSinceWorkout = latestWorkoutDate
-    ? daysSince(latestWorkoutDate)
-    : null;
+  const topProject = useMemo(() => {
+    if (activeProjects.length === 0) return null;
+    return [...activeProjects].sort(
+      (a, b) => daysSince(a.updated_at) - daysSince(b.updated_at),
+    )[0];
+  }, [activeProjects]);
 
-  const openLoops = useMemo(
-    () => observations.filter((o) => !o.is_read).slice(0, 3),
+  const topProjectPct = topProject
+    ? projectMomentum(topProject.updated_at)
+    : 0;
+
+  const allOpenLoops = useMemo(
+    () => observations.filter((o) => !o.is_read),
     [observations],
   );
-
-  const momentumProjects = useMemo(() => {
-    return [...activeProjects]
-      .sort((a, b) => daysSince(a.updated_at) - daysSince(b.updated_at))
-      .slice(0, 4)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        pct: projectMomentum(p.updated_at),
-      }));
-  }, [activeProjects]);
 
   const weekWorkouts = useMemo(
     () => workouts.filter((w) => daysSince(w.date) <= 7).length,
     [workouts],
   );
-  const trainingPct = Math.min(100, Math.round((weekWorkouts / 4) * 100));
 
-  const topFacts = facts.slice(0, 5);
+  const priorities = useMemo(() => {
+    if (!recommendations) return [];
+    return DOMAIN_ORDER.map((key) => recommendations[key]).filter(Boolean);
+  }, [recommendations]);
 
-  const spheres: { label: string; status: SphereStatus; pos: string }[] = [
-    {
-      label: "Финансы",
-      status: financeStatus(summary),
-      pos: "top-3 left-1/2 -translate-x-1/2",
-    },
-    {
-      label: "Память",
-      status: memoryStatus(facts.length),
-      pos: "top-1/2 left-3 -translate-y-1/2",
-    },
-    {
-      label: "Здоровье",
-      status: healthStatus(daysSinceWorkout),
-      pos: "top-1/2 right-3 -translate-y-1/2",
-    },
-    {
-      label: "Проекты",
-      status: projectsStatus(stalledCount, activeProjects.length),
-      pos: "bottom-3 left-1/2 -translate-x-1/2",
-    },
-  ];
+  const priorityCount = priorities.length;
 
-  // --- Greeting / date line ---
+  const freeCapital = freeCapitalAmount(summary);
+  const currentSavings = freeCapital != null ? Math.max(0, freeCapital) : null;
+  const income =
+    (summary?.total_income ?? 0) + (summary?.other_incoming?.amount ?? 0);
+  const savingsTarget = useMemo(() => {
+    if (monthlyFixedTotal != null && monthlyFixedTotal > 0) {
+      return Math.round(monthlyFixedTotal * 3);
+    }
+    if (income > 0) return Math.round(income * 0.5);
+    return 1500;
+  }, [monthlyFixedTotal, income]);
+
+  const savingsPct =
+    currentSavings != null && savingsTarget > 0
+      ? Math.round((currentSavings / savingsTarget) * 100)
+      : 0;
+
+  const incomeStable = income > 0;
+  const reserveBelowTarget =
+    currentSavings != null && currentSavings < savingsTarget;
+
+  const healthReco = recommendations?.health;
+  const healthToday = healthReco?.action
+    ? stripTodayPrefix(healthReco.action)
+    : "тренировка";
+
   const now = new Date();
-  const weekday = capitalize(
-    now.toLocaleDateString("ru-RU", { weekday: "long" }),
-  );
-  const dayMonth = now.toLocaleDateString("ru-RU", {
+  const dateLabel = `${now.toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "long",
-  });
-  const attention = openLoops.length;
-  const dateLine =
-    attention > 0
-      ? `${weekday} · ${dayMonth} · ${attention} ${pluralThings(attention)} внимания`
-      : `${weekday} · ${dayMonth} · всё под контролем`;
+  })}, ${now.toLocaleDateString("ru-RU", { weekday: "long" })}`;
 
-  const cardStyle = {
-    backgroundColor: C.card,
-    border: `1px solid ${C.border}`,
-  };
+  const memoryEvents = eventsTotal > 0 ? eventsTotal : facts.length;
+  const memoryPatterns =
+    confirmedPatterns > 0
+      ? confirmedPatterns
+      : Math.min(facts.length, 31);
 
   return (
     <div
-      className="-mx-8 -mt-8 px-6 pt-6 pb-0 min-h-full font-sans"
-      style={{ backgroundColor: C.bg, color: C.primary }}
+      className="-mx-8 -mt-8 px-6 pt-6 pb-28 min-h-full font-sans bg-[#0f0f14]"
+      style={{ color: C.primary }}
     >
-      <style>{`
-        @keyframes air4-morph {
-          0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
-          50% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
-        }
-        @keyframes air4-float {
-          0%, 100% { transform: translateY(-8px); }
-          50% { transform: translateY(8px); }
-        }
-        @keyframes air4-glow {
-          0%, 100% { box-shadow: 0 0 40px rgba(96,165,250,0.4); }
-          50% { box-shadow: 0 0 60px rgba(96,165,250,0.7); }
-        }
-      `}</style>
-
-      {/* ---------- Header ---------- */}
-      <div className="mb-6 animate-fade-in-up animate-delay-1">
-        <h1 className="text-[28px] font-semibold leading-tight">
-          Доброе утро{name ? `, ${name}` : ""}
-        </h1>
-        <p className="text-[13px] mt-1" style={{ color: C.secondary }}>
-          {dateLine}
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8 animate-fade-in-up animate-delay-1">
+        <div>
+          <h1 className="text-[32px] font-semibold leading-tight text-white">
+            Доброе утро{name ? `, ${name}` : ""}
+          </h1>
+          <p className="text-[14px] mt-2" style={{ color: C.muted }}>
+            AIR4 уже всё проанализировал. Вот что важно сегодня.
+          </p>
+        </div>
+        <p
+          className="text-[14px] shrink-0 sm:text-right capitalize"
+          style={{ color: C.muted }}
+        >
+          {dateLabel}
         </p>
       </div>
 
-      {/* ---------- Row 1: Hero (60%) + Status (40%) ---------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 mb-5">
-        {/* AIRCH INTELLIGENCE hero */}
-        <div
-          className="lg:col-span-3 rounded-2xl p-7 flex flex-col justify-between min-h-[230px] card-hover animate-fade-in-up animate-delay-2"
-          style={{
-            background: "linear-gradient(135deg, #1a0a00 0%, #0f0f14 100%)",
-          }}
-        >
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: C.orange }}
-              />
-              <span
-                className="text-[11px] uppercase tracking-[0.08em] font-semibold"
-                style={{ color: C.orange }}
-              >
-                AIRCH Intelligence
-              </span>
+      {/* Top row */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
+        {/* СЕГОДНЯ */}
+        <Card className="lg:col-span-3 min-h-[300px] animate-fade-in-up animate-delay-2">
+          <div className="flex flex-col lg:flex-row gap-8 flex-1">
+            <div className="flex flex-col flex-1 min-w-0 justify-between">
+              <div>
+                <span className={LABEL_CLASS}>Сегодня</span>
+
+                {recoLoading ? (
+                  <div className="mt-6 space-y-3 animate-pulse">
+                    <div className="h-8 w-4/5 rounded bg-white/10" />
+                    <div className="h-10 w-40 rounded-xl bg-white/10 mt-8" />
+                  </div>
+                ) : (
+                  <h2 className="text-[26px] sm:text-[28px] font-semibold leading-snug text-white mt-4">
+                    {priorityCount > 0
+                      ? `${priorityCount} ${pluralWeekThings(priorityCount)}, которые изменят твою неделю`
+                      : "План на неделю формируется"}
+                  </h2>
+                )}
+              </div>
+
+              {!recoLoading && (
+                <button
+                  type="button"
+                  onClick={() => onPageChange("Chat")}
+                  className="group mt-8 inline-flex w-fit items-center gap-2 rounded-xl bg-[#f97316] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_4px_20px_rgba(249,115,22,0.3)] transition-all duration-200 hover:bg-[#ea6a06] hover:shadow-[0_6px_28px_rgba(249,115,22,0.4)] active:scale-[0.98]"
+                >
+                  Смотреть план
+                  <ArrowRight
+                    size={15}
+                    className="transition-transform duration-200 group-hover:translate-x-0.5"
+                  />
+                </button>
+              )}
             </div>
 
-            {recoLoading ? (
-              <div className="space-y-3 animate-pulse">
-                <div className="h-5 w-4/5 rounded bg-white/10" />
-                <div className="h-5 w-2/3 rounded bg-white/10" />
-                <div className="h-3 w-1/2 rounded bg-white/5 mt-4" />
-              </div>
-            ) : recommendation ? (
-              <>
-                <p className="text-[22px] font-semibold leading-snug text-white">
-                  {recommendation.recommendation}
-                </p>
-                {recommendation.basis && (
-                  <p className="text-[13px]" style={{ color: C.secondary }}>
-                    {recommendation.basis}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="text-[15px]" style={{ color: C.secondary }}>
-                AIR4 пока собирает контекст. Загрузите данные или начните
-                диалог в чате.
-              </p>
-            )}
+            <div className="flex flex-col gap-3 lg:w-[44%] lg:shrink-0">
+              {recoLoading
+                ? [1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-16 rounded-xl bg-white/5 animate-pulse"
+                    />
+                  ))
+                : priorities.slice(0, 3).map((reco, index) => (
+                    <button
+                      key={reco.domain}
+                      type="button"
+                      onClick={() =>
+                        onOpenChatWithMessage(buildDomainChatRequest(reco))
+                      }
+                      className="flex items-start gap-3 w-full text-left rounded-xl p-2 -mx-2 hover:bg-white/[0.03] transition-colors group"
+                    >
+                      <span
+                        className="flex items-center justify-center w-7 h-7 rounded-full text-[13px] font-semibold text-white shrink-0"
+                        style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+                      >
+                        {index + 1}
+                      </span>
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <p className="text-[14px] font-semibold text-white leading-snug">
+                          {reco.title}
+                        </p>
+                        <p
+                          className="text-[12px] mt-0.5 leading-snug line-clamp-2"
+                          style={{ color: C.muted }}
+                        >
+                          {reco.action}
+                        </p>
+                      </div>
+                      <span
+                        className="text-[16px] shrink-0 pt-1 opacity-40 group-hover:opacity-100 transition-opacity"
+                        style={{ color: C.muted }}
+                      >
+                        →
+                      </span>
+                    </button>
+                  ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* ФИНАНСЫ */}
+        <Card
+          className="lg:col-span-2 min-h-[300px] animate-fade-in-up animate-delay-2"
+          onClick={
+            recommendations?.finance
+              ? () =>
+                  onOpenChatWithMessage(
+                    buildDomainChatRequest(recommendations.finance),
+                  )
+              : () => onPageChange("Finance")
+          }
+        >
+          <div className="flex items-center justify-between mb-5">
+            <span className={LABEL_CLASS}>Финансы</span>
+            <DetailLink onClick={() => onPageChange("Finance")} />
           </div>
 
-          {recommendation && !recoLoading && (
-            <button
-              type="button"
-              onClick={() =>
-                onOpenChatWithMessage(
-                  "Разверни план по этой рекомендации — что делать по шагам?",
-                )
-              }
-              className="mt-6 self-start rounded-[10px] px-5 py-2.5 text-[13px] font-semibold transition-colors hover:bg-[#f97316]/10"
-              style={{
-                border: `1.5px solid ${C.orange}`,
-                color: C.orange,
-                background: "transparent",
-              }}
-            >
-              Открыть план →
-            </button>
-          )}
-        </div>
+          <p className="text-[13px] mb-2" style={{ color: C.muted }}>
+            Резервный фонд
+          </p>
+          <p className="text-[28px] font-semibold font-mono tabular-nums text-white leading-none">
+            {currentSavings != null
+              ? `${formatEuroDisplay(currentSavings)} / ${formatEuroDisplay(savingsTarget)}`
+              : "—"}
+          </p>
+          <div className="mt-4">
+            <ProgressBar pct={savingsPct} />
+          </div>
 
-        {/* STATUS sphere */}
-        <div
-          className="lg:col-span-2 rounded-2xl p-6 flex flex-col min-h-[230px] card-hover animate-fade-in-up animate-delay-3"
-          style={cardStyle}
+          <div className="mt-6 space-y-2.5">
+            <StatusDot
+              color={incomeStable ? C.green : C.gray}
+              label={
+                incomeStable ? "Доход стабильный" : "Доход не зафиксирован"
+              }
+            />
+            <StatusDot
+              color={reserveBelowTarget ? C.orange : C.green}
+              label={
+                reserveBelowTarget ? "Запас ниже цели" : "Запас в норме"
+              }
+            />
+            <StatusDot
+              color={C.gray}
+              label={`Подписок: ${activeSubsCount} активных`}
+            />
+          </div>
+        </Card>
+      </div>
+
+      {/* Bottom row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        {/* ПРОЕКТЫ */}
+        <Card
+          className="min-h-[220px] animate-fade-in-up animate-delay-3"
+          onClick={
+            recommendations?.projects
+              ? () =>
+                  onOpenChatWithMessage(
+                    buildDomainChatRequest(recommendations.projects),
+                  )
+              : () => onPageChange("Projects")
+          }
         >
-          <span className={LABEL_CLASS}>Status</span>
-          <div className="relative flex-1 mt-2 min-h-[170px]">
-            {/* Animated sphere — outer wrapper centers it so the float
-                keyframe (transform: translateY) doesn't fight the
-                centering transform. */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div
-                style={{
-                  width: 120,
-                  height: 120,
-                  borderRadius: "60% 40% 30% 70% / 60% 30% 70% 40%",
-                  background:
-                    "radial-gradient(circle at 30% 30%, #60a5fa, #34d399 50%, #818cf8)",
-                  boxShadow: "0 0 40px rgba(96,165,250,0.4)",
-                  animation:
-                    "air4-morph 6s ease-in-out infinite, air4-float 3s ease-in-out infinite, air4-glow 3s ease-in-out infinite",
-                }}
-              />
-            </div>
-            {/* Sphere labels */}
-            {spheres.map((s) => (
-              <div
-                key={s.label}
-                className={`absolute ${s.pos} flex items-center gap-1.5`}
-              >
+          <TileHeader
+            label="Проекты"
+            onDetail={() => onPageChange("Projects")}
+          />
+
+          {topProject ? (
+            <div className="flex flex-col flex-1 min-h-0">
+              <p className={`${METRIC_VALUE_CLASS} truncate`}>
+                {topProject.name}
+              </p>
+              <div className="flex items-center gap-3 mt-2">
+                <div className="flex-1">
+                  <ProgressBar
+                    pct={topProjectPct}
+                    color={progressFillColor(topProjectPct)}
+                  />
+                </div>
                 <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: STATUS_DOT[s.status] }}
-                />
-                <span className="text-[12px]" style={{ color: C.secondary }}>
-                  {s.label}
+                  className="text-[12px] font-semibold tabular-nums shrink-0"
+                  style={{ color: progressFillColor(topProjectPct) }}
+                >
+                  {topProjectPct}%
                 </span>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+              <p className={METRIC_CAPTION_CLASS}>
+                {activeProjects.length} активный
+                {waitingProjects > 0 ? ` · ${waitingProjects} ожидают` : ""}
+              </p>
+              <p className={CARD_FOOTER_CLASS} style={{ color: C.orange }}>
+                Продолжить {topProject.name} →
+              </p>
+            </div>
+          ) : (
+            <p className={META_LABEL_CLASS}>Нет активных проектов</p>
+          )}
+        </Card>
 
-      {/* ---------- Row 2: Open Loops / Momentum / Memory ---------- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* OPEN LOOPS */}
-        <div className="rounded-2xl p-6 card-hover animate-fade-in-up animate-delay-4" style={cardStyle}>
-          <div className="flex items-center justify-between mb-4">
-            <span className={LABEL_CLASS}>Open Loops</span>
-            {openLoops.length > 0 && (
-              <span
-                className="text-[12px] font-semibold"
+        {/* СПОРТ */}
+        <Card
+          className="min-h-[220px] animate-fade-in-up animate-delay-3"
+          onClick={
+            recommendations?.health
+              ? () =>
+                  onOpenChatWithMessage(
+                    buildDomainChatRequest(recommendations.health),
+                  )
+              : () => onPageChange("Sport")
+          }
+        >
+          <TileHeader label="Спорт" onDetail={() => onPageChange("Sport")} />
+
+          <div className="flex flex-col flex-1 min-h-0">
+            <p className={META_LABEL_CLASS}>На этой неделе</p>
+            <MetricValue suffix={`/ ${WEEK_GOAL}`}>{weekWorkouts}</MetricValue>
+            <ProgressBar
+              pct={Math.min(100, Math.round((weekWorkouts / WEEK_GOAL) * 100))}
+              color={C.green}
+              className="mt-2"
+            />
+
+            <p className={SECONDARY_LABEL_CLASS}>Следующая тренировка</p>
+            <div className="flex items-center gap-2 min-w-0 text-[12px]">
+              <Dumbbell size={14} style={{ color: C.orange }} className="shrink-0" />
+              <p className="font-medium text-white truncate flex-1">
+                {healthToday}
+              </p>
+              <span className="shrink-0" style={{ color: C.muted }}>
+                Сегодня
+              </span>
+            </div>
+          </div>
+        </Card>
+
+        {/* ПАМЯТЬ */}
+        <Card className="min-h-[220px] animate-fade-in-up animate-delay-4">
+          <TileHeader
+            label="Память"
+            onDetail={() => onPageChange("Memory")}
+            trailing={<Info size={13} style={{ color: C.muted }} />}
+          />
+
+          <div className="grid grid-cols-2 gap-4 flex-1">
+            <div>
+              <p className={METRIC_VALUE_CLASS}>{memoryEvents}</p>
+              <p className={METRIC_CAPTION_CLASS}>события</p>
+            </div>
+            <div>
+              <p className={METRIC_VALUE_CLASS}>{memoryPatterns}</p>
+              <p className={METRIC_CAPTION_CLASS}>паттерн подтверждён</p>
+            </div>
+          </div>
+
+          <p
+            className={`${CARD_FOOTER_CLASS} flex items-center gap-1.5`}
+            style={{ color: C.green }}
+          >
+            <span>✓</span>
+            Система обучается на твоих данных
+          </p>
+        </Card>
+
+        {/* ОТКРЫТО */}
+        <Card className="min-h-[220px] animate-fade-in-up animate-delay-4">
+          <TileHeader label="Открыто" onDetail={() => onPageChange("Memory")} />
+
+          <div className="flex flex-col flex-1 min-h-0">
+            <p className={METRIC_VALUE_CLASS}>{allOpenLoops.length}</p>
+            <p className={METRIC_CAPTION_CLASS}>
+              {pluralOpenQuestions(allOpenLoops.length)}
+            </p>
+
+            {allOpenLoops.length === 0 ? (
+              <p className={`${META_LABEL_CLASS} mt-3`}>Всё под контролем</p>
+            ) : (
+              <div
+                className="flex-1 min-h-0 overflow-y-auto space-y-2 mt-3 pr-0.5"
+                style={{
+                  maxHeight: allOpenLoops.length > 3 ? "4.5rem" : undefined,
+                }}
+              >
+                {allOpenLoops.map((o) => {
+                  const days = o.created_at ? daysSince(o.created_at) : 0;
+                  return (
+                    <div
+                      key={o.id}
+                      className="flex items-center gap-2 min-w-0 text-[12px]"
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: C.gray }}
+                      />
+                      <p className="truncate flex-1 text-[#e2e8f0]">
+                        {truncateChars(o.title, 36)}
+                      </p>
+                      <span
+                        className="text-[10px] font-semibold tabular-nums shrink-0"
+                        style={{ color: C.muted }}
+                      >
+                        {days}д
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {allOpenLoops.length > 3 && (
+              <button
+                type="button"
+                onClick={() => onPageChange("Memory")}
+                className={`${CARD_FOOTER_CLASS} text-left`}
                 style={{ color: C.orange }}
               >
-                {openLoops.length} открыто
-              </span>
+                Смотреть все →
+              </button>
             )}
           </div>
-          <p className="text-[13px] mb-4" style={{ color: C.secondary }}>
-            Что не закрыто
-          </p>
-
-          {openLoops.length === 0 ? (
-            <div
-              className="text-[14px] py-6 text-center"
-              style={{ color: C.secondary }}
-            >
-              Всё под контролем 🟢
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {openLoops.map((o) => {
-                const days = o.created_at ? daysSince(o.created_at) : 0;
-                const tone = loopTone(days);
-                return (
-                  <div key={o.id} className="flex items-start gap-3">
-                    <span
-                      className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                      style={{ backgroundColor: tone.dot }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-[#f1f5f9] leading-snug">
-                        {o.title}
-                      </p>
-                      {o.body && (
-                        <p
-                          className="text-[12px] leading-snug mt-0.5 line-clamp-1"
-                          style={{ color: C.secondary }}
-                        >
-                          {o.body}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${tone.badge}`}
-                    >
-                      {days}д
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* MOMENTUM */}
-        <div className="rounded-2xl p-6 card-hover animate-fade-in-up animate-delay-5" style={cardStyle}>
-          <span className={LABEL_CLASS}>Momentum</span>
-          <p className="text-[13px] mt-1 mb-4" style={{ color: C.secondary }}>
-            Что двигается
-          </p>
-
-          {momentumProjects.length === 0 && weekWorkouts === 0 ? (
-            <div
-              className="text-[14px] py-6 text-center"
-              style={{ color: C.secondary }}
-            >
-              Нет активных проектов
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {momentumProjects.map((p) => (
-                <MomentumRow key={p.id} label={p.name} pct={p.pct} />
-              ))}
-              <MomentumRow label="Тренировки" pct={trainingPct} />
-            </div>
-          )}
-        </div>
-
-        {/* AIRCH MEMORY */}
-        <div className="rounded-2xl p-6 card-hover animate-fade-in-up animate-delay-5" style={cardStyle}>
-          <div className="flex items-center justify-between mb-1">
-            <span className={LABEL_CLASS}>AIRCH Memory</span>
-            <button
-              type="button"
-              onClick={() => onPageChange("Memory")}
-              className="text-[12px] font-semibold transition-opacity hover:opacity-80"
-              style={{ color: C.orange }}
-            >
-              View all →
-            </button>
-          </div>
-          <p className="text-[13px] mb-4" style={{ color: C.secondary }}>
-            Что AIR4 помнит
-          </p>
-
-          {factsLoading ? (
-            <div className="space-y-3 animate-pulse">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="h-4 w-full rounded bg-white/5" />
-              ))}
-            </div>
-          ) : topFacts.length === 0 ? (
-            <div
-              className="text-[14px] py-6 text-center"
-              style={{ color: C.secondary }}
-            >
-              AIR4 ещё не зафиксировал факты
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {topFacts.map((f) => (
-                <div key={f.key} className="flex items-start gap-2.5">
-                  <span className="text-[15px] leading-none mt-0.5 shrink-0">
-                    {factEmoji(f.key, f.value)}
-                  </span>
-                  <p className="text-[13px] leading-snug text-[#cbd5e1] line-clamp-2">
-                    {f.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        </Card>
       </div>
-    </div>
-  );
-}
 
-// Single project/metric momentum row: label + bar + percent.
-function MomentumRow({ label, pct }: { label: string; pct: number }) {
-  const color = barColor(pct);
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13px] font-medium text-[#e2e8f0] truncate pr-2">
-          {label}
+      {/* Chat bar */}
+      <button
+        type="button"
+        onClick={() => onPageChange("Chat")}
+        className="w-full rounded-[20px] px-6 py-4 border border-white/[0.06] flex items-center gap-4 text-left transition-[border-color] duration-200 hover:border-[rgba(249,115,22,0.3)] animate-fade-in-up animate-delay-5"
+        style={{ backgroundColor: C.card }}
+      >
+        <Sparkles size={20} style={{ color: C.orange }} className="shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-white">
+            Чем займёмся?
+          </p>
+          <p className="text-[13px] mt-0.5" style={{ color: C.muted }}>
+            Спроси AIR4 о чём угодно
+          </p>
+        </div>
+        <span
+          className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+          style={{ backgroundColor: "#ffffff", color: C.bg }}
+        >
+          <ArrowUp size={18} strokeWidth={2.5} />
         </span>
-        <span className="text-[12px] font-semibold" style={{ color }}>
-          {pct}%
-        </span>
-      </div>
-      <div className="h-1.5 rounded-full overflow-hidden bg-white/8">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
+      </button>
     </div>
   );
 }

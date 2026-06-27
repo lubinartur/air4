@@ -1,11 +1,23 @@
 import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
-import { Send, ArrowLeft, Paperclip, X } from "lucide-react";
+import { ArrowLeft, ArrowUp, Paperclip, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "../lib/utils";
 import ReactMarkdown from "react-markdown";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
 import type { Message, MessageAttachment, Page } from "../types";
-import { fetchChatHistory, streamChat } from "../lib/api";
+import {
+  fetchChatHistory,
+  streamChat,
+  type BodyMetric,
+  type ChatAgent,
+  type ChatLaunchRequest,
+  type ChatResponseMeta,
+  type Dilemma,
+  type Project,
+  type Summary,
+  type UserFact,
+  type Workout,
+} from "../lib/api";
 import {
   ATTACHMENT_ACCEPT,
   describeAttachmentError,
@@ -16,15 +28,6 @@ import {
 import { MessageAttachmentView } from "./MessageAttachmentView";
 import { EnergyStateDropdown } from "./EnergyStateDropdown";
 import { PAGE_LABELS } from "../constants";
-import type {
-  Summary,
-  Project,
-  BodyMetric,
-  Workout,
-  Dilemma,
-  UserFact,
-  ChatResponseMeta,
-} from "../lib/api";
 
 interface FullscreenChatProps {
   onBack: () => void;
@@ -36,6 +39,8 @@ interface FullscreenChatProps {
   dilemmas?: Dilemma[];
   facts?: UserFact[];
   onMessageSent?: (meta?: ChatResponseMeta) => void;
+  pendingChatRequest?: ChatLaunchRequest | null;
+  onPendingChatRequestConsumed?: () => void;
 }
 
 type ContextPill = {
@@ -98,11 +103,17 @@ export function FullscreenChat({
   dilemmas = [],
   facts = [],
   onMessageSent,
+  pendingChatRequest,
+  onPendingChatRequestConsumed,
 }: FullscreenChatProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
+  const [sessionAgent, setSessionAgent] = useState<ChatAgent | undefined>();
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const sendMessageRef = useRef<
+    (text: string, options?: { agent?: ChatAgent }) => Promise<void>
+  >(() => Promise.resolve());
   // Text of the Morning Brief message (if shown), so we can render a
   // "Доброе утро" label above that specific assistant bubble.
   const [morningBriefText, setMorningBriefText] = useState<string | null>(null);
@@ -224,34 +235,34 @@ export function FullscreenChat({
     }
   }, [messages]);
 
-  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setAttachmentError(null);
-    const result = await readFileAsAttachment(file);
-    if (result.attachment) {
-      setAttachment(result.attachment);
-    } else if (result.error) {
-      setAttachmentError(describeAttachmentError(result.error));
+  useEffect(() => {
+    if (!pendingChatRequest) return;
+    const { message, agent, autoSend } = pendingChatRequest;
+    onPendingChatRequestConsumed?.();
+    if (agent) setSessionAgent(agent);
+    if (autoSend) {
+      void sendMessageRef.current(message, { agent });
+      return;
     }
-  };
+    setInput(message);
+  }, [pendingChatRequest, onPendingChatRequestConsumed]);
 
-  const handleClearAttachment = () => {
-    setAttachment(null);
-    setAttachmentError(null);
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() && !attachment) return;
-    const text = input.trim();
+  const sendMessage = async (
+    text: string,
+    options?: { agent?: ChatAgent },
+  ) => {
     const outgoingAttachment = attachment;
+    if (!text.trim() && !outgoingAttachment) return;
+
+    const activeAgent = options?.agent ?? sessionAgent;
+    if (options?.agent) setSessionAgent(options.agent);
+
     const historyBeforeAssistant = messages;
     setMessages((prev) => [
       ...prev,
       {
         role: "user",
-        content: text,
+        content: text.trim(),
         attachment: outgoingAttachment ?? undefined,
       },
       { role: "assistant", content: "", chunks: [], isStreaming: true },
@@ -276,10 +287,10 @@ export function FullscreenChat({
     try {
       await streamChat(
         {
-          message: text,
-          // Backend appends `message` as the current user turn, so the
-          // history we send must NOT already include it.
+          message: text.trim(),
           history: historyBeforeAssistant,
+          surface: activeAgent ? "dialogue" : undefined,
+          agent: activeAgent,
           ...(outgoingAttachment
             ? {
                 file_data: outgoingAttachment.data,
@@ -333,7 +344,7 @@ export function FullscreenChat({
         }));
       }
 
-      onMessageSent?.({ recurring_updated: meta?.recurring_updated });
+      onMessageSent?.(meta);
     } catch {
       setMessages((prev) => {
         const last = prev[prev.length - 1];
@@ -350,196 +361,212 @@ export function FullscreenChat({
     }
   };
 
+  sendMessageRef.current = sendMessage;
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAttachmentError(null);
+    const result = await readFileAsAttachment(file);
+    if (result.attachment) {
+      setAttachment(result.attachment);
+    } else if (result.error) {
+      setAttachmentError(describeAttachmentError(result.error));
+    }
+  };
+
+  const handleClearAttachment = () => {
+    setAttachment(null);
+    setAttachmentError(null);
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() && !attachment) return;
+    await sendMessage(input.trim());
+  };
+
   return (
-    <div className="flex flex-col h-full bg-[#13131f] border-l border-white/[0.06] overflow-hidden">
-      <header className="px-4 md:px-8 py-3 md:py-6 bg-[#13131f] border-b border-[rgba(255,255,255,0.05)] flex items-center justify-between gap-3 shrink-0">
-        {/* Left: logo + title */}
+    <div className="flex flex-col h-full bg-[#0f0f14] overflow-hidden">
+      <header className="px-5 py-4 bg-[#13131f] border-b border-white/[0.06] flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#1e1e2e] to-black ring-1 ring-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-lg shadow-black/30">
-            <img src="/ar4-test.svg" className="w-7 h-7" />
+          <div className="w-8 h-8 flex items-center justify-center shrink-0 overflow-hidden">
+            <img src="/ar4-test.svg" alt="AIR4" className="w-full h-full object-contain" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-2xl font-black text-[#f1f5f9] tracking-tight leading-none uppercase">
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-[14px] font-bold text-white leading-none">
                 AIR4
               </h1>
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
             </div>
-            <p className="text-[10px] font-black text-[#94a3b8] uppercase tracking-[0.2em] mt-1 truncate">
-              Главный агент
-            </p>
+            <p className="text-[11px] text-[#666666] mt-0.5">AI Advisor · Online</p>
           </div>
         </div>
 
-        {/* Right: back (desktop only) + mode */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onBack}
-            className="hidden md:flex items-center gap-2 border border-white/10 text-[#94a3b8] px-5 py-2.5 rounded-[10px] font-bold text-[13px] uppercase tracking-wider bg-white/5 hover:bg-white/10 transition-all shadow-sm"
+            className="hidden md:flex items-center gap-2 border border-white/[0.08] text-[#94a3b8] px-4 py-2 rounded-full text-[12px] font-medium bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
           >
-            <ArrowLeft size={16} />
-            Назад: {PAGE_LABELS[previousPage] ?? previousPage}
+            <ArrowLeft size={14} />
+            {PAGE_LABELS[previousPage] ?? previousPage}
           </button>
           <EnergyStateDropdown />
         </div>
       </header>
 
-      <div className="flex-1 flex min-h-0">
-        <div className="flex-1 flex flex-col min-w-0 bg-[#13131f]">
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-12 py-6 md:py-10 space-y-6 md:space-y-10">
-            {messages.length === 0 ? (
-              <p className="text-[14px] text-[#9ca3af] text-center mt-20">
-                Сообщений пока нет. Начните диалог с AIR4.
-              </p>
-            ) : (
-              messages.map((msg, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={cn(
-                    "flex flex-col gap-2 max-w-[80%]",
-                    msg.role === "user" ? "ml-auto items-end" : "mr-auto items-start"
-                  )}
-                >
-                  {msg.role === "assistant" &&
-                    morningBriefText !== null &&
-                    msg.content === morningBriefText && (
-                      <span className="text-[11px] font-medium text-gray-400">
-                        Доброе утро
-                      </span>
-                    )}
-                  {msg.role === "assistant" && (
-                    <span className="text-[10px] font-black text-[#f97316] uppercase tracking-[0.2em]">
-                      AIR4
+      <div className="flex-1 flex flex-col min-h-0 bg-[#13131f]">
+        <div
+          ref={scrollRef}
+          className="air4-chat-scroll flex-1 overflow-y-auto flex flex-col gap-3 px-4 md:px-6 py-5 min-h-0"
+        >
+          {messages.length === 0 ? (
+            <p className="text-[14px] text-[#666666] text-center mt-16 self-center">
+              Сообщений пока нет. Начните диалог с AIR4.
+            </p>
+          ) : (
+            messages.map((msg, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  "flex flex-col gap-1",
+                  msg.role === "user"
+                    ? "items-end self-end"
+                    : "items-start self-start",
+                )}
+              >
+                {msg.role === "assistant" &&
+                  morningBriefText !== null &&
+                  msg.content === morningBriefText && (
+                    <span className="text-[10px] text-[#666666] px-1">
+                      Доброе утро
                     </span>
                   )}
-                  <div
-                    className={cn(
-                      "px-6 py-4 rounded-[12px] text-[15px] leading-[1.6] tracking-[-0.01em] md:leading-relaxed md:tracking-normal break-words whitespace-pre-wrap shadow-sm",
-                      msg.role === "user"
-                        ? "bg-[#252535] text-[#f1f5f9]"
-                        : "bg-[#1e1e2e] text-[#f1f5f9] border-l-[2px] border-l-[#f97316]"
-                    )}
-                  >
-                    {msg.attachment && (
-                      <MessageAttachmentView
-                        attachment={msg.attachment}
-                        size="wide"
-                        className={msg.content ? "mb-3" : undefined}
-                      />
-                    )}
-                    {msg.role === "assistant" &&
-                    msg.isStreaming &&
-                    !msg.content ? (
-                      // Nothing streamed yet — animated typing placeholder
-                      // so the bubble never appears empty.
-                      <div className="air4-typing" aria-label="AIR4 печатает">
-                        <span />
-                        <span />
-                        <span />
-                      </div>
-                    ) : msg.content ? (
-                      // Render markdown live (even mid-stream) so the text is
-                      // always formatted and never "jumps" from raw `**` /
-                      // `---` syntax to styled once streaming ends. A blinking
-                      // caret signals the reply is still being written.
+                <div
+                  className={cn(
+                    "text-[14px] leading-[1.5] break-words",
+                    msg.role === "user"
+                      ? "max-w-[75%] md:max-w-[65%] px-3.5 py-2.5 rounded-[18px] rounded-br-[4px] bg-[#f97316] text-white"
+                      : "max-w-[85%] md:max-w-[70%] px-3.5 py-2.5 rounded-[18px] rounded-bl-[4px] bg-[#1e1e2e] text-[#e5e5e5]",
+                  )}
+                >
+                  {msg.attachment && (
+                    <MessageAttachmentView
+                      attachment={msg.attachment}
+                      size="wide"
+                      className={msg.content ? "mb-2" : undefined}
+                    />
+                  )}
+                  {msg.role === "assistant" &&
+                  msg.isStreaming &&
+                  !msg.content ? (
+                    <div className="air4-typing" aria-label="AIR4 печатает">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  ) : msg.content ? (
+                    msg.role === "user" ? (
+                      <span className="whitespace-pre-wrap">{msg.content}</span>
+                    ) : (
                       <div
                         className={cn(
-                          "prose prose-invert max-w-none break-words whitespace-pre-wrap",
-                          msg.role === "assistant" &&
-                            msg.isStreaming &&
-                            "air4-streaming",
+                          "air4-chat-prose prose prose-sm md:prose-base prose-invert max-w-none break-words",
+                          msg.isStreaming && "air4-streaming",
                         )}
                       >
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        {msg.role === "assistant" && msg.isStreaming && (
+                        {msg.isStreaming && (
                           <span className="air4-caret" aria-hidden="true" />
                         )}
                       </div>
-                    ) : null}
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </div>
-
-          <div className="px-4 md:px-12 py-4 md:py-8 bg-[#13131f] border-t border-[rgba(255,255,255,0.05)]">
-            <div className="max-w-4xl mx-auto">
-              {(attachment || attachmentError) && (
-                <div className="mb-3 space-y-1.5">
-                  {attachment && (
-                    <div className="inline-flex items-center gap-2.5 max-w-full bg-[#f97316]/15 border border-[#f97316]/30 rounded-full pl-1.5 pr-3 py-1.5">
-                      {isImageAttachment(attachment) ? (
-                        <img
-                          src={`data:${attachment.media_type};base64,${attachment.data}`}
-                          alt=""
-                          className="w-7 h-7 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="w-7 h-7 rounded-full bg-[#f97316] text-white text-[10px] font-black uppercase flex items-center justify-center">
-                          PDF
-                        </span>
-                      )}
-                      <span className="text-[13px] font-semibold text-[#f97316] truncate max-w-[280px]">
-                        {attachment.name ?? "файл"}
-                      </span>
-                      <span className="text-[11px] text-[#f97316] font-mono">
-                        {formatAttachmentSize(attachment)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleClearAttachment}
-                        className="ml-1 w-6 h-6 rounded-full hover:bg-[#f97316]/10 text-[#f97316] flex items-center justify-center"
-                        aria-label="Убрать вложение"
-                        title="Убрать вложение"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )}
-                  {attachmentError && (
-                    <p className="text-[12px] text-red-500">{attachmentError}</p>
-                  )}
+                    )
+                  ) : null}
                 </div>
-              )}
-              <div className="relative group bg-[#1e1e2e] border border-white/10 rounded-[12px] focus-within:border-[#f97316] transition-colors">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={ATTACHMENT_ACCEPT}
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void handleSend();
-                  }}
-                  placeholder="Поговорите с AIR4..."
-                  className="w-full bg-transparent text-[#f1f5f9] placeholder-[#6b7280] border-0 rounded-[12px] py-3 pl-16 pr-16 text-[16px] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute left-3 top-2 bottom-2 aspect-square rounded-full bg-transparent text-[#6b7280] flex items-center justify-center hover:bg-white/5 transition-colors"
-                  aria-label="Прикрепить файл"
-                  title="Прикрепить изображение или PDF"
-                >
-                  <Paperclip size={18} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleSend()}
-                  disabled={!input.trim() && !attachment}
-                  className="absolute right-3 top-2 bottom-2 aspect-square rounded-full bg-[#f97316] text-white flex items-center justify-center hover:bg-[#ea6a06] disabled:opacity-40 transition-all shadow-md shadow-[#f97316]/20"
-                >
-                  <Send size={20} className="ml-0.5" />
-                </button>
+              </motion.div>
+            ))
+          )}
+        </div>
+
+        <div className="px-4 md:px-6 py-3 border-t border-white/[0.06] shrink-0 bg-[#13131f]">
+          <div className="max-w-3xl mx-auto w-full">
+            {(attachment || attachmentError) && (
+              <div className="mb-2 space-y-1.5">
+                {attachment && (
+                  <div className="inline-flex items-center gap-2 max-w-full bg-[#1a1a24] border border-white/[0.08] rounded-full pl-1 pr-2 py-1">
+                    {isImageAttachment(attachment) ? (
+                      <img
+                        src={`data:${attachment.media_type};base64,${attachment.data}`}
+                        alt=""
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="w-6 h-6 rounded-full bg-[#f97316] text-white text-[9px] font-black uppercase flex items-center justify-center">
+                        PDF
+                      </span>
+                    )}
+                    <span className="text-[11px] font-semibold text-[#e2e8f0] truncate max-w-[200px]">
+                      {attachment.name ?? "файл"}
+                    </span>
+                    <span className="text-[10px] text-[#666666] font-mono">
+                      {formatAttachmentSize(attachment)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleClearAttachment}
+                      className="ml-1 w-5 h-5 rounded-full hover:bg-white/10 text-[#94a3b8] flex items-center justify-center"
+                      aria-label="Убрать вложение"
+                      title="Убрать вложение"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+                {attachmentError && (
+                  <p className="text-[11px] text-red-400">{attachmentError}</p>
+                )}
               </div>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ATTACHMENT_ACCEPT}
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="shrink-0 text-[#666666] hover:text-[#f97316] transition-colors h-9 w-9 flex items-center justify-center rounded-full"
+                aria-label="Прикрепить файл"
+                title="Прикрепить изображение или PDF"
+              >
+                <Paperclip size={18} />
+              </button>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleSend();
+                }}
+                placeholder="Поговорите с AIR4..."
+                className="flex-1 min-w-0 rounded-full border border-white/[0.08] bg-white/[0.06] px-4 py-2.5 text-[14px] md:text-[15px] text-white placeholder:text-[#666666] focus:outline-none focus:border-[#f97316]/40"
+              />
+              <button
+                type="button"
+                onClick={() => void handleSend()}
+                disabled={!input.trim() && !attachment}
+                className="shrink-0 h-9 w-9 flex items-center justify-center rounded-full bg-[#f97316] text-white disabled:opacity-30 hover:brightness-110 transition-all"
+                aria-label="Отправить"
+              >
+                <ArrowUp size={18} strokeWidth={2.5} />
+              </button>
             </div>
           </div>
         </div>

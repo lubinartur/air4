@@ -57,6 +57,29 @@ CHARACTER_SYSTEM = """Ты — AIR4. Не ассистент. Не dashboard. Н
 не утверждай, что ничего не происходило. Пользователь видит свои события
 в разделе Память и легко тебя поймает на промахе."""
 
+# Shared output contract for Overview-facing LLM text (recommendation hero,
+# open-loop observations). Analytical/extraction prompts must NOT use this.
+OVERVIEW_ADVISOR_FORMAT = """\
+ОБЯЗАТЕЛЬНАЯ СТРУКТУРА (4 предложения подряд, без нумерации и заголовков):
+1. Что происходит — одно предложение-факт с цифрами когда они есть
+2. Почему это важно — одно предложение, контекст или риск
+3. Что рекомендую — одна конкретная рекомендация (решение, не перечень проблем)
+4. Одно действие сегодня — одно конкретное действие, выполнимое сегодня
+
+Правила:
+- Никогда не заканчивай только наблюдением — всегда доводи до шага
+- Будь конкретен с цифрами когда они есть в данных ("отложи 1000€", "закрой один из трёх проектов")
+- Не перечисляй проблемы — предлагай решения
+- Тон: прямой, как умный советник который видит полную картину
+- Язык: русский, обращение на "ты"
+
+Пример:
+"Резервный фонд — 500€, это меньше одного месяца обязательств. При ипотеке и двух кредитах это реальный риск если что-то пойдёт не так. Я бы в следующие 30 дней отложил ещё 1000€ — для этого достаточно сократить рестораны вдвое. Сегодня: реши конкретную сумму которую откладываешь каждый 10-го числа автоматически."
+
+Ещё пример:
+"Air4, Тартупак и SkipMar не двигались 27–52 дня одновременно — это не случайность, это распыление. Держать три незавершённых проекта дороже чем кажется: ни один не движется. Я бы сегодня выбрал один — закрыл или дал конкретный следующий шаг. Сегодня: открой каждый и за 5 минут реши — active или archive."
+"""
+
 # Paired blocks: <tag>...</tag>
 _INTERNAL_XML_BLOCKS = re.compile(
     r"<(user_profile_update|facts|fact|events|event|profile_update|metadata)\b[^>]*>"
@@ -529,6 +552,43 @@ def _format_finance_block(summary: Any) -> str:
     )
 
 
+def get_observer_context(db: Any) -> str:
+    """Today's macOS activity observer summary for the chat system prompt."""
+    from database import fetch_all  # local import to avoid circular at module load
+
+    rows = fetch_all(
+        db,
+        """
+        SELECT app_name, project_hint, duration_seconds
+        FROM observer_events
+        WHERE date(observed_at) = date('now', 'localtime')
+        ORDER BY duration_seconds DESC
+        """,
+    )
+    if not rows:
+        return ""
+
+    by_key: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        app = str(row.get("app_name") or "").strip()
+        if not app:
+            continue
+        hint = str(row.get("project_hint") or "").strip()
+        key = f"{app}:{hint}"
+        if key not in by_key:
+            by_key[key] = {"app": app, "hint": hint, "seconds": 0}
+        by_key[key]["seconds"] += int(row.get("duration_seconds") or 0)
+
+    lines = ["[НАБЛЮДЕНО СЕГОДНЯ]"]
+    for item in sorted(by_key.values(), key=lambda x: -x["seconds"]):
+        mins = item["seconds"] // 60
+        if item["hint"]:
+            lines.append(f"- {item['app']}: {item['hint']} — {mins} мин")
+        else:
+            lines.append(f"- {item['app']} — {mins} мин")
+    return "\n".join(lines)
+
+
 def build_system_context(
     *,
     summary: Any,
@@ -538,6 +598,7 @@ def build_system_context(
     workouts_context: str = "",
     health_checkups_context: str = "",
     subscriptions_context: str = "",
+    observer_context: str = "",
     current_page: str | None = None,
     relevant_events: list[dict[str, Any]] | None = None,
 ) -> str:
@@ -564,6 +625,9 @@ def build_system_context(
     health_text = (health_checkups_context or "").strip()
     if health_text:
         parts.extend(["", health_text])
+    observer_text = (observer_context or "").strip()
+    if observer_text:
+        parts.extend(["", observer_text])
     page = (current_page or "").strip()
     if page:
         parts.extend(["", f"Текущая страница UI: {page}"])

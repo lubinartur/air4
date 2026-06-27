@@ -38,6 +38,7 @@ from services.prompts import (
     get_health_checkups_context,
     get_recent_chat_history,
     get_subscriptions_context,
+    get_observer_context,
     get_workouts_context,
     history_to_messages,
     search_relevant_events,
@@ -53,6 +54,41 @@ from services.summary_loader import load_summary
 router = APIRouter()
 logger = logging.getLogger("chat")
 
+_VALID_CHAT_AGENTS = frozenset({"finance", "projects", "health"})
+
+_CHAT_AGENT_INSTRUCTIONS: dict[str, str] = {
+    "finance": (
+        "КОНТЕКСТ ДИАЛОГА — ФИНАНСЫ:\n"
+        "Пользователь пришёл разобрать финансовую ситуацию. Держи фокус на тратах, "
+        "обязательствах, подписках, резерве и решениях с цифрами. "
+        "Связывай с проектами или здоровьем только если это напрямую помогает решению."
+    ),
+    "projects": (
+        "КОНТЕКСТ ДИАЛОГА — ПРОЕКТЫ:\n"
+        "Пользователь пришёл разобрать проекты и импульс. Держи фокус на приоритетах, "
+        "застое, следующих шагах и распылении. Предлагай конкретные действия по проектам."
+    ),
+    "health": (
+        "КОНТЕКСТ ДИАЛОГА — СПОРТ И ЗДОРОВЬЕ:\n"
+        "Пользователь пришёл разобрать спорт, тренировки и энергию. Держи фокус на "
+        "режиме, восстановлении, метриках тела и устойчивых привычках."
+    ),
+}
+
+
+def _normalize_chat_agent(value: Any) -> str | None:
+    agent = str(value or "").strip().lower()
+    return agent if agent in _VALID_CHAT_AGENTS else None
+
+
+def _chat_agent_instruction(agent: str | None, surface: str | None) -> str:
+    if not agent:
+        return ""
+    base = _CHAT_AGENT_INSTRUCTIONS.get(agent, "")
+    if str(surface or "").strip().lower() == "dialogue" and base:
+        return f"{base}\nПродолжай этот диалог в выбранной сфере, пока пользователь не сменит тему."
+    return base
+
 
 def _load_context(
     conn,
@@ -61,6 +97,7 @@ def _load_context(
     dict[str, Any] | None,
     list[dict[str, Any]],
     list[dict[str, Any]],
+    str,
     str,
     str,
     str,
@@ -102,6 +139,7 @@ def _load_context(
     workouts_context = get_workouts_context(conn)
     health_checkups_context = get_health_checkups_context(conn)
     subscriptions_context = get_subscriptions_context(conn)
+    observer_context = get_observer_context(conn)
     return (
         summary,
         profile,
@@ -110,6 +148,7 @@ def _load_context(
         workouts_context,
         health_checkups_context,
         subscriptions_context,
+        observer_context,
     )
 
 
@@ -437,6 +476,7 @@ async def chat_endpoint(
             workouts_context,
             health_checkups_context,
             subscriptions_context,
+            observer_context,
         ) = _load_context(conn)
         llm_history = _build_llm_history(body.history, conn)
         # Semantic-ish recall: search the whole archive for events that
@@ -459,6 +499,7 @@ async def chat_endpoint(
         workouts_context=workouts_context,
         health_checkups_context=health_checkups_context,
         subscriptions_context=subscriptions_context,
+        observer_context=observer_context,
         current_page=body.current_page,
         relevant_events=relevant_events,
     )
@@ -468,6 +509,10 @@ async def chat_endpoint(
     mode_suffix = air4_mode_instruction(mode)
     if mode_suffix:
         system = f"{system}\n\n{mode_suffix}"
+    agent = _normalize_chat_agent(body.agent)
+    agent_suffix = _chat_agent_instruction(agent, body.surface)
+    if agent_suffix:
+        system = f"{system}\n\n{agent_suffix}"
     messages: list[dict[str, Any]] = list(llm_history)
     messages.append(_build_user_turn(message, attachment))
 

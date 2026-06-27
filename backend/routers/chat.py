@@ -42,9 +42,12 @@ from services.followup_extractor import (
     mark_sent_followups_answered,
 )
 from services.identity_extractor import extract_identity
-from services.interviewer import get_interview_question, get_pending_question
+from services.proactive_chat import (
+    generate_morning_brief,
+    generate_observer_nudge,
+    should_show_proactive_brief,
+)
 from services.llm_client import chat, chat_stream
-from services.llm_client_shared import call_claude
 from services.action_layer import (
     detect_action,
     execute_action,
@@ -54,7 +57,6 @@ from services.unified_extractor import extract_all
 from services.workout_extractor import format_workout_footer
 from services.prompts import (
     build_system_context,
-    CHAT_RESPONSE_FORMAT,
     get_health_checkups_context,
     get_recent_chat_history,
     get_subscriptions_context,
@@ -712,208 +714,83 @@ def cancel_chat_action(body: CancelActionIn) -> CancelActionOut:
     return CancelActionOut(message=message)
 
 
-# --- Morning Brief -------------------------------------------------------
-# When the user opens the app and hasn't written anything yet today, AIR4
-# speaks first with one short, concrete observation. Generated via Claude
-# Haiku and cached for an hour so repeated opens don't re-hit the LLM.
+# --- Proactive openings (morning brief + observer nudge) -----------------
 
 
 class MorningBriefOut(BaseModel):
-    should_show: bool
+    has_brief: bool
     message: str | None = None
+    should_show: bool = False
+
+
+class ObserverNudgeOut(BaseModel):
+    has_nudge: bool
+    content: str = ""
 
 
 _MORNING_BRIEF_TTL_SECONDS = 60 * 60
 _morning_brief_cache: dict[str, Any] = {}
 
-_MORNING_BRIEF_PROMPT = (
-    "Ты AIR4. Пользователь только что открыл приложение утром.\n"
-    "Напиши короткое приветствие — 2-3 предложения максимум.\n"
-    "Не 'доброе утро' и не общие слова.\n"
-    "Одна конкретная вещь которую ты заметил + один вопрос или следующий шаг.\n"
-    "Тон зависит от air4_mode: jarvis=прямой и конкретный, active=проактивный, "
-    "normal=спокойный, quiet=минимальный.\n"
-    "Данные: {context}\n\n"
-    + CHAT_RESPONSE_FORMAT
-)
-
-
-def _build_morning_context(conn) -> str:
-    """Compact snapshot for the morning brief prompt."""
-    profile = fetch_one(conn, "SELECT * FROM user_profile WHERE id = 1")
-    mode = normalize_air4_mode(profile.get("air4_mode") if profile else None)
-    name = (profile.get("name") if profile else None) or "—"
-    goals = (profile.get("goals") if profile else None) or "—"
-
-    events = fetch_all(
-        conn,
-        """
-        SELECT date, title, domain
-        FROM events
-        WHERE COALESCE(archived, 0) = 0 AND date IS NOT NULL
-        ORDER BY date DESC, datetime(created_at) DESC, id DESC
-        LIMIT 5
-        """,
-    )
-    projects = fetch_all(
-        conn,
-        """
-        SELECT name, status
-        FROM projects
-        WHERE status = 'active'
-        ORDER BY datetime(updated_at) DESC
-        LIMIT 8
-        """,
-    )
-    workout = fetch_one(
-        conn,
-        "SELECT date, type, duration FROM workouts ORDER BY date DESC, id DESC LIMIT 1",
-    )
-    summary = load_summary(conn)
-
-    lines: list[str] = [
-        f"Режим (air4_mode): {mode}",
-        f"Имя: {name}",
-        f"Цели: {goals}",
-    ]
-
-    if events:
-        ev = "; ".join(
-            f"{e.get('date')} [{e.get('domain') or '—'}] {e.get('title') or ''}".strip()
-            for e in events
-        )
-        lines.append(f"Последние события: {ev}")
-    else:
-        lines.append("Последние события: нет.")
-
-    if projects:
-        pr = "; ".join(
-            f"{p.get('name')} ({p.get('status')})" for p in projects
-        )
-        lines.append(f"Активные проекты: {pr}")
-    else:
-        lines.append("Активные проекты: нет.")
-
-    if workout:
-        last_workout_date = str(workout.get("date") or "").strip()
-        # Compute the gap in days explicitly so AIR4 doesn't have to infer
-        # "how long ago" from a raw date. Tolerant of malformed dates —
-        # falls back to just the date string if parsing fails.
-        try:
-            days_ago = (date.today() - date.fromisoformat(last_workout_date[:10])).days
-            ago_part = f"{days_ago} дней назад, "
-        except ValueError:
-            ago_part = ""
-        lines.append(
-            f"последняя тренировка: {last_workout_date} "
-            f"({ago_part}{workout.get('type') or '—'}, {workout.get('duration') or '—'} мин)"
-        )
-    else:
-        lines.append("Последняя тренировка: нет данных.")
-
-    total_spent = float(getattr(summary, "total_spent", 0) or 0)
-    total_income = float(getattr(summary, "total_income", 0) or 0)
-    other = getattr(summary, "other_incoming", None)
-    other_amt = float(getattr(other, "amount", 0) or 0) if other else 0.0
-    income = total_income + other_amt
-    if total_spent > 0 or income > 0:
-        if income > 0:
-            free_capital = income - total_spent
-            lines.append(
-                f"Финансы: потрачено €{total_spent:.2f}, свободно €{free_capital:.2f}"
-            )
-        else:
-            lines.append(f"Финансы: потрачено €{total_spent:.2f}")
-    else:
-        lines.append("Финансы: нет данных за цикл.")
-
-    return "\n".join(lines)
-
-
-async def _maybe_interview_question(conn) -> str | None:
-    """Occasionally surface an interview question inside the morning brief.
-
-    Reuses the interview service, which enforces a 3-day cooldown
-    (`COOLDOWN_DAYS`) based on the most recent `interview_answers` row —
-    so a question is only generated once the last one is older than 3
-    days. A previously generated but still-unanswered question is reused
-    instead of creating a new one. Never raises — a failure here just
-    means the brief ships without a question.
-    """
-    try:
-        pending = get_pending_question(conn)
-        if pending:
-            return pending.get("question")
-        return await get_interview_question(conn, _api_key())
-    except Exception:
-        logger.exception("morning-brief: interview question lookup failed")
-        return None
-
 
 @router.get("/chat/morning-brief", response_model=MorningBriefOut)
 async def morning_brief() -> MorningBriefOut:
-    """AIR4 speaks first if the user hasn't written anything today.
-
-    The "wrote today" check is always live (never cached) so the brief
-    stops showing the moment the user sends a message. Only the generated
-    text is cached, for an hour.
-    """
+    """Proactive opening when triggers fire and the user has been away."""
     with get_db() as conn:
-        row = fetch_one(
-            conn,
-            "SELECT COUNT(*) AS n FROM chat_messages "
-            "WHERE role = 'user' AND date(created_at) = date('now')",
-        )
-    if row and int(row.get("n") or 0) > 0:
-        return MorningBriefOut(should_show=False)
+        if not should_show_proactive_brief(conn):
+            return MorningBriefOut(has_brief=False, should_show=False)
 
-    # Date-stamped cache key: a new day automatically invalidates the
-    # previous day's brief, and an in-memory dict means a server restart
-    # drops the cache entirely.
     cache_key = f"morning_brief_{date.today()}"
     now = time.time()
     entry = _morning_brief_cache.get(cache_key)
     if entry and now < entry.get("expires_at", 0.0):
-        return MorningBriefOut(should_show=True, message=entry["message"])
-
-    # NB: the workouts/profile/etc. snapshot below is rebuilt on every
-    # cache miss — it is never cached separately.
-    with get_db() as conn:
-        context = _build_morning_context(conn)
-        interview_question = await _maybe_interview_question(conn)
-        pending_followups = get_pending_followups_for_today(conn)
-
-    prompt = _MORNING_BRIEF_PROMPT.format(context=context)
-    followup_ids: list[int] = []
-    if pending_followups:
-        prompt += f"\n\nПомни спросить: {pending_followups[0]['question']}"
-        prompt += "\nВплети этот follow-up вопрос естественно в бриф."
-        followup_ids = [int(pending_followups[0]["id"])]
-    if interview_question:
-        prompt += (
-            f"\n\nВ конце добавь один вопрос: {interview_question}\n"
-            "Вплети его естественно, не как анкету."
+        message = entry["message"]
+        return MorningBriefOut(
+            has_brief=True,
+            should_show=True,
+            message=message,
         )
+
+    api_key = _api_key()
+    if not api_key.strip():
+        return MorningBriefOut(has_brief=False, should_show=False)
+
     try:
-        message = (await call_claude(prompt, max_tokens=300)).strip()
+        with get_db() as conn:
+            pending_followups = get_pending_followups_for_today(conn)
+            message = await generate_morning_brief(conn, api_key)
+            if pending_followups and message:
+                message = (
+                    f"{message}\n\n{pending_followups[0]['question']}".strip()
+                )
+                mark_followups_sent(conn, [int(pending_followups[0]["id"])])
+            conn.commit()
     except Exception:
-        logger.exception("morning-brief: LLM call failed")
+        logger.exception("morning-brief: generation failed")
         message = ""
 
     if not message:
-        # Nothing useful to say (no key or model error) — stay silent
-        # rather than injecting an empty bubble.
-        return MorningBriefOut(should_show=False)
-
-    if followup_ids:
-        try:
-            with get_db() as conn:
-                mark_followups_sent(conn, followup_ids)
-        except Exception:
-            logger.exception("morning-brief: failed to mark followups sent")
+        return MorningBriefOut(has_brief=False, should_show=False)
 
     _morning_brief_cache[cache_key] = {
         "message": message,
         "expires_at": now + _MORNING_BRIEF_TTL_SECONDS,
     }
-    return MorningBriefOut(should_show=True, message=message)
+    return MorningBriefOut(has_brief=True, should_show=True, message=message)
+
+
+@router.get("/chat/observer-nudge", response_model=ObserverNudgeOut)
+async def observer_nudge() -> ObserverNudgeOut:
+    """Short comment when the user has been in one app for a long stretch."""
+    api_key = _api_key()
+    if not api_key.strip():
+        return ObserverNudgeOut(has_nudge=False, content="")
+
+    try:
+        with get_db() as conn:
+            has_nudge, content = await generate_observer_nudge(conn, api_key)
+            conn.commit()
+    except Exception:
+        logger.exception("observer-nudge: failed")
+        return ObserverNudgeOut(has_nudge=False, content="")
+
+    return ObserverNudgeOut(has_nudge=has_nudge, content=content or "")

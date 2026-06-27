@@ -18,6 +18,8 @@ import {
 } from "../lib/api";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
 import { CHAT_REFRESH_EVENT } from "../lib/chatEvents";
+import { recordUserMessage, syncLastUserActivityFromHistory } from "../lib/proactiveChat";
+import { useProactiveChatMessages } from "../lib/useProactiveChatMessages";
 import {
   ATTACHMENT_ACCEPT,
   describeAttachmentError,
@@ -95,12 +97,15 @@ export function ChatPanel({
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [pendingActions, setPendingActions] = useState<PendingChatAction[]>([]);
   const [pendingBusy, setPendingBusy] = useState(false);
+  const [historyReady, setHistoryReady] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sendMessageRef = useRef<
     (text: string, options?: { agent?: ChatAgent }) => Promise<void>
   >(() => Promise.resolve());
   const chatStreamRef = useRef(0);
+
+  useProactiveChatMessages(setMessages, historyReady);
 
   useEffect(() => {
     saveChatHistory(messages);
@@ -119,6 +124,7 @@ export function ChatPanel({
         content: m.content,
         attachment: m.attachment ?? undefined,
       }));
+    syncLastUserActivityFromHistory(res.messages);
     if (remote.length > 0) setMessages(remote);
     return remote;
   }, []);
@@ -127,9 +133,11 @@ export function ChatPanel({
    *  to whatever loadChatHistory() already returned from sessionStorage if
    *  the request fails or the server has no rows yet. */
   useEffect(() => {
-    void loadRemoteHistory().catch(() => {
-      /* keep sessionStorage fallback */
-    });
+    void loadRemoteHistory()
+      .catch(() => {
+        /* keep sessionStorage fallback */
+      })
+      .finally(() => setHistoryReady(true));
   }, [loadRemoteHistory]);
 
   useEffect(() => {
@@ -290,6 +298,7 @@ export function ChatPanel({
       attachment: outgoingAttachment ?? undefined,
     };
     setMessages((prev) => [...prev, userMessage]);
+    recordUserMessage();
     setInput("");
     setAttachment(null);
     setAttachmentError(null);

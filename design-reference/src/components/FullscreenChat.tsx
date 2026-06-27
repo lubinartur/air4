@@ -5,6 +5,8 @@ import { cn } from "../lib/utils";
 import ReactMarkdown, { type Components } from "react-markdown";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
 import { CHAT_REFRESH_EVENT } from "../lib/chatEvents";
+import { recordUserMessage, syncLastUserActivityFromHistory } from "../lib/proactiveChat";
+import { useProactiveChatMessages } from "../lib/useProactiveChatMessages";
 import type { Message, MessageAttachment, Page } from "../types";
 import {
   fetchChatHistory,
@@ -189,9 +191,8 @@ export function FullscreenChat({
     (text: string, options?: { agent?: ChatAgent }) => Promise<void>
   >(() => Promise.resolve());
   const chatStreamRef = useRef(0);
-  // Text of the Morning Brief message (if shown), so we can render a
-  // "Доброе утро" label above that specific assistant bubble.
-  const [morningBriefText, setMorningBriefText] = useState<string | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
+  const { morningBriefText } = useProactiveChatMessages(setMessages, historyReady);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -253,15 +254,14 @@ export function FullscreenChat({
     saveChatHistory(messages);
   }, [messages]);
 
-  // Load chat history FIRST, then request the Morning Brief and append it
-  // as the LAST message (below the history) so it isn't overwritten by the
-  // history fetch. The brief only shows when the user hasn't written today.
+  // Load chat history from the backend; proactive brief/nudge handled by hook.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const res = await fetchChatHistory(50);
         if (!cancelled) {
+          syncLastUserActivityFromHistory(res.messages);
           const remote: Message[] = res.messages
             .filter(
               (m) =>
@@ -277,28 +277,8 @@ export function FullscreenChat({
         }
       } catch {
         /* keep localStorage fallback */
-      }
-
-      try {
-        const r = await fetch("/api/chat/morning-brief");
-        const data: { should_show?: boolean; message?: string } | null = r.ok
-          ? await r.json()
-          : null;
-        if (cancelled || !data || !data.should_show || !data.message) return;
-        const briefText = data.message;
-        setMorningBriefText(briefText);
-        setMessages((prev) => {
-          if (
-            prev.some(
-              (m) => m.role === "assistant" && m.content === briefText,
-            )
-          ) {
-            return prev;
-          }
-          return [...prev, { role: "assistant", content: briefText }];
-        });
-      } catch {
-        /* brief is optional — stay silent on error */
+      } finally {
+        if (!cancelled) setHistoryReady(true);
       }
     })();
     return () => {
@@ -319,6 +299,7 @@ export function FullscreenChat({
         content: m.content,
         attachment: m.attachment ?? undefined,
       }));
+    syncLastUserActivityFromHistory(res.messages);
     if (remote.length > 0) setMessages(remote);
   }, []);
 
@@ -372,6 +353,7 @@ export function FullscreenChat({
       },
       { role: "assistant", content: "", chunks: [], isStreaming: true },
     ]);
+    recordUserMessage();
     setInput("");
     setAttachment(null);
     setAttachmentError(null);
@@ -614,7 +596,7 @@ export function FullscreenChat({
                       {morningBriefText !== null &&
                         msg.content === morningBriefText && (
                           <span className="block text-[11px] font-medium uppercase tracking-wide text-[#666666] mb-2">
-                            Доброе утро
+                            AIR4
                           </span>
                         )}
                       {msg.attachment && (

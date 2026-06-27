@@ -1512,6 +1512,35 @@ export async function submitInterviewAnswer(
   return { saved: data.saved === true };
 }
 
+export type MorningBriefResponse = {
+  has_brief: boolean;
+  message?: string | null;
+  should_show?: boolean;
+};
+
+export async function fetchMorningBrief(): Promise<MorningBriefResponse> {
+  const data = await apiFetch<MorningBriefResponse>("/api/chat/morning-brief");
+  const show = data.has_brief === true || data.should_show === true;
+  return {
+    has_brief: show,
+    should_show: show,
+    message: data.message ?? null,
+  };
+}
+
+export type ObserverNudgeResponse = {
+  has_nudge: boolean;
+  content: string;
+};
+
+export async function fetchObserverNudge(): Promise<ObserverNudgeResponse> {
+  const data = await apiFetch<ObserverNudgeResponse>("/api/chat/observer-nudge");
+  return {
+    has_nudge: data.has_nudge === true,
+    content: data.content ?? "",
+  };
+}
+
 export async function fetchHypotheses(): Promise<HypothesesResponse> {
   const data = await apiFetch<HypothesesResponse>("/api/hypotheses");
   return {

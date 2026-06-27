@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from database import fetch_all, get_meta, set_meta
+from services.test_mode import is_test_mode
 
 logger = logging.getLogger("discovery")
 
@@ -75,17 +76,22 @@ def seed_discovery_gaps(conn: Any) -> None:
 
 
 def get_open_gaps(conn: Any, limit: int = 3) -> list[dict[str, Any]]:
+    if is_test_mode():
+        recency_sql = ""
+    else:
+        recency_sql = """
+          AND (
+            last_asked IS NULL
+            OR last_asked < datetime('now', '-3 days')
+          )"""
     rows = fetch_all(
         conn,
-        """
+        f"""
         SELECT id, category, question_hint, priority, status,
                learned_value, last_asked, created_at, updated_at
         FROM discovery_gaps
         WHERE status = 'open'
-          AND (
-            last_asked IS NULL
-            OR last_asked < datetime('now', '-3 days')
-          )
+        {recency_sql}
         ORDER BY priority DESC, last_asked ASC, id ASC
         LIMIT ?
         """,

@@ -336,19 +336,13 @@ export function ChatPanel({
   sendMessageRef.current = sendMessage;
 
   const renderBubble = (msg: Message, key: string | number) => (
-    <div
-      key={key}
-      className={cn(
-        "flex flex-col gap-1",
-        msg.role === "user" ? "items-end self-end" : "items-start self-start",
-      )}
-    >
+    <div key={key} className="w-full max-w-full">
       <div
         className={cn(
           "text-[14px] leading-[1.5] break-words",
           msg.role === "user"
-            ? "max-w-[75%] px-3.5 py-2.5 rounded-[18px] rounded-br-[4px] bg-white/[0.08] text-[#e5e5e5]"
-            : "max-w-[85%] px-3.5 py-2.5 rounded-[18px] rounded-bl-[4px] bg-[#1e1e2e] text-[#e5e5e5]",
+            ? "ml-auto max-w-[70%] px-3.5 py-2.5 rounded-[18px] rounded-br-[4px] bg-white/[0.08] text-[#e5e5e5]"
+            : "mr-auto max-w-[85%] px-3.5 py-2.5 rounded-[18px] rounded-bl-[4px] bg-[#1e1e2e] text-[#e5e5e5]",
         )}
       >
         {msg.attachment && (
@@ -440,18 +434,18 @@ export function ChatPanel({
 
       <div
         ref={scrollRef}
-        className="air4-chat-scroll flex-1 overflow-y-auto flex flex-col gap-3 px-4 py-5 min-h-0"
+        className="air4-chat-scroll flex-1 min-h-0 max-w-full overflow-y-auto flex flex-col gap-3 p-4"
       >
         {interviewQuestion && (
-          <div
-            className="self-start max-w-[85%] rounded-[18px] rounded-bl-[4px] p-3.5 space-y-1.5 border border-[#f97316]/30 bg-[#1e1e2e]"
-          >
+          <div className="w-full max-w-full">
+            <div className="mr-auto max-w-[85%] rounded-[18px] rounded-bl-[4px] p-3.5 space-y-1.5 border border-[#f97316]/30 bg-[#1e1e2e]">
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#f97316]">
               AIR4 хочет узнать тебя лучше
             </p>
             <p className="text-[14px] leading-relaxed text-[#e5e5e5]">
               {interviewQuestion}
             </p>
+            </div>
           </div>
         )}
         {messages.map((msg, i) => renderBubble(msg, i))}

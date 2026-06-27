@@ -35,6 +35,7 @@ from services.unified_extractor import extract_all
 from services.workout_extractor import format_workout_footer
 from services.prompts import (
     build_system_context,
+    CHAT_RESPONSE_FORMAT,
     get_health_checkups_context,
     get_recent_chat_history,
     get_subscriptions_context,
@@ -714,7 +715,8 @@ _MORNING_BRIEF_PROMPT = (
     "Одна конкретная вещь которую ты заметил + один вопрос или следующий шаг.\n"
     "Тон зависит от air4_mode: jarvis=прямой и конкретный, active=проактивный, "
     "normal=спокойный, quiet=минимальный.\n"
-    "Данные: {context}"
+    "Данные: {context}\n\n"
+    + CHAT_RESPONSE_FORMAT
 )
 
 

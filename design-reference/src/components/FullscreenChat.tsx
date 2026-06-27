@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
 import { ArrowLeft, ArrowUp, Paperclip, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "../lib/utils";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
 import type { Message, MessageAttachment, Page } from "../types";
 import {
@@ -91,6 +91,73 @@ function truncate(text: string, max: number): string {
 
 function firstWords(text: string, n: number): string {
   return text.trim().split(/\s+/).slice(0, n).join(" ");
+}
+
+/** Premium fullscreen assistant markdown — Claude/ChatGPT style. */
+const fullscreenMarkdownComponents: Components = {
+  hr: () => null,
+  p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
+  strong: ({ children }) => (
+    <strong className="font-semibold">{children}</strong>
+  ),
+  em: ({ children }) => <em>{children}</em>,
+  a: ({ children, href }) => (
+    <a
+      href={href}
+      className="text-[#f97316] no-underline hover:opacity-90"
+      target="_blank"
+      rel="noreferrer"
+    >
+      {children}
+    </a>
+  ),
+  h1: ({ children }) => (
+    <p className="mb-4 font-semibold text-[#e5e5e5]">{children}</p>
+  ),
+  h2: ({ children }) => (
+    <p className="mb-4 font-semibold text-[#e5e5e5]">{children}</p>
+  ),
+  h3: ({ children }) => (
+    <p className="mb-3 font-semibold text-[#e5e5e5]">{children}</p>
+  ),
+  ul: ({ children }) => (
+    <ul className="mb-4 last:mb-0 list-disc pl-5 space-y-1.5">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-4 last:mb-0 list-decimal pl-5 space-y-1.5">{children}</ol>
+  ),
+  li: ({ children }) => <li className="leading-[1.7]">{children}</li>,
+  pre: ({ children }) => (
+    <pre className="mb-4 last:mb-0 rounded-lg bg-[#0f0f14] p-3 overflow-x-auto font-mono text-[13px] leading-relaxed">
+      {children}
+    </pre>
+  ),
+  code: ({ className, children, ...props }) => {
+    const isBlock = /language-/.test(className ?? "");
+    if (isBlock) {
+      return (
+        <code className={cn(className, "font-mono text-[13px]")} {...props}>
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code
+        className="bg-white/[0.08] px-1.5 py-0.5 rounded font-mono text-[0.9em]"
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  },
+};
+
+function messageTopSpacing(index: number, messages: Message[]): string {
+  if (index === 0) return "";
+  const prev = messages[index - 1];
+  const curr = messages[index];
+  if (curr.role === "user" && prev.role === "assistant") return "mt-8";
+  return "mt-6";
 }
 
 export function FullscreenChat({
@@ -420,80 +487,80 @@ export function FullscreenChat({
       <div className="flex-1 flex flex-col min-h-0 bg-[#13131f]">
         <div
           ref={scrollRef}
-          className="air4-chat-scroll flex-1 overflow-y-auto flex flex-col gap-3 px-4 md:px-6 py-5 min-h-0"
+          className="air4-chat-scroll flex-1 min-h-0 w-full overflow-y-auto"
         >
-          {messages.length === 0 ? (
-            <p className="text-[14px] text-[#666666] text-center mt-16 self-center">
-              Сообщений пока нет. Начните диалог с AIR4.
-            </p>
-          ) : (
-            messages.map((msg, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={cn(
-                  "flex flex-col gap-1",
-                  msg.role === "user"
-                    ? "items-end self-end"
-                    : "items-start self-start",
-                )}
-              >
-                {msg.role === "assistant" &&
-                  morningBriefText !== null &&
-                  msg.content === morningBriefText && (
-                    <span className="text-[10px] text-[#666666] px-1">
-                      Доброе утро
-                    </span>
-                  )}
-                <div
-                  className={cn(
-                    "text-[14px] leading-[1.5] break-words",
-                    msg.role === "user"
-                      ? "max-w-[75%] md:max-w-[65%] px-3.5 py-2.5 rounded-[18px] rounded-br-[4px] bg-[#f97316] text-white"
-                      : "max-w-[85%] md:max-w-[70%] px-3.5 py-2.5 rounded-[18px] rounded-bl-[4px] bg-[#1e1e2e] text-[#e5e5e5]",
-                  )}
+          <div className="w-full max-w-[720px] mx-auto px-6 py-8 flex flex-col">
+            {messages.length === 0 ? (
+              <p className="text-[14px] text-[#666666] text-center mt-16">
+                Сообщений пока нет. Начните диалог с AIR4.
+              </p>
+            ) : (
+              messages.map((msg, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn("w-full", messageTopSpacing(i, messages))}
                 >
-                  {msg.attachment && (
-                    <MessageAttachmentView
-                      attachment={msg.attachment}
-                      size="wide"
-                      className={msg.content ? "mb-2" : undefined}
-                    />
-                  )}
-                  {msg.role === "assistant" &&
-                  msg.isStreaming &&
-                  !msg.content ? (
-                    <div className="air4-typing" aria-label="AIR4 печатает">
-                      <span />
-                      <span />
-                      <span />
+                  {msg.role === "user" ? (
+                    <div className="ml-auto max-w-[60%] rounded-[18px] rounded-br-[4px] border border-white/[0.08] bg-[#1e1e2e] px-4 py-3 text-[14px] leading-[1.5] text-[#f0f0f0] break-words">
+                      {msg.attachment && (
+                        <MessageAttachmentView
+                          attachment={msg.attachment}
+                          size="wide"
+                          className={msg.content ? "mb-2" : undefined}
+                        />
+                      )}
+                      {msg.content ? (
+                        <span className="whitespace-pre-wrap">{msg.content}</span>
+                      ) : null}
                     </div>
-                  ) : msg.content ? (
-                    msg.role === "user" ? (
-                      <span className="whitespace-pre-wrap">{msg.content}</span>
-                    ) : (
-                      <div
-                        className={cn(
-                          "air4-chat-prose prose prose-sm md:prose-base prose-invert max-w-none break-words",
-                          msg.isStreaming && "air4-streaming",
+                  ) : (
+                    <div className="w-full text-[15px] leading-[1.7] text-[#e5e5e5] break-words">
+                      {morningBriefText !== null &&
+                        msg.content === morningBriefText && (
+                          <span className="block text-[11px] font-medium uppercase tracking-wide text-[#666666] mb-2">
+                            Доброе утро
+                          </span>
                         )}
-                      >
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        {msg.isStreaming && (
-                          <span className="air4-caret" aria-hidden="true" />
-                        )}
-                      </div>
-                    )
-                  ) : null}
-                </div>
-              </motion.div>
-            ))
-          )}
+                      {msg.attachment && (
+                        <MessageAttachmentView
+                          attachment={msg.attachment}
+                          size="wide"
+                          className={msg.content ? "mb-3" : undefined}
+                        />
+                      )}
+                      {msg.isStreaming && !msg.content ? (
+                        <div className="air4-typing" aria-label="AIR4 печатает">
+                          <span />
+                          <span />
+                          <span />
+                        </div>
+                      ) : msg.content ? (
+                        <div
+                          className={cn(
+                            "air4-chat-fullscreen-md break-words [&_*]:no-underline",
+                            msg.isStreaming && "air4-streaming",
+                          )}
+                        >
+                          <ReactMarkdown components={fullscreenMarkdownComponents}>
+                            {msg.content}
+                          </ReactMarkdown>
+                          {msg.isStreaming && (
+                            <span className="air4-caret" aria-hidden="true" />
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </motion.div>
+              ))
+            )}
+          </div>
         </div>
 
-        <div className="px-4 md:px-6 py-3 border-t border-white/[0.06] shrink-0 bg-[#13131f]">
-          <div className="max-w-3xl mx-auto w-full">
+        <div className="px-6 py-3 border-t border-white/[0.06] shrink-0 bg-[#13131f]">
+          <div className="max-w-[720px] mx-auto w-full">
             {(attachment || attachmentError) && (
               <div className="mb-2 space-y-1.5">
                 {attachment && (

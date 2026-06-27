@@ -102,6 +102,7 @@ def save_event(
 ) -> None:
     print(f"👁 Saving: {app} | {window} | {duration}s | {domain}")
     project_hint = extract_project_hint(app, window)
+    observed_at = datetime.now().isoformat()
     conn = sqlite3.connect(db_path)
     conn.execute(
         """
@@ -116,7 +117,7 @@ def save_event(
             duration,
             domain,
             project_hint,
-            datetime.now().isoformat(),
+            observed_at,
         ),
     )
     conn.commit()

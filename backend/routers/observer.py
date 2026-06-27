@@ -79,9 +79,10 @@ def observer_today() -> dict[str, Any]:
             SELECT id, app_name, window_title, duration_seconds, domain,
                    project_hint, observed_at
             FROM observer_events
-            WHERE date(observed_at) = date('now', 'localtime')
+            WHERE date(observed_at) = ?
             ORDER BY observed_at DESC
             """,
+            (today_str,),
         )
 
     events = [_row_to_event(r) for r in rows]

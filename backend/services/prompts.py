@@ -594,16 +594,20 @@ def _format_finance_block(summary: Any) -> str:
 
 def get_observer_context(db: Any) -> str:
     """Today's macOS activity observer summary for the chat system prompt."""
+    from datetime import date
+
     from database import fetch_all  # local import to avoid circular at module load
 
+    today_str = date.today().isoformat()
     rows = fetch_all(
         db,
         """
         SELECT app_name, project_hint, duration_seconds
         FROM observer_events
-        WHERE date(observed_at) = date('now', 'localtime')
+        WHERE date(observed_at) = ?
         ORDER BY duration_seconds DESC
         """,
+        (today_str,),
     )
     if not rows:
         return ""

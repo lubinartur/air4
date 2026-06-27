@@ -41,9 +41,20 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h}ч ${m}мин` : `${h}ч`;
 }
 
+function localDateKey(value: Date | string): string {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) {
+    return (typeof value === "string" ? value : "").slice(0, 10) || "unknown";
+  }
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function formatDateLabel(isoDate: string): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const today = localDateKey(new Date());
+  const yesterday = localDateKey(new Date(Date.now() - 86400000));
   if (isoDate === today) return "Сегодня";
   if (isoDate === yesterday) return "Вчера";
   const [y, m, d] = isoDate.split("-");
@@ -54,7 +65,8 @@ function groupLogByDay(events: ObserverEvent[]): { date: string; minutes: number
   const byDay = new Map<string, number>();
   for (const e of events) {
     const raw = e.observed_at || "";
-    const date = raw.slice(0, 10) || "unknown";
+    if (!raw) continue;
+    const date = localDateKey(raw);
     byDay.set(date, (byDay.get(date) ?? 0) + Math.floor(e.duration_seconds / 60));
   }
   return [...byDay.entries()]
@@ -160,7 +172,10 @@ export function ObserverPage() {
       }));
   }, [today]);
 
-  const historyByDay = useMemo(() => groupLogByDay(history), [history]);
+  const historyByDay = useMemo(() => {
+    const todayLocal = localDateKey(new Date());
+    return groupLogByDay(history).filter((day) => day.date !== todayLocal);
+  }, [history]);
 
   const toggleDay = (date: string) => {
     setExpandedDays((prev) => {
@@ -304,7 +319,7 @@ export function ObserverPage() {
                 {historyByDay.map((day) => {
                   const open = expandedDays.has(day.date);
                   const dayEvents = history.filter(
-                    (e) => (e.observed_at || "").slice(0, 10) === day.date,
+                    (e) => localDateKey(e.observed_at || "") === day.date,
                   );
                   return (
                     <div

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date, timedelta
 from typing import Any
 
@@ -12,6 +13,42 @@ from services.llm_client_shared import DEFAULT_MODEL, call_claude
 logger = logging.getLogger("workout_extractor")
 
 VALID_TYPES = frozenset({"strength", "cardio", "yoga", "stretch", "other"})
+
+_REJECT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"планируется", re.I),
+    re.compile(r"\bplan\b", re.I),
+    re.compile(r"\bбуду\b", re.I),
+    re.compile(r"\bсобираюсь\b", re.I),
+    re.compile(r"нет тренировок", re.I),
+    re.compile(r"no workout", re.I),
+    re.compile(r"не тренировался", re.I),
+    re.compile(r"на этой неделе было \d+ тренировок", re.I),
+    re.compile(r"не логировал", re.I),
+    re.compile(r"без деталей", re.I),
+)
+
+_PAST_TENSE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(?:"
+        r"бегал|бегала|пробежал|пробежала|потренировался|потренировалась|"
+        r"сходил в зал|сходила в зал|была тренировка|был на|была на|"
+        r"отработал|отработала|позанимался|позанималась|"
+        r"гребал|гребала|погреб|плавал|плавала|катался|каталась|"
+        r"сделал тренировку|сделала тренировку|"
+        r"закончил тренировку|закончила тренировку"
+        r")\b",
+        re.I,
+    ),
+    re.compile(
+        r"\b(?:ran|lifted|rowed|swam|cycled|trained|worked out|completed)\b",
+        re.I,
+    ),
+)
+
+_SESSION_DATA_IN_NOTES = re.compile(
+    r"\d+\s*(?:мин\.?|minutes?|min|км|km|кг|kg|lbs|×|x|\*)|\d+\s*/\s*\d+",
+    re.I,
+)
 
 
 def _build_prompt(user_messages: list[str]) -> str:
@@ -51,6 +88,92 @@ def _build_prompt(user_messages: list[str]) -> str:
         "`notes` — they're useful context even though there's no dedicated column.\n"
         "- If there is no workout in the messages, return exactly: null"
     )
+
+
+def _parse_exercises_list(exercises: str | None) -> list[dict[str, Any]]:
+    if not exercises:
+        return []
+    try:
+        raw = json.loads(exercises)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, dict)]
+
+
+def _has_exercise_details(exercises: str | None) -> bool:
+    for exercise in _parse_exercises_list(exercises):
+        name = str(exercise.get("name") or "").strip()
+        if name:
+            return True
+        sets = exercise.get("sets")
+        if not isinstance(sets, list):
+            continue
+        for item in sets:
+            if not isinstance(item, dict):
+                continue
+            weight = item.get("weight")
+            reps = item.get("reps")
+            try:
+                if weight is not None and float(weight) > 0:
+                    return True
+            except (TypeError, ValueError):
+                pass
+            try:
+                if reps is not None and int(reps) > 0:
+                    return True
+            except (TypeError, ValueError):
+                pass
+    return False
+
+
+def _notes_have_session_data(notes: str | None) -> bool:
+    if not notes:
+        return False
+    text = notes.strip()
+    if len(text) < 8:
+        return False
+    return _SESSION_DATA_IN_NOTES.search(text) is not None
+
+
+def _has_past_tense_completion(notes: str | None) -> bool:
+    if not notes:
+        return False
+    for pattern in _PAST_TENSE_PATTERNS:
+        if pattern.search(notes):
+            return True
+    return False
+
+
+def _is_real_workout(
+    notes: str | None,
+    workout_type: str | None,
+    exercises: str | None,
+    *,
+    duration: int | None = None,
+) -> bool:
+    """Return True only for a completed session, not plans or weekly summaries."""
+    scan_parts = [part for part in (notes, workout_type) if part]
+    scan_text = " ".join(scan_parts)
+    if scan_text:
+        for pattern in _REJECT_PATTERNS:
+            if pattern.search(scan_text):
+                return False
+
+    if duration is not None and duration > 0:
+        return True
+
+    if _has_exercise_details(exercises):
+        return True
+
+    if _has_past_tense_completion(notes):
+        return True
+
+    if workout_type in VALID_TYPES and _notes_have_session_data(notes):
+        return True
+
+    return False
 
 
 def _normalize_exercises(raw: Any) -> str | None:
@@ -125,6 +248,15 @@ def _find_duplicate(db: Any, workout_date: str) -> dict[str, Any] | None:
 
 
 def _save_workout(db: Any, workout: dict[str, Any]) -> dict[str, Any] | None:
+    if not _is_real_workout(
+        workout.get("notes"),
+        workout.get("type"),
+        workout.get("exercises"),
+        duration=workout.get("duration"),
+    ):
+        logger.info("workout_extractor: skipped non-real session")
+        return None
+
     workout_date = workout["date"]
     duplicate = _find_duplicate(db, workout_date)
     if duplicate is not None:

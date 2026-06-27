@@ -2,7 +2,9 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -25,6 +27,7 @@ import {
   bmiFromMetrics,
   fetchBodyMetrics,
   fetchWorkouts,
+  importTrainingLog,
   latestBodyHeight,
   latestBodyWeight,
   logBodyMetric,
@@ -220,6 +223,10 @@ export function Sport() {
   const [workoutSaving, setWorkoutSaving] = useState(false);
   const [workoutError, setWorkoutError] = useState<string | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+
   const refetchWorkouts = useCallback(async () => {
     try {
       const list = await fetchWorkouts();
@@ -368,6 +375,32 @@ export function Sport() {
       }
     },
     [newWorkoutDuration, newWorkoutNotes, newWorkoutType, refetchWorkouts]
+  );
+
+  const handleImport = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const input = e.currentTarget;
+      const file = input.files?.[0];
+      if (!file) return;
+
+      setImportMessage(null);
+      setImportLoading(true);
+      try {
+        const result = await importTrainingLog(file);
+        await refetchWorkouts();
+        setImportMessage(
+          `Импортировано ${result.imported} тренировок, ${result.skipped} пропущено`
+        );
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Не удалось импортировать лог";
+        setImportMessage(msg);
+      } finally {
+        setImportLoading(false);
+        input.value = "";
+      }
+    },
+    [refetchWorkouts]
   );
 
   const activeWorkout =
@@ -608,6 +641,23 @@ export function Sport() {
                         : "сессий"}
                     </span>
                   )}
+                  <input
+                    type="file"
+                    accept=".md,.txt,text/plain,text/markdown,*"
+                    ref={fileInputRef}
+                    onChange={handleImport}
+                    className="hidden"
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importLoading}
+                    className="flex items-center gap-1.5 text-xs text-[#f97316] font-bold bg-[#f97316]/15 px-3 py-1.5 rounded-lg border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors disabled:opacity-50"
+                  >
+                    {importLoading ? "…" : "Импорт лога"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -621,6 +671,19 @@ export function Sport() {
                   </button>
                 </div>
               </div>
+
+              {importMessage && (
+                <p
+                  className={cn(
+                    "text-[11px] font-medium",
+                    importMessage.startsWith("Импортировано")
+                      ? "text-emerald-500"
+                      : "text-rose-500"
+                  )}
+                >
+                  {importMessage}
+                </p>
+              )}
 
               <AnimatePresence>
                 {showAddWorkout && (

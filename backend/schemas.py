@@ -481,6 +481,12 @@ class WorkoutIn(BaseModel):
     exercises: list[WorkoutExerciseOut] = Field(default_factory=list)
 
 
+class TrainingLogImportOut(BaseModel):
+    imported: int
+    skipped: int
+    workouts: list[WorkoutOut] = Field(default_factory=list)
+
+
 class HealthMarkerOut(BaseModel):
     id: int
     marker_name: str

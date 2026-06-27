@@ -1023,6 +1023,67 @@ export async function logWorkout(input: WorkoutInput): Promise<Workout> {
   };
 }
 
+export type TrainingLogImportResult = {
+  imported: number;
+  skipped: number;
+  workouts: Workout[];
+};
+
+function normalizeWorkoutRow(raw: Record<string, unknown>): Workout {
+  const totalVolume =
+    raw.total_volume != null ? Number(raw.total_volume) : null;
+  return {
+    id: Number(raw.id),
+    date: String(raw.date ?? ""),
+    type: raw.type != null ? String(raw.type) : null,
+    duration: raw.duration != null ? Number(raw.duration) : null,
+    exercises: normalizeWorkoutExercises(raw.exercises),
+    energy_level: raw.energy_level != null ? Number(raw.energy_level) : null,
+    notes: raw.notes != null ? String(raw.notes) : null,
+    source: raw.source != null ? String(raw.source) : undefined,
+    created_at: raw.created_at != null ? String(raw.created_at) : null,
+    total_volume:
+      totalVolume != null && Number.isFinite(totalVolume) ? totalVolume : null,
+  };
+}
+
+export async function importTrainingLog(
+  file: File
+): Promise<TrainingLogImportResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/health/import-training-log", {
+    method: "POST",
+    body: form,
+  });
+  const rawText = await res.text();
+  let data: Record<string, unknown>;
+  try {
+    data = rawText ? (JSON.parse(rawText) as Record<string, unknown>) : {};
+  } catch {
+    throw new Error(rawText || `import-training-log failed (${res.status})`);
+  }
+  if (!res.ok) {
+    const detail = data.detail;
+    throw new Error(
+      typeof detail === "string"
+        ? detail
+        : rawText || `import-training-log failed (${res.status})`
+    );
+  }
+  const workoutsRaw = data.workouts;
+  const workouts = Array.isArray(workoutsRaw)
+    ? workoutsRaw.map((row) =>
+        normalizeWorkoutRow(row as Record<string, unknown>)
+      )
+    : [];
+  return {
+    imported: Number(data.imported ?? 0),
+    skipped: Number(data.skipped ?? 0),
+    workouts,
+  };
+}
+
 /** Latest non-null weight from metrics (newest date first). */
 export function latestBodyWeight(
   metrics: BodyMetric[]

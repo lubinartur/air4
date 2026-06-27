@@ -392,6 +392,46 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.post(
+    "/api/health/import-training-log",
+    upload.single("file"),
+    async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ detail: "No file uploaded" });
+        }
+
+        const formData = new FormData();
+        formData.append("file", req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype,
+        });
+
+        const response = await nodeFetch(
+          `${BACKEND_URL}/api/health/import-training-log`,
+          {
+            method: "POST",
+            body: formData,
+            headers: formData.getHeaders(),
+          }
+        );
+
+        const text = await response.text();
+        let data: unknown;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch {
+          data = { detail: text || response.statusText };
+        }
+        res.status(response.status).json(data);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Import proxy failed";
+        res.status(500).json({ detail: message });
+      }
+    }
+  );
+
   app.get("/api/health/metrics", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/health/metrics", req.query));

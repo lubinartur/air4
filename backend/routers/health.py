@@ -4,9 +4,12 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from database import fetch_all, fetch_one, get_db
+from import_training_log import import_to_db, parse_training_log
 from schemas import (
     BodyMetricIn,
     BodyMetricOut,
@@ -15,6 +18,7 @@ from schemas import (
     HealthMarkerHistoryOut,
     HealthMarkerHistoryPoint,
     HealthMarkerOut,
+    TrainingLogImportOut,
     WorkoutExerciseOut,
     WorkoutIn,
     WorkoutOut,
@@ -301,6 +305,41 @@ def create_workout(payload: WorkoutIn) -> WorkoutOut:
     if saved is None:
         raise HTTPException(status_code=500, detail="failed to persist workout")
     return _workout_to_out(saved)
+
+
+@router.post("/health/import-training-log", response_model=TrainingLogImportOut)
+async def import_training_log_endpoint(
+    file: Annotated[UploadFile, File()],
+) -> TrainingLogImportOut:
+    filename = (file.filename or "").lower()
+    if not filename.endswith((".md", ".txt")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .md or .txt training log files are supported",
+        )
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Training log must be UTF-8 text",
+        ) from exc
+
+    workouts = parse_training_log(content)
+    with get_db() as conn:
+        result = import_to_db(workouts, conn)
+        conn.commit()
+
+    return TrainingLogImportOut(
+        imported=result["imported"],
+        skipped=result["skipped"],
+        workouts=[_workout_to_out(row) for row in result["workouts"]],
+    )
 
 
 def _normalize_status(

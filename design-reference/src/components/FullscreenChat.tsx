@@ -500,16 +500,15 @@ export function FullscreenChat({
 
   const handleCancelPending = async (action: PendingChatAction) => {
     if (!action?.type || pendingBusy) return;
+    setPendingActions((prev) => prev.slice(1));
     setPendingBusy(true);
     try {
       const res = await cancelChatAction(action);
-      setPendingActions((prev) => prev.slice(1));
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: res.message },
       ]);
     } catch {
-      setPendingActions((prev) => prev.slice(1));
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Ок, не меняю данные." },

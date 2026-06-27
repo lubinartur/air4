@@ -929,9 +929,11 @@ function CategoryReview({
 export function Finance({
   onPageChange,
   refreshTick = 0,
+  onRefetchReady,
 }: {
   onPageChange: (page: Page) => void;
   refreshTick?: number;
+  onRefetchReady?: (fn: (() => Promise<void>) | null) => void;
 }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -1023,6 +1025,30 @@ export function Finance({
     setLoading(false);
   }, []);
 
+  const refetchRecurringData = useCallback(async () => {
+    const [subsRes, obsRes, fixedRes] = await Promise.allSettled([
+      fetchSubscriptions(),
+      fetchObligations(),
+      fetchMonthlyFixed(),
+    ]);
+    if (subsRes.status === "fulfilled") {
+      setSubscriptions(subsRes.value.subscriptions);
+    }
+    if (obsRes.status === "fulfilled") {
+      setObligations(obsRes.value.obligations);
+    }
+    if (fixedRes.status === "fulfilled") {
+      setMonthlyFixed(fixedRes.value);
+    }
+  }, []);
+
+  useEffect(() => {
+    onRefetchReady?.(refetchRecurringData);
+    return () => {
+      onRefetchReady?.(null);
+    };
+  }, [onRefetchReady, refetchRecurringData]);
+
   /** Refetch summary whenever the selected cycle changes. */
   useEffect(() => {
     if (!cycleStart || !cycleEnd) return;
@@ -1043,33 +1069,12 @@ export function Finance({
     void loadStaticData();
   }, [loadStaticData]);
 
-  /** Refetch subscriptions / obligations / monthly-fixed after every chat
-   *  message while the Finance page is active (App bumps `refreshTick` on
-   *  each send, not only when `recurring_updated` is non-empty). Skip the
-   *  initial mount (tick === 0) since loadStaticData already covers that. */
+  /** Refetch recurring rows when App bumps refreshTick (e.g. chat while
+   *  Finance was unmounted). Skip tick === 0 — loadStaticData covers it. */
   useEffect(() => {
     if (refreshTick === 0) return;
-    let cancelled = false;
-    void Promise.allSettled([
-      fetchSubscriptions(),
-      fetchObligations(),
-      fetchMonthlyFixed(),
-    ]).then(([subsRes, obsRes, fixedRes]) => {
-      if (cancelled) return;
-      if (subsRes.status === "fulfilled") {
-        setSubscriptions(subsRes.value.subscriptions);
-      }
-      if (obsRes.status === "fulfilled") {
-        setObligations(obsRes.value.obligations);
-      }
-      if (fixedRes.status === "fulfilled") {
-        setMonthlyFixed(fixedRes.value);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshTick]);
+    void refetchRecurringData();
+  }, [refreshTick, refetchRecurringData]);
 
   const canGoForward = Boolean(
     cycleStart && cycles && cycleStart < cycles.active.start

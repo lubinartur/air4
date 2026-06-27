@@ -221,6 +221,7 @@ export function ChatPanel({
         { role: "assistant", content: note || "Изменение применено." },
       ]);
       onMessageSent?.({ recurring_updated: res.recurring_updated });
+      // handleMessageSent → refetchFinanceRecurring when recurring_updated
     } catch {
       setPendingActions((prev) => [action, ...prev]);
       setMessages((prev) => [
@@ -237,16 +238,15 @@ export function ChatPanel({
 
   const handleCancelPending = async (action: PendingChatAction) => {
     if (!action?.type || pendingBusy) return;
+    setPendingActions((prev) => prev.slice(1));
     setPendingBusy(true);
     try {
       const res = await cancelChatAction(action);
-      setPendingActions((prev) => prev.slice(1));
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: res.message },
       ]);
     } catch {
-      setPendingActions((prev) => prev.slice(1));
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Ок, не меняю данные." },

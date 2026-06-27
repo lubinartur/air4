@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { ChatPanel } from "./components/ChatPanel";
@@ -39,6 +39,7 @@ import {
   type ChatLaunchRequest,
   type ChatResponseMeta,
   type Summary,
+  hasRecurringFinanceUpdates,
   type Project,
   type Dilemma,
   type Observation,
@@ -82,6 +83,24 @@ export default function App() {
     ),
   );
   const [financeRefreshTick, setFinanceRefreshTick] = useState(0);
+  const financeRecurringRefetchRef = useRef<(() => Promise<void>) | null>(null);
+
+  const registerFinanceRecurringRefetch = useCallback(
+    (fn: (() => Promise<void>) | null) => {
+      financeRecurringRefetchRef.current = fn;
+    },
+    []
+  );
+
+  /** Refetch subscriptions/obligations/monthly-fixed when Finance is mounted,
+   *  or bump refreshTick so the next Finance mount picks up changes. */
+  const refetchFinanceRecurring = useCallback(async () => {
+    if (financeRecurringRefetchRef.current) {
+      await financeRecurringRefetchRef.current();
+      return;
+    }
+    setFinanceRefreshTick((tick) => tick + 1);
+  }, []);
 
   // Mobile = viewport < 768px. On mobile we render ONLY the FullscreenChat
   // (no sidebar, no routing). Desktop behavior is untouched. The resize
@@ -279,22 +298,19 @@ export default function App() {
   const handleMessageSent = useCallback(
     (meta?: ChatResponseMeta) => {
       void refreshOverviewData();
-      // Finance sidebar stays mounted on the Finance page; fullscreen
-      // chat from Finance unmounts it but we still bump the tick so a
-      // return visit shows fresh data. Always refetch recurring rows
-      // after chat on Finance — fact_extractor may create obligations
-      // that only appear in meta.recurring_updated after extractors run.
       const financeContext =
         currentPage === "Finance" ||
         (currentPage === "Chat" && previousPage === "Finance");
-      if (
-        financeContext ||
-        (meta?.recurring_updated?.length ?? 0) > 0
-      ) {
-        setFinanceRefreshTick((tick) => tick + 1);
+      if (hasRecurringFinanceUpdates(meta) || financeContext) {
+        void refetchFinanceRecurring();
       }
     },
-    [refreshOverviewData, currentPage, previousPage]
+    [
+      refreshOverviewData,
+      refetchFinanceRecurring,
+      currentPage,
+      previousPage,
+    ]
   );
 
   useEffect(() => {
@@ -466,6 +482,7 @@ export default function App() {
                 <Finance
                   onPageChange={setCurrentPage}
                   refreshTick={financeRefreshTick}
+                  onRefetchReady={registerFinanceRecurringRefetch}
                 />
               ) : currentPage === "Projects" ? (
                 <Projects

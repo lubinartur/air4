@@ -395,6 +395,12 @@ export type ChatResponseMeta = {
   pending_actions?: PendingChatAction[];
 };
 
+export function hasRecurringFinanceUpdates(
+  meta?: ChatResponseMeta | null
+): boolean {
+  return (meta?.recurring_updated?.length ?? 0) > 0;
+}
+
 /** Image / PDF uploaded with a chat message. Used both for outgoing
  *  requests (FE → BE) and to render attachments coming back from
  *  `/api/chat/history`. `data` is plain base64 (no data: URI prefix);

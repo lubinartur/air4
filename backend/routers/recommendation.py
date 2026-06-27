@@ -9,7 +9,6 @@ don't re-hit the LLM on every navigation.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from datetime import datetime, timezone
@@ -36,6 +35,7 @@ _CACHE_TTL_SECONDS = 30 * 60
 # across the one local user is all this endpoint serves.
 _cache: dict[str, Any] = {}
 _domain_cache: dict[str, dict[str, Any]] = {}
+_overview_cache: dict[str, Any] = {}
 
 Domain = Literal["finance", "projects", "health"]
 _DOMAINS: tuple[Domain, ...] = ("finance", "projects", "health")
@@ -114,10 +114,21 @@ class DomainRecommendation(BaseModel):
     generated_at: str
 
 
-class DomainRecommendationsOut(BaseModel):
-    finance: DomainRecommendation
-    projects: DomainRecommendation
-    health: DomainRecommendation
+class PrimaryThinking(BaseModel):
+    sees: str
+    understands: str
+    suggests: str
+    domain: Domain
+
+
+class SecondarySignal(BaseModel):
+    domain: Domain
+    one_line: str
+
+
+class OverviewRecommendationsOut(BaseModel):
+    primary: PrimaryThinking
+    secondary: list[SecondarySignal]
 
 
 class ModeOut(BaseModel):
@@ -142,16 +153,23 @@ _PROMPT_TEMPLATE = (
     "Данные: {context}"
 )
 
-_DOMAIN_PROMPT_TEMPLATE = (
-    "Ты AIR4. Сфокусируйся на сфере «{domain}» и дай рекомендацию для экрана Обзор.\n"
-    "Не вопрос — мнение с конкретным следующим шагом. Прямо, без воды.\n\n"
-    "summary — 2-3 предложения максимум: что происходит (факт с цифрами) + почему важно + "
-    "что рекомендую. Не перечисляй проблемы — предлагай решение.\n"
-    "action — ровно 1 предложение: конкретное действие, выполнимое сегодня.\n"
-    "Язык: русский, обращение на «ты». Будь конкретен с цифрами когда они есть в данных.\n\n"
-    'Формат ответа JSON: {{"summary": string, "action": string}}\n'
+_OVERVIEW_THINKING_PROMPT = (
+    "Ты AIR4. На основе данных пользователя верни анализ для экрана Обзор.\n\n"
+    "Return a 3-part analysis for the PRIMARY signal (самое важное сегодня):\n"
+    "SEES: one concrete observation with data (1-2 sentences)\n"
+    "UNDERSTANDS: what this means for this person (1-2 sentences)\n"
+    "SUGGESTS: one specific action (1 sentence)\n"
+    "Language: Russian, на ты\n\n"
+    "Pick primary domain: finance | projects | health — сфера главного сигнала.\n"
+    "Add exactly TWO secondary one-liners for the OTHER domains (not primary).\n"
+    "Each secondary one_line — одно ёмкое предложение с цифрой или фактом если есть.\n\n"
+    'JSON format:\n'
+    '{{"primary": {{"sees": string, "understands": string, "suggests": string, '
+    '"domain": "finance"|"projects"|"health"}}, '
+    '"secondary": [{{"domain": "finance"|"projects"|"health", "one_line": string}}, ...]}}\n'
+    "secondary must contain exactly the two domains that are NOT primary.\n"
     "Отвечай только JSON, без markdown.\n"
-    "Данные: {context}"
+    "Данные:\n{context}"
 )
 
 
@@ -566,82 +584,167 @@ def _build_health_context(conn: Any) -> str:
     return _clip_context("\n".join(lines))
 
 
+def _build_observer_context(conn: Any) -> str:
+    """Today's macOS activity snapshot for overview thinking."""
+    from datetime import date
+
+    today_str = date.today().isoformat()
+    rows = fetch_all(
+        conn,
+        """
+        SELECT app_name, project_hint, SUM(duration_seconds) AS total_seconds
+        FROM observer_events
+        WHERE date(observed_at) = ?
+        GROUP BY app_name, project_hint
+        ORDER BY total_seconds DESC
+        LIMIT 6
+        """,
+        (today_str,),
+    )
+    if not rows:
+        return "Observer сегодня: нет записей."
+    parts: list[str] = []
+    for row in rows:
+        app = str(row.get("app_name") or "")
+        hint = (row.get("project_hint") or "").strip()
+        mins = int(row.get("total_seconds") or 0) // 60
+        label = f"{app} · {hint}" if hint else app
+        parts.append(f"{label} {mins} мин")
+    return "Observer сегодня: " + "; ".join(parts)
+
+
+def _build_overview_context(conn: Any) -> str:
+    """Combined finance + projects + health + observer for primary thinking."""
+    sections = [
+        "=== ФИНАНСЫ ===",
+        _build_finance_context(conn),
+        "",
+        "=== ПРОЕКТЫ ===",
+        _build_projects_context(conn),
+        "",
+        "=== ЗДОРОВЬЕ / СПОРТ ===",
+        _build_health_context(conn),
+        "",
+        "=== OBSERVER ===",
+        _build_observer_context(conn),
+    ]
+    return _clip_context("\n".join(sections), limit=4800)
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def _coerce_domain_recommendation(
-    domain: Domain, raw: dict[str, Any] | None
-) -> DomainRecommendation:
-    summary = str((raw or {}).get("summary") or "").strip()
-    action = str((raw or {}).get("action") or "").strip()
-    if not summary:
-        summary = _domain_fallback_summary(domain)
-    if not action:
-        action = _domain_fallback_action(domain)
-    return DomainRecommendation(
-        domain=domain,
-        title=_DOMAIN_TITLES[domain],
-        summary=summary,
-        action=action,
-        generated_at=_now_iso(),
-    )
-
-
-def _domain_fallback_summary(domain: Domain) -> str:
+def _primary_fallback_sees(domain: Domain) -> str:
     fallbacks = {
-        "finance": (
-            "Пока мало финансовых данных — без выписок и обязательств совет будет общим. "
-            "Загрузи транзакции или добавь подписки, чтобы я видел реальную картину."
-        ),
-        "projects": (
-            "Активных проектов не видно или они давно без движения. "
-            "Без логов и обновлений сложно понять, где теряется импульс."
-        ),
-        "health": (
-            "За последнюю неделю тренировок и метрик почти нет — картина пустая. "
-            "Без данных я не смогу поймать паттерны энергии и восстановления."
-        ),
+        "finance": "Финансовых данных мало — без выписок картина размытая.",
+        "projects": "Активные проекты давно без движения или их почти нет.",
+        "health": "За последнюю неделю тренировок и метрик почти нет.",
     }
     return fallbacks[domain]
 
 
-def _domain_fallback_action(domain: Domain) -> str:
-    actions = {
-        "finance": "Сегодня: загрузи выписку или добавь одну подписку/обязательство вручную.",
-        "projects": "Сегодня: открой один проект и запиши следующий шаг на 30 минут.",
-        "health": "Сегодня: запиши одну тренировку или вес — даже короткая прогулка считается.",
+def _primary_fallback_understands(domain: Domain) -> str:
+    fallbacks = {
+        "finance": "Без цифр любой совет будет общим — сложно понять, где реальный риск.",
+        "projects": "Когда импульс падает, обычно это распыление или пауза без решения.",
+        "health": "Без данных о нагрузке и восстановлении паттерны энергии не видны.",
     }
-    return actions[domain]
+    return fallbacks[domain]
 
 
-async def _generate_domain_recommendation(
-    domain: Domain, context: str, mode: str
-) -> DomainRecommendation:
+def _primary_fallback_suggests(domain: Domain) -> str:
+    return _domain_fallback_action(domain)
+
+
+def _secondary_fallback(domain: Domain) -> str:
+    fallbacks = {
+        "finance": "Проверь подписки и обязательства — загрузи выписку если давно не обновлял.",
+        "projects": "Выбери один проект и запиши следующий шаг на 30 минут.",
+        "health": "Запланируй одну короткую тренировку на этой неделе.",
+    }
+    return fallbacks[domain]
+
+
+def _coerce_overview(raw: dict[str, Any] | None) -> OverviewRecommendationsOut:
+    primary_raw = (raw or {}).get("primary") or {}
+    domain = str(primary_raw.get("domain") or "projects").strip().lower()
+    if domain not in _DOMAINS:
+        domain = "projects"
+
+    primary = PrimaryThinking(
+        sees=str(primary_raw.get("sees") or "").strip()
+        or _primary_fallback_sees(domain),  # type: ignore[arg-type]
+        understands=str(primary_raw.get("understands") or "").strip()
+        or _primary_fallback_understands(domain),  # type: ignore[arg-type]
+        suggests=str(primary_raw.get("suggests") or "").strip()
+        or _primary_fallback_suggests(domain),  # type: ignore[arg-type]
+        domain=domain,  # type: ignore[arg-type]
+    )
+
+    other_domains = [d for d in _DOMAINS if d != domain]
+    secondary_map: dict[Domain, str] = {}
+    for item in (raw or {}).get("secondary") or []:
+        if not isinstance(item, dict):
+            continue
+        item_domain = str(item.get("domain") or "").strip().lower()
+        if item_domain in other_domains:
+            line = str(item.get("one_line") or "").strip()
+            if line:
+                secondary_map[item_domain] = line  # type: ignore[index]
+
+    secondary = [
+        SecondarySignal(
+            domain=other_domain,
+            one_line=secondary_map.get(other_domain)
+            or _secondary_fallback(other_domain),
+        )
+        for other_domain in other_domains
+    ]
+    return OverviewRecommendationsOut(primary=primary, secondary=secondary)
+
+
+def _fallback_overview() -> OverviewRecommendationsOut:
+    return _coerce_overview(None)
+
+
+async def _generate_overview_recommendations(
+    context: str, mode: str
+) -> OverviewRecommendationsOut:
     now = time.time()
-    cached = _domain_cache.get(domain)
-    if cached is not None and now < cached.get("expires_at", 0.0):
-        return cached["data"]  # type: ignore[return-value]
+    cached = _overview_cache.get("data")
+    if cached is not None and now < _overview_cache.get("expires_at", 0.0):
+        return cached  # type: ignore[return-value]
 
-    prompt = _DOMAIN_PROMPT_TEMPLATE.format(domain=_DOMAIN_TITLES[domain], context=context)
+    prompt = _OVERVIEW_THINKING_PROMPT.format(context=context)
     mode_suffix = air4_mode_instruction(mode)
     if mode_suffix:
         prompt = f"{prompt}\n\n{mode_suffix}"
 
     try:
-        raw_text = await call_claude(prompt, max_tokens=512)
+        raw_text = await call_claude(prompt, max_tokens=768)
     except Exception:
-        logger.exception("recommendation: domain %s LLM call failed", domain)
+        logger.exception("recommendation: overview LLM call failed")
         raw_text = ""
 
     if not raw_text.strip():
-        result = _coerce_domain_recommendation(domain, None)
+        result = _fallback_overview()
     else:
         parsed = parse_json_object(raw_text)
-        result = _coerce_domain_recommendation(domain, parsed)
+        result = _coerce_overview(parsed) if parsed else _fallback_overview()
 
-    _domain_cache[domain] = {"data": result, "expires_at": now + _CACHE_TTL_SECONDS}
+    _overview_cache["data"] = result
+    _overview_cache["expires_at"] = now + _CACHE_TTL_SECONDS
     return result
+
+
+def _domain_fallback_action(domain: Domain) -> str:
+    actions = {
+        "finance": "Сегодня: загрузи выписку или добавь одну подписку/обязательство вручную.",
+        "projects": "Зафиксируй один конкретный результат сегодня — любой.",
+        "health": "Сегодня: запиши одну тренировку или вес — даже короткая прогулка считается.",
+    }
+    return actions[domain]
 
 
 def _coerce_recommendation(raw: dict[str, Any]) -> Recommendation:
@@ -707,25 +810,13 @@ async def get_recommendation() -> Recommendation:
     return result
 
 
-@router.get("/recommendations", response_model=DomainRecommendationsOut)
-async def get_domain_recommendations() -> DomainRecommendationsOut:
-    """Three domain-specific recommendations for the Overview AIRCH block."""
+@router.get("/recommendations", response_model=OverviewRecommendationsOut)
+async def get_domain_recommendations() -> OverviewRecommendationsOut:
+    """Overview AIRCH Intelligence — primary 3-part thinking + secondary signals."""
     with get_db() as conn:
         mode = read_air4_mode(conn)
-        finance_ctx = _build_finance_context(conn)
-        projects_ctx = _build_projects_context(conn)
-        health_ctx = _build_health_context(conn)
-
-    finance, projects, health = await asyncio.gather(
-        _generate_domain_recommendation("finance", finance_ctx, mode),
-        _generate_domain_recommendation("projects", projects_ctx, mode),
-        _generate_domain_recommendation("health", health_ctx, mode),
-    )
-    return DomainRecommendationsOut(
-        finance=finance,
-        projects=projects,
-        health=health,
-    )
+        context = _build_overview_context(conn)
+    return await _generate_overview_recommendations(context, mode)
 
 
 @router.get("/mode", response_model=ModeOut)
@@ -753,4 +844,5 @@ def set_mode(body: ModeIn) -> ModeOut:
         conn.commit()
     _cache.clear()
     _domain_cache.clear()
+    _overview_cache.clear()
     return ModeOut(mode=mode)

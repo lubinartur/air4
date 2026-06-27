@@ -222,6 +222,23 @@ export type Recommendation = {
 
 export type RecommendationDomain = "finance" | "projects" | "health";
 
+export type PrimaryThinking = {
+  sees: string;
+  understands: string;
+  suggests: string;
+  domain: RecommendationDomain;
+};
+
+export type SecondarySignal = {
+  domain: RecommendationDomain;
+  one_line: string;
+};
+
+export type OverviewRecommendations = {
+  primary: PrimaryThinking;
+  secondary: SecondarySignal[];
+};
+
 export type DomainRecommendation = {
   domain: RecommendationDomain;
   title: string;
@@ -230,6 +247,7 @@ export type DomainRecommendation = {
   generated_at: string;
 };
 
+/** @deprecated Legacy shape — use OverviewRecommendations */
 export type DomainRecommendations = {
   finance: DomainRecommendation;
   projects: DomainRecommendation;
@@ -249,9 +267,9 @@ export async function fetchRecommendation(): Promise<Recommendation> {
   return apiFetch<Recommendation>("/api/air4/recommendation");
 }
 
-/** Three domain recommendations for the Overview AIRCH Intelligence block. */
-export async function fetchDomainRecommendations(): Promise<DomainRecommendations> {
-  return apiFetch<DomainRecommendations>("/api/air4/recommendations");
+/** Overview AIRCH Intelligence — 3-part primary thinking + secondary signals. */
+export async function fetchDomainRecommendations(): Promise<OverviewRecommendations> {
+  return apiFetch<OverviewRecommendations>("/api/air4/recommendations");
 }
 
 /** Summary for Overview KPIs/chart: latest cycle that has transactions. */

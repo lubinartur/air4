@@ -19,9 +19,10 @@ import {
   type ChatLaunchRequest,
   type CrossSphereInsight,
   type Dilemma,
-  type DomainRecommendation,
-  type DomainRecommendations,
   type Observation,
+  type OverviewRecommendations,
+  type PrimaryThinking,
+  type SecondarySignal,
   type ObserverToday,
   type ObserverTodayAggregated,
   type Project,
@@ -77,16 +78,22 @@ const CARD_FOOTER_CLASS = "text-[12px] font-medium mt-auto pt-4";
 const SECONDARY_LABEL_CLASS =
   "text-[12px] font-medium text-[#666666] mb-2 mt-5";
 
-const DOMAIN_ORDER: Array<keyof DomainRecommendations> = [
-  "finance",
-  "projects",
-  "health",
-];
-
-const DOMAIN_CHAT_PREFIX: Record<DomainRecommendation["domain"], string> = {
+const DOMAIN_CHAT_PREFIX: Record<PrimaryThinking["domain"], string> = {
   finance: "Давай разберём финансовую ситуацию",
   projects: "Давай разберём проекты",
   health: "Давай разберём спорт и здоровье",
+};
+
+const DOMAIN_BADGE: Record<PrimaryThinking["domain"], string> = {
+  finance: "финансы",
+  projects: "проекты",
+  health: "здоровье",
+};
+
+const DOMAIN_TILE_LABEL: Record<PrimaryThinking["domain"], string> = {
+  finance: "Финансы",
+  projects: "Проекты",
+  health: "Здоровье",
 };
 
 const WEEK_GOAL = 4;
@@ -127,23 +134,27 @@ function formatProjectActivityLabel(project: Project): string {
   return `${days}д назад`;
 }
 
-function buildDomainChatRequest(
-  reco: DomainRecommendation,
-): ChatLaunchRequest {
-  const prefix = DOMAIN_CHAT_PREFIX[reco.domain];
+function buildPrimaryChatRequest(primary: PrimaryThinking): ChatLaunchRequest {
   return {
-    message: `${prefix}: ${reco.summary}`,
-    agent: reco.domain,
+    message: `${DOMAIN_CHAT_PREFIX[primary.domain]}: ${primary.sees} ${primary.understands}`,
+    agent: primary.domain,
     autoSend: true,
   };
 }
 
-function pluralWeekThings(n: number): string {
-  const last = n % 10;
-  const teen = n % 100;
-  if (last === 1 && teen !== 11) return "вещь";
-  if (last >= 2 && last <= 4 && (teen < 12 || teen > 14)) return "вещи";
-  return "вещей";
+function buildSecondaryChatRequest(signal: SecondarySignal): ChatLaunchRequest {
+  return {
+    message: `${DOMAIN_CHAT_PREFIX[signal.domain]}: ${signal.one_line}`,
+    agent: signal.domain,
+    autoSend: true,
+  };
+}
+
+function findSecondarySignal(
+  recommendations: OverviewRecommendations | null,
+  domain: PrimaryThinking["domain"],
+): SecondarySignal | undefined {
+  return recommendations?.secondary.find((s) => s.domain === domain);
 }
 
 function pluralOpenQuestions(n: number): string {
@@ -159,13 +170,6 @@ function truncateChars(text: string, max: number): string {
   const t = text.trim();
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
-}
-
-function stripTodayPrefix(action: string): string {
-  return action
-    .replace(/^Сегодня:\s*/i, "")
-    .replace(/\s*сегодня$/i, "")
-    .trim();
 }
 
 function freeCapitalAmount(summary: Summary | null): number | null {
@@ -304,6 +308,28 @@ function MetricValue({
   );
 }
 
+function ThinkingSection({
+  icon,
+  label,
+  text,
+}: {
+  icon: string;
+  label: string;
+  text: string;
+}) {
+  return (
+    <div>
+      <p
+        className="text-[11px] uppercase tracking-[0.08em] font-semibold mb-2"
+        style={{ color: C.label }}
+      >
+        {icon} {label}
+      </p>
+      <p className="text-[14px] leading-[1.6] text-[#e2e8f0]">{text}</p>
+    </div>
+  );
+}
+
 function StatusDot({
   color,
   label,
@@ -331,7 +357,7 @@ export function OverviewDashboard({
   onOpenChatWithMessage,
 }: Props) {
   const [recommendations, setRecommendations] =
-    useState<DomainRecommendations | null>(null);
+    useState<OverviewRecommendations | null>(null);
   const [recoLoading, setRecoLoading] = useState(true);
   const [name, setName] = useState<string | null>(null);
   const [facts, setFacts] = useState<UserFact[]>([]);
@@ -470,12 +496,9 @@ export function OverviewDashboard({
     [workouts],
   );
 
-  const priorities = useMemo(() => {
-    if (!recommendations) return [];
-    return DOMAIN_ORDER.map((key) => recommendations[key]).filter(Boolean);
-  }, [recommendations]);
-
-  const priorityCount = priorities.length;
+  const financeSignal = findSecondarySignal(recommendations, "finance");
+  const projectsSignal = findSecondarySignal(recommendations, "projects");
+  const healthSignal = findSecondarySignal(recommendations, "health");
 
   const freeCapital = freeCapitalAmount(summary);
   const currentSavings = freeCapital != null ? Math.max(0, freeCapital) : null;
@@ -498,10 +521,9 @@ export function OverviewDashboard({
   const reserveBelowTarget =
     currentSavings != null && currentSavings < savingsTarget;
 
-  const healthReco = recommendations?.health;
-  const healthToday = healthReco?.action
-    ? stripTodayPrefix(healthReco.action)
-    : "тренировка";
+  const healthToday =
+    healthSignal?.one_line ??
+    (weekWorkouts > 0 ? `${weekWorkouts} тренировок на этой неделе` : "тренировка");
 
   const now = new Date();
   const dateLabel = `${now.toLocaleDateString("ru-RU", {
@@ -540,97 +562,112 @@ export function OverviewDashboard({
 
       {/* Top row */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
-        {/* СЕГОДНЯ */}
-        <Card className="lg:col-span-3 min-h-[300px] animate-fade-in-up animate-delay-2">
-          <div className="flex flex-col lg:flex-row gap-8 flex-1">
-            <div className="flex flex-col flex-1 min-w-0 justify-between">
-              <div>
-                <span className={LABEL_CLASS}>Сегодня</span>
+        {/* AIRCH INTELLIGENCE */}
+        <Card className="lg:col-span-3 min-h-[360px] animate-fade-in-up animate-delay-2">
+          <span className={LABEL_CLASS}>AIRCH Intelligence</span>
 
-                {recoLoading ? (
-                  <div className="mt-6 space-y-3 animate-pulse">
-                    <div className="h-8 w-4/5 rounded bg-white/10" />
-                    <div className="h-10 w-40 rounded-xl bg-white/10 mt-8" />
+          {recoLoading ? (
+            <div className="flex flex-col lg:flex-row gap-6 flex-1 mt-5 animate-pulse">
+              <div className="flex-[3] space-y-5">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="h-3 w-32 rounded bg-white/10" />
+                    <div className="h-12 w-full rounded bg-white/10" />
                   </div>
-                ) : (
-                  <h2 className="text-[26px] sm:text-[28px] font-semibold leading-snug text-white mt-4">
-                    {priorityCount > 0
-                      ? `${priorityCount} ${pluralWeekThings(priorityCount)}, которые изменят твою неделю`
-                      : "План на неделю формируется"}
-                  </h2>
-                )}
+                ))}
               </div>
-
-              {!recoLoading && (
-                <button
-                  type="button"
-                  onClick={() => onPageChange("Chat")}
-                  className="group mt-8 inline-flex w-fit items-center gap-2 rounded-xl bg-[#f97316] px-5 py-2.5 text-[13px] font-bold text-white shadow-[0_4px_20px_rgba(249,115,22,0.3)] transition-all duration-200 hover:bg-[#ea6a06] hover:shadow-[0_6px_28px_rgba(249,115,22,0.4)] active:scale-[0.98]"
-                >
-                  Смотреть план
-                  <ArrowRight
-                    size={15}
-                    className="transition-transform duration-200 group-hover:translate-x-0.5"
-                  />
-                </button>
-              )}
+              <div className="flex-[2] space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-16 rounded-xl bg-white/5" />
+                ))}
+              </div>
             </div>
+          ) : recommendations ? (
+            <div className="flex flex-col lg:flex-row gap-6 flex-1 mt-5">
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenChatWithMessage(
+                    buildPrimaryChatRequest(recommendations.primary),
+                  )
+                }
+                className="flex-[3] min-w-0 text-left rounded-xl p-1 -m-1 hover:bg-white/[0.02] transition-colors group"
+              >
+                <div className="space-y-5">
+                  <ThinkingSection
+                    icon="👁"
+                    label="ЧТО Я ВИЖУ"
+                    text={recommendations.primary.sees}
+                  />
+                  <div className="border-t border-white/[0.06]" />
+                  <ThinkingSection
+                    icon="🧠"
+                    label="ЧТО ЭТО ЗНАЧИТ"
+                    text={recommendations.primary.understands}
+                  />
+                  <div className="border-t border-white/[0.06]" />
+                  <ThinkingSection
+                    icon="💡"
+                    label="ЧТО ПРЕДЛАГАЮ"
+                    text={recommendations.primary.suggests}
+                  />
+                </div>
+                <span
+                  className="inline-block mt-5 text-[11px] uppercase tracking-wide font-semibold px-2.5 py-1 rounded-full"
+                  style={{
+                    color: C.orange,
+                    backgroundColor: "rgba(249,115,22,0.12)",
+                  }}
+                >
+                  {DOMAIN_BADGE[recommendations.primary.domain]}
+                </span>
+              </button>
 
-            <div className="flex flex-col gap-3 lg:w-[44%] lg:shrink-0">
-              {recoLoading
-                ? [1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="h-16 rounded-xl bg-white/5 animate-pulse"
-                    />
-                  ))
-                : priorities.slice(0, 3).map((reco, index) => (
-                    <button
-                      key={reco.domain}
-                      type="button"
-                      onClick={() =>
-                        onOpenChatWithMessage(buildDomainChatRequest(reco))
-                      }
-                      className="flex items-start gap-3 w-full text-left rounded-xl p-2 -mx-2 hover:bg-white/[0.03] transition-colors group"
-                    >
-                      <span
-                        className="flex items-center justify-center w-7 h-7 rounded-full text-[13px] font-semibold text-white shrink-0"
-                        style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
-                      >
-                        {index + 1}
-                      </span>
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        <p className="text-[14px] font-semibold text-white leading-snug">
-                          {reco.title}
-                        </p>
-                        <p
-                          className="text-[12px] mt-0.5 leading-snug line-clamp-2"
-                          style={{ color: C.muted }}
-                        >
-                          {reco.action}
-                        </p>
-                      </div>
-                      <span
-                        className="text-[16px] shrink-0 pt-1 opacity-40 group-hover:opacity-100 transition-opacity"
+              <div className="flex-[2] flex flex-col gap-3 min-w-0">
+                {recommendations.secondary.map((signal) => (
+                  <button
+                    key={signal.domain}
+                    type="button"
+                    onClick={() =>
+                      onOpenChatWithMessage(buildSecondaryChatRequest(signal))
+                    }
+                    className="flex items-start gap-3 w-full text-left rounded-xl p-3 border border-white/[0.06] hover:border-[rgba(249,115,22,0.25)] hover:bg-white/[0.02] transition-colors group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className={LABEL_CLASS}>
+                        {DOMAIN_TILE_LABEL[signal.domain]}
+                      </p>
+                      <p
+                        className="text-[13px] mt-2 leading-snug"
                         style={{ color: C.muted }}
                       >
-                        →
-                      </span>
-                    </button>
-                  ))}
+                        {signal.one_line}
+                      </p>
+                    </div>
+                    <span
+                      className="text-[16px] shrink-0 pt-1 opacity-40 group-hover:opacity-100 transition-opacity"
+                      style={{ color: C.muted }}
+                    >
+                      →
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className={`${META_LABEL_CLASS} mt-5`}>
+              Не удалось загрузить анализ — попробуй обновить страницу.
+            </p>
+          )}
         </Card>
 
         {/* ФИНАНСЫ */}
         <Card
           className="lg:col-span-2 min-h-[300px] animate-fade-in-up animate-delay-2"
           onClick={
-            recommendations?.finance
+            financeSignal
               ? () =>
-                  onOpenChatWithMessage(
-                    buildDomainChatRequest(recommendations.finance),
-                  )
+                  onOpenChatWithMessage(buildSecondaryChatRequest(financeSignal))
               : () => onPageChange("Finance")
           }
         >
@@ -678,12 +715,17 @@ export function OverviewDashboard({
         <Card
           className="min-h-[220px] animate-fade-in-up animate-delay-3"
           onClick={
-            recommendations?.projects
+            recommendations?.primary.domain === "projects"
               ? () =>
                   onOpenChatWithMessage(
-                    buildDomainChatRequest(recommendations.projects),
+                    buildPrimaryChatRequest(recommendations.primary),
                   )
-              : () => onPageChange("Projects")
+              : projectsSignal
+                ? () =>
+                    onOpenChatWithMessage(
+                      buildSecondaryChatRequest(projectsSignal),
+                    )
+                : () => onPageChange("Projects")
           }
         >
           <TileHeader
@@ -735,12 +777,17 @@ export function OverviewDashboard({
         <Card
           className="min-h-[220px] animate-fade-in-up animate-delay-3"
           onClick={
-            recommendations?.health
+            recommendations?.primary.domain === "health"
               ? () =>
                   onOpenChatWithMessage(
-                    buildDomainChatRequest(recommendations.health),
+                    buildPrimaryChatRequest(recommendations.primary),
                   )
-              : () => onPageChange("Sport")
+              : healthSignal
+                ? () =>
+                    onOpenChatWithMessage(
+                      buildSecondaryChatRequest(healthSignal),
+                    )
+                : () => onPageChange("Sport")
           }
         >
           <TileHeader label="Спорт" onDetail={() => onPageChange("Sport")} />

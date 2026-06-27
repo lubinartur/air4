@@ -1067,11 +1067,11 @@ def apply_recurring_from_fact_pending(
 
 async def extract_facts(
     user_messages: list[str], db: Any, api_key: str
-) -> tuple[list[dict], list[dict[str, Any]]]:
-    """Returns saved facts and pending financial actions (not applied)."""
+) -> list[dict]:
+    """Returns saved facts (pending actions use action_layer, not fact extraction)."""
     messages = [m.strip() for m in user_messages if (m or "").strip()]
     if not messages:
-        return [], []
+        return []
 
     try:
         raw_text = await call_claude(
@@ -1080,10 +1080,9 @@ async def extract_facts(
         items = parse_json_array(raw_text)
     except Exception:
         logger.exception("Claude fact extraction failed")
-        return [], []
+        return []
 
     saved: list[dict] = []
-    pending_actions: list[dict[str, Any]] = []
     logger.info(
         "fact_extractor: LLM returned %d raw item(s) from %d message(s)",
         len(items),
@@ -1105,15 +1104,7 @@ async def extract_facts(
             row = _upsert_fact(db, fact)
             if row is not None:
                 saved.append(row)
-                pending = detect_recurring_from_fact(db, fact)
-                if pending is not None:
-                    pending_actions.append(pending)
-                    logger.info(
-                        "fact_extractor: pending recurring action %s %r",
-                        pending.get("type"),
-                        pending.get("description"),
-                    )
         except Exception:
             logger.exception("Failed to save fact: %s", fact.get("key"))
 
-    return saved, pending_actions
+    return saved

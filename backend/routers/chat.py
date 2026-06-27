@@ -41,6 +41,11 @@ from services.identity_extractor import extract_identity
 from services.interviewer import get_interview_question, get_pending_question
 from services.llm_client import chat, chat_stream
 from services.llm_client_shared import call_claude
+from services.action_layer import (
+    detect_action,
+    execute_action,
+    format_action_result,
+)
 from services.unified_extractor import extract_all
 from services.workout_extractor import format_workout_footer
 from services.prompts import (
@@ -54,13 +59,6 @@ from services.prompts import (
     history_to_messages,
     search_relevant_events,
     strip_internal_xml_tags,
-)
-from services.fact_extractor import apply_recurring_from_fact_pending
-from services.obligation_from_chat import apply_pending_obligation_action
-from services.subscription_updater import (
-    apply_pending_recurring_action,
-    detect_recurring_corrections,
-    format_confirmation,
 )
 from services.summary_loader import load_summary
 
@@ -275,47 +273,49 @@ def _build_user_turn(message: str, attachment: dict[str, str] | None) -> dict[st
 
 async def _run_post_chat_extractors(
     user_messages: list[str], api_key: str
-) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
-    """Run post-chat side effects.
+) -> dict[str, Any] | None:
+    """Run post-chat side effects (events, facts, decisions, workouts).
 
-    Returns a tuple of:
-      • pending financial actions detected by fact extraction (not applied
-        until the user confirms in chat)
-      • the workout row inserted by `extract_workout`, or ``None`` —
-        used by the chat router to append a `_Записал: …_` footer to
-        the assistant message.
-
-    Awaited before persistence so the workout footer can be folded into
-    the message saved in `chat_messages` (and streamed as one last
-    delta). Failures inside any extractor are logged and swallowed — a
-    side-effect crash must never break the user's chat reply.
+    Returns the workout row if the unified extractor logged one — used for
+    an inline footer. Financial and data mutations go through action_layer
+    on user confirmation instead.
     """
-    pending_from_facts: list[dict[str, Any]] = []
     saved_workout: dict[str, Any] | None = None
     if not user_messages:
-        return pending_from_facts, saved_workout
-    # body_extractor stays separate — it's rule-based (no LLM), so it
-    # doesn't contribute to the 429 problem and runs regardless of the
-    # API key being set.
+        return saved_workout
     try:
         with get_db() as conn:
             await extract_body_data(user_messages, conn)
     except Exception:
         logger.exception("Background body extraction failed")
     if not api_key.strip():
-        return pending_from_facts, saved_workout
-    # Unified extractor: ONE Haiku call replaces the previous four
-    # sequential LLM calls (events + workout + facts + decisions), which
-    # were tripping Anthropic 429 rate limits. Wrapped so a failure here
-    # never breaks the user's chat reply.
+        return saved_workout
     try:
         with get_db() as conn:
             result = await extract_all(user_messages, conn, api_key)
         saved_workout = result.get("workout")
-        pending_from_facts = result.get("pending_actions") or []
     except Exception:
         logger.exception("Background unified extraction failed")
-    return pending_from_facts, saved_workout
+    return saved_workout
+
+
+async def _detect_chat_action_safely(
+    user_message: str,
+    assistant_response: str,
+    api_key: str,
+) -> list[dict[str, Any]]:
+    if not api_key.strip():
+        return []
+    try:
+        with get_db() as conn:
+            action = await detect_action(
+                conn, user_message, assistant_response, api_key
+            )
+        if action:
+            return [action]
+    except Exception:
+        logger.exception("Action detection failed")
+    return []
 
 
 def _schedule_identity_extraction(user_messages: list[str], api_key: str) -> None:
@@ -398,30 +398,7 @@ def _meta_payload(
 
 
 def _apply_pending_chat_action(db: Any, action: dict[str, Any]) -> dict[str, Any] | None:
-    data = action.get("data") or {}
-    if isinstance(data.get("fact"), dict):
-        return apply_recurring_from_fact_pending(db, action)
-
-    action_type = str(action.get("type") or "")
-    if action_type in (
-        "update_subscription",
-        "delete_subscription",
-        "update_obligation",
-        "delete_obligation",
-    ):
-        return apply_pending_recurring_action(db, action)
-    if action_type == "create_obligation":
-        return apply_pending_obligation_action(db, action)
-    return None
-
-
-def _detect_corrections_safely(message: str) -> list[dict[str, Any]]:
-    try:
-        with get_db() as conn:
-            return detect_recurring_corrections(conn, message)
-    except Exception:
-        logger.exception("Recurring correction detection failed")
-        return []
+    return execute_action(db, action)
 
 
 def _pending_action_payload(action: dict[str, Any]) -> str:
@@ -599,19 +576,11 @@ async def chat_endpoint(
 
             full_text = strip_internal_xml_tags("".join(chunks))
 
-            recurring_pending = _detect_corrections_safely(message)
-
-            # Run extractors before persistence so the workout footer
-            # (if any) is folded into the same `chat_messages` row that
-            # we save below — and yielded as one final delta so the FE
-            # sees it without a reload.
-            fact_pending, saved_workout = await _run_post_chat_extractors(
-                user_messages, api_key
+            saved_workout = await _run_post_chat_extractors(user_messages, api_key)
+            action_pending = await _detect_chat_action_safely(
+                message, full_text, api_key
             )
-            pending_actions = _merge_pending_actions(
-                recurring_pending,
-                fact_pending,
-            )
+            pending_actions = action_pending
             workout_footer = format_workout_footer(saved_workout)
             if workout_footer:
                 yield f"data: {json.dumps({'type': 'delta', 'text': workout_footer}, ensure_ascii=False)}\n\n"
@@ -643,17 +612,11 @@ async def chat_endpoint(
 
     response_text = strip_internal_xml_tags(response_text)
 
-    recurring_pending = _detect_corrections_safely(message)
-
-    # Extractors run before persistence so the workout footer (if any)
-    # is part of the response payload AND the saved chat_messages row.
-    fact_pending, saved_workout = await _run_post_chat_extractors(
-        user_messages, api_key
+    saved_workout = await _run_post_chat_extractors(user_messages, api_key)
+    action_pending = await _detect_chat_action_safely(
+        message, response_text, api_key
     )
-    pending_actions = _merge_pending_actions(
-        recurring_pending,
-        fact_pending,
-    )
+    pending_actions = action_pending
     response_text = response_text + format_workout_footer(saved_workout)
 
     _persist_exchange(
@@ -722,7 +685,7 @@ def confirm_chat_action(body: ConfirmActionIn) -> ConfirmActionOut:
             status_code=400,
             detail="Не удалось применить действие.",
         )
-    confirmation = format_confirmation([result]).strip()
+    confirmation = format_action_result(result).strip()
     message = confirmation or f"Готово: {action.get('description', 'изменение применено')}"
     return ConfirmActionOut(message=message, recurring_updated=[result])
 

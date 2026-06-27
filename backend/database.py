@@ -349,6 +349,16 @@ CREATE TABLE IF NOT EXISTS followups (
     created_at      TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS open_loops (
+    id          INTEGER PRIMARY KEY,
+    topic       TEXT NOT NULL,
+    domain      TEXT,
+    priority    TEXT DEFAULT 'medium',
+    status      TEXT DEFAULT 'open',
+    created_at  TEXT DEFAULT (datetime('now')),
+    resolved_at TEXT
+);
+
 -- Categorization memory. Every confirmed user correction on a
 -- transaction's category lands here as a merchant pattern → category
 -- rule, so subsequent uploads auto-apply the same mapping instead of
@@ -412,6 +422,7 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at
 CREATE INDEX IF NOT EXISTS idx_spaces_last_active ON spaces(last_active);
 CREATE INDEX IF NOT EXISTS idx_identity_model_updated ON identity_model(updated_at);
 CREATE INDEX IF NOT EXISTS idx_followups_date_status ON followups(followup_date, status);
+CREATE INDEX IF NOT EXISTS idx_open_loops_status ON open_loops(status);
 -- Audit follow-ups: support feed/timeline/summary hot paths.
 -- transactions(upload_id, account_iban) — joins with `uploads`, per-IBAN
 -- filtering in summary_loader and the cycles router. events/observations

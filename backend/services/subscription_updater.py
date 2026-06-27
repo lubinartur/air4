@@ -1,12 +1,9 @@
 """Detect and apply price corrections to subscriptions/obligations.
 
 The chat pipeline calls :func:`detect_recurring_corrections` on the user's
-message to build pending actions (price updates and delete commands).
-Writes happen only when the user confirms via
+message to build pending actions (price updates, delete, restore, and
+create commands). Writes happen only when the user confirms via
 ``POST /api/chat/confirm-action`` → :func:`apply_pending_recurring_action`.
-
-Delete commands (``удали Netflix``, ``delete Spotify``, …) use fuzzy name
-matching (≥0.5 similarity). Price updates require an explicit new amount.
 """
 
 from __future__ import annotations
@@ -91,6 +88,36 @@ _DELETE_MODAL_NEGATED_RE = re.compile(
 _DELETE_MIN_NAME_LEN = 3
 _DELETE_MIN_SIMILARITY = 0.5
 _DELETE_CONFIDENCE = 0.85
+
+# Restore / reactivate — matches inactive rows only.
+_RESTORE_PHRASES: tuple[str, ...] = (
+    "добавь обратно",
+    "добавить обратно",
+    "восстановить",
+    "восстанови",
+    "вернуть",
+    "верни",
+    "reactivate",
+    "restore",
+)
+_RESTORE_COMMAND_RE = re.compile(
+    r"(?:^|(?<=\s))(?P<verb>"
+    + "|".join(re.escape(p) for p in _RESTORE_PHRASES)
+    + r")(?=\s)\s+"
+    r"(?P<name>.+)$",
+    re.IGNORECASE,
+)
+_RESTORE_MIN_SIMILARITY = 0.5
+_RESTORE_CONFIDENCE = 0.85
+
+# New subscription — «добавь Netflix 15 евро» when name is not in DB.
+_ADD_SUB_VERB = r"добавь|добавить|add"
+_ADD_SUB_COMMAND_RE = re.compile(
+    rf"(?:^|(?<=\s))(?P<verb>{_ADD_SUB_VERB})(?=\s)\s+"
+    rf"(?!обратно\b)(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+_CREATE_SUB_CONFIDENCE = 0.8
 
 # Names that are amounts, cadence labels, or other non-service junk in DB.
 _JUNK_NAME_LITERALS = frozenset({
@@ -332,6 +359,26 @@ def _load_rows(db: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     return [dict(r) for r in subs], [dict(r) for r in obls]
 
 
+def _load_inactive_rows(
+    db: Any,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    try:
+        subs = fetch_all(
+            db,
+            "SELECT id, name, amount, currency, is_active FROM subscriptions "
+            "WHERE COALESCE(is_active, 1) = 0",
+        )
+        obls = fetch_all(
+            db,
+            "SELECT id, name, monthly_payment, is_active FROM obligations "
+            "WHERE COALESCE(is_active, 1) = 0",
+        )
+    except Exception:
+        logger.exception("Failed to load inactive recurring rows for match")
+        return [], []
+    return [dict(r) for r in subs], [dict(r) for r in obls]
+
+
 def _row_is_active(row: dict[str, Any] | None) -> bool:
     """True when a subscription/obligation row is active (NULL → active)."""
     if not row:
@@ -343,6 +390,39 @@ def _row_is_active(row: dict[str, Any] | None) -> bool:
         return int(val) == 1
     except (TypeError, ValueError):
         return bool(val)
+
+
+def _row_is_inactive(row: dict[str, Any] | None) -> bool:
+    if not row:
+        return False
+    val = row.get("is_active")
+    if val is None:
+        return False
+    try:
+        return int(val) == 0
+    except (TypeError, ValueError):
+        return not bool(val)
+
+
+def _find_subscription_match(db: Any, name: str) -> dict[str, Any] | None:
+    """Fuzzy match against any subscription row (active or inactive)."""
+    try:
+        rows = fetch_all(
+            db,
+            "SELECT id, name, amount, currency, is_active FROM subscriptions",
+        )
+    except Exception:
+        logger.exception("Failed to load subscriptions for name lookup")
+        return None
+    target_stems = {_stem(t) for t in _tokenize_for_match(name)}
+    kind, chosen = _pick_best_fuzzy(
+        [dict(r) for r in rows],
+        [],
+        name,
+        target_stems,
+        min_similarity=_RESTORE_MIN_SIMILARITY,
+    )
+    return chosen if kind == "subscription" else None
 
 
 def _choose(
@@ -376,6 +456,10 @@ def _is_negated_delete_message(text: str) -> bool:
 
 
 def _is_invalid_delete_target(name: str) -> bool:
+    return _is_invalid_command_target(name)
+
+
+def _is_invalid_command_target(name: str) -> bool:
     """Reject captured tails that are not a real subscription/obligation name."""
     clean = re.sub(r"[.!?,;:]+$", "", (name or "").strip()).strip()
     if len(clean) < _DELETE_MIN_NAME_LEN:
@@ -391,6 +475,61 @@ def _is_invalid_delete_target(name: str) -> bool:
     ):
         return True
     return False
+
+
+def _extract_restore_target_name(text: str) -> str | None:
+    """Return the subscription/obligation name after a restore verb."""
+    clean = (text or "").strip()
+    if not clean:
+        return None
+    for match in _RESTORE_COMMAND_RE.finditer(clean):
+        start = match.start("verb")
+        if start > 0 and re.search(r"не\s+$", clean[:start], re.IGNORECASE):
+            continue
+        name = re.sub(
+            r"[.!?,;:]+$", "", (match.group("name") or "").strip()
+        ).strip()
+        if _is_invalid_command_target(name):
+            continue
+        return name
+    return None
+
+
+def _extract_add_subscription_tail(text: str) -> str | None:
+    """Return the name+amount tail after «добавь» (not «добавь обратно»)."""
+    clean = (text or "").strip()
+    if not clean or _RESTORE_COMMAND_RE.search(clean):
+        return None
+    for match in _ADD_SUB_COMMAND_RE.finditer(clean):
+        start = match.start("verb")
+        if start > 0 and re.search(r"не\s+$", clean[:start], re.IGNORECASE):
+            continue
+        rest = (match.group("rest") or "").strip()
+        if rest:
+            return rest
+    return None
+
+
+def _split_name_and_amount(tail: str) -> tuple[str, float] | None:
+    """Parse ``Netflix 15 евро`` → (name, amount)."""
+    text = (tail or "").strip()
+    if not text:
+        return None
+    amount = _pick_correction_amount(text)
+    if amount is None:
+        return None
+    amount_start: int | None = None
+    for pattern in (_CURRENCY_AMOUNT_RE, _DECIMAL_NUMBER_RE):
+        for match in pattern.finditer(text):
+            raw = match.group(1) or match.group(2) or ""
+            if _parse_amount(raw) == amount:
+                amount_start = match.start()
+    if amount_start is None:
+        return None
+    name = text[:amount_start].strip().rstrip(",—–-")
+    if len(name) < _DELETE_MIN_NAME_LEN or _is_junk_recurring_name(name):
+        return None
+    return name, amount
 
 
 def _extract_delete_target_name(text: str) -> str | None:
@@ -480,6 +619,61 @@ def _soft_delete(db: Any, kind: str, row_id: int) -> bool:
         logger.exception("Failed to soft-delete %s id=%s", kind, row_id)
         return False
     return True
+
+
+def _restore_row(db: Any, kind: str, row_id: int) -> bool:
+    table = "subscriptions" if kind == "subscription" else "obligations"
+    try:
+        execute(
+            db,
+            f"UPDATE {table} SET is_active = 1, source = 'chat', "
+            f"updated_at = datetime('now') WHERE id = ? AND COALESCE(is_active, 1) = 0",
+            (row_id,),
+        )
+    except Exception:
+        logger.exception("Failed to restore %s id=%s", kind, row_id)
+        return False
+    return True
+
+
+def _apply_create_subscription(
+    db: Any, data: dict[str, Any]
+) -> dict[str, Any] | None:
+    name = str(data.get("name") or "").strip()
+    amount = data.get("amount")
+    currency = str(data.get("currency") or "EUR")
+    if not name or amount is None:
+        return None
+    try:
+        amount_f = float(amount)
+    except (TypeError, ValueError):
+        return None
+    if amount_f <= 0 or _find_subscription_match(db, name):
+        return None
+    try:
+        new_id = execute(
+            db,
+            """
+            INSERT INTO subscriptions
+                (name, amount, currency, category, is_active, source,
+                 created_at, updated_at)
+            VALUES (?, ?, ?, 'other', 1, 'chat',
+                    datetime('now'), datetime('now'))
+            """,
+            (name, amount_f, currency),
+        )
+    except Exception:
+        logger.exception("Failed to create subscription name=%r", name)
+        return None
+    return {
+        "type": "subscription",
+        "id": int(new_id),
+        "name": name,
+        "action": "created",
+        "field": "amount",
+        "new_value": amount_f,
+        "currency": currency,
+    }
 
 
 def _apply_update(
@@ -632,6 +826,150 @@ def _build_correction_pending(
     }
 
 
+def _build_restore_pending(
+    *,
+    kind: str,
+    chosen: dict[str, Any],
+    confidence: float,
+) -> dict[str, Any]:
+    name = str(chosen.get("name") or "")
+    row_id = int(chosen["id"])
+    if kind == "subscription":
+        amount = chosen.get("amount")
+        currency = str(chosen.get("currency") or "EUR")
+    else:
+        amount = chosen.get("monthly_payment")
+        currency = "EUR"
+    symbol = "€" if currency.upper() == "EUR" else f"{currency} "
+    if amount is not None:
+        try:
+            amount_str = f"{symbol}{float(amount):.2f}"
+            description = f"Восстановить {name} ({amount_str}/мес)"
+        except (TypeError, ValueError):
+            description = f"Восстановить {name}"
+    else:
+        description = f"Восстановить {name}"
+    data: dict[str, Any] = {
+        "kind": kind,
+        "id": row_id,
+        "name": name,
+        "currency": currency,
+        "action": "restored",
+    }
+    if amount is not None:
+        try:
+            data["amount"] = float(amount)
+        except (TypeError, ValueError):
+            pass
+    return {
+        "type": f"restore_{kind}",
+        "description": description,
+        "confidence": round(confidence, 2),
+        "data": data,
+    }
+
+
+def _detect_restore_command(
+    db: Any, message: str
+) -> list[dict[str, Any]]:
+    """Detect restore commands — inactive subscriptions/obligations only."""
+    text = (message or "").strip()
+    if not text:
+        return []
+
+    target_name = _extract_restore_target_name(text)
+    if not target_name:
+        return []
+
+    match_stems = {_stem(t) for t in _tokenize_for_match(target_name)}
+    if not match_stems:
+        return []
+
+    subs, obls = _load_inactive_rows(db)
+    kind, chosen = _pick_best_fuzzy(
+        subs,
+        obls,
+        target_name,
+        match_stems,
+        min_similarity=_RESTORE_MIN_SIMILARITY,
+    )
+    if not chosen or not kind:
+        logger.info(
+            "restore command skipped (no inactive match): target=%r message=%r",
+            target_name[:80],
+            text[:120],
+        )
+        return []
+
+    name = str(chosen.get("name") or "")
+    if not _message_matches_recurring_name(text, name, match_stems):
+        logger.info(
+            "restore command skipped (low name confidence): name=%r message=%r",
+            name,
+            text[:120],
+        )
+        return []
+
+    if not _row_is_inactive(chosen):
+        logger.info(
+            "restore command skipped (not inactive): name=%r message=%r",
+            name,
+            text[:120],
+        )
+        return []
+
+    return [
+        _build_restore_pending(
+            kind=kind,
+            chosen=chosen,
+            confidence=_RESTORE_CONFIDENCE,
+        )
+    ]
+
+
+def _detect_create_subscription(
+    db: Any, message: str
+) -> list[dict[str, Any]]:
+    """Detect «добавь Netflix 15 евро» when the name is not in the DB."""
+    text = (message or "").strip()
+    if not text:
+        return []
+
+    tail = _extract_add_subscription_tail(text)
+    if not tail:
+        return []
+
+    parsed = _split_name_and_amount(tail)
+    if not parsed:
+        return []
+
+    name, amount = parsed
+    if _find_subscription_match(db, name):
+        logger.info(
+            "create subscription skipped (already exists): name=%r message=%r",
+            name,
+            text[:120],
+        )
+        return []
+
+    symbol = "€"
+    description = f"Добавить подписку: {name} — {symbol}{amount:.2f}/мес"
+    return [
+        {
+            "type": "create_subscription",
+            "description": description,
+            "confidence": _CREATE_SUB_CONFIDENCE,
+            "data": {
+                "kind": "subscription",
+                "name": name,
+                "amount": amount,
+                "currency": "EUR",
+                "action": "created",
+            },
+        }
+    ]
+
+
 def _detect_delete_command(
     db: Any, message: str
 ) -> list[dict[str, Any]]:
@@ -757,10 +1095,16 @@ def _detect_from_user_message(
     db: Any, message: str
 ) -> list[dict[str, Any]]:
     """Detect recurring corrections from the user's message."""
-    delete_pending = _detect_delete_command(db, message)
-    if delete_pending:
-        return delete_pending
-    return _detect_price_update(db, message)
+    for detector in (
+        _detect_delete_command,
+        _detect_restore_command,
+        _detect_create_subscription,
+        _detect_price_update,
+    ):
+        pending = detector(db, message)
+        if pending:
+            return pending
+    return []
 
 
 def detect_recurring_corrections(
@@ -778,13 +1122,42 @@ def apply_pending_recurring_action(
     db: Any, action: dict[str, Any]
 ) -> dict[str, Any] | None:
     """Apply a pending recurring correction previously returned by detect."""
+    action_type = str(action.get("type") or "")
     data = action.get("data") or {}
+
+    if action_type == "create_subscription":
+        return _apply_create_subscription(db, data)
+
     kind = str(data.get("kind") or "")
     row_id = data.get("id")
     if not kind or row_id is None:
         return None
 
-    action_type = str(action.get("type") or "")
+    if action_type.startswith("restore_"):
+        table = "subscriptions" if kind == "subscription" else "obligations"
+        row = fetch_one(
+            db,
+            f"SELECT is_active FROM {table} WHERE id = ?",
+            (int(row_id),),
+        )
+        if not row or not _row_is_inactive(row):
+            return None
+        if not _restore_row(db, kind, int(row_id)):
+            return None
+        result: dict[str, Any] = {
+            "type": kind,
+            "id": int(row_id),
+            "name": str(data.get("name") or ""),
+            "action": "restored",
+            "currency": str(data.get("currency") or "EUR"),
+        }
+        if data.get("amount") is not None:
+            try:
+                result["new_value"] = float(data["amount"])
+            except (TypeError, ValueError):
+                pass
+        return result
+
     if action_type.startswith("delete_"):
         table = "subscriptions" if kind == "subscription" else "obligations"
         row = fetch_one(
@@ -825,6 +1198,16 @@ def format_confirmation(updates: list[dict[str, Any]]) -> str:
         kind = str(u.get("type") or "").lower()
         if action == "deleted":
             lines.append(f"_Удалено: {name}_")
+            continue
+        if action == "restored":
+            currency = u.get("currency") or "EUR"
+            symbol = "€" if currency.upper() == "EUR" else f"{currency} "
+            new = u.get("new_value")
+            try:
+                new_str = f"{symbol}{float(new):.2f}" if new is not None else "?"
+            except (TypeError, ValueError):
+                new_str = "?"
+            lines.append(f"_Восстановлено: {name} — {new_str}_")
             continue
         currency = u.get("currency") or "EUR"
         symbol = "€" if currency.upper() == "EUR" else f"{currency} "

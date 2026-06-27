@@ -21,7 +21,6 @@ from typing import Any
 
 from services.event_extractor import _normalize_event, _save_event
 from services.fact_extractor import (
-    detect_recurring_from_fact,
     _normalize_fact,
     _upsert_fact,
 )
@@ -96,13 +95,10 @@ def _save_workout_item(
     return _save_workout(conn, workout)
 
 
-def _save_facts(
-    conn: Any, items: Any
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _save_facts(conn: Any, items: Any) -> list[dict[str, Any]]:
     saved: list[dict[str, Any]] = []
-    pending_actions: list[dict[str, Any]] = []
     if not isinstance(items, list):
-        return saved, pending_actions
+        return saved
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -113,12 +109,9 @@ def _save_facts(
             row = _upsert_fact(conn, fact)
             if row is not None:
                 saved.append(row)
-                pending = detect_recurring_from_fact(conn, fact)
-                if pending is not None:
-                    pending_actions.append(pending)
         except Exception:
             logger.exception("unified: failed to save fact %s", fact.get("key"))
-    return saved, pending_actions
+    return saved
 
 
 def _save_decision(conn: Any, raw: dict[str, Any]) -> dict[str, Any] | None:
@@ -202,7 +195,6 @@ async def extract_all(
         "workout": {...saved row...} | None,
         "facts": [...saved rows...],
         "decisions": [...saved/merged rows...],
-        "pending_actions": [...pending subscription/obligation actions...],
       }
 
     Never raises — on any failure it returns the empty-shaped result so
@@ -213,7 +205,6 @@ async def extract_all(
         "workout": None,
         "facts": [],
         "decisions": [],
-        "pending_actions": [],
     }
 
     messages = [m.strip() for m in user_messages if (m or "").strip()]
@@ -247,10 +238,10 @@ async def extract_all(
         workout = None
 
     try:
-        facts, pending_actions = _save_facts(conn, data.get("facts"))
+        facts = _save_facts(conn, data.get("facts"))
     except Exception:
         logger.exception("unified: fact persistence failed")
-        facts, pending_actions = [], []
+        facts = []
 
     try:
         decisions = _save_decisions(conn, data.get("decisions"))
@@ -263,5 +254,4 @@ async def extract_all(
         "workout": workout,
         "facts": facts,
         "decisions": decisions,
-        "pending_actions": pending_actions,
     }

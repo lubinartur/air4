@@ -406,6 +406,21 @@ CREATE TABLE IF NOT EXISTS discovery_gaps (
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS recommendation_feedback (
+    id              INTEGER PRIMARY KEY,
+    recommendation  TEXT NOT NULL,
+    domain          TEXT,
+    context         TEXT,
+    expected_action TEXT,
+    follow_up_date  TEXT NOT NULL,
+    status          TEXT DEFAULT 'pending',
+    user_feedback   TEXT,
+    outcome         TEXT,
+    confidence_delta REAL DEFAULT 0,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """
@@ -449,6 +464,8 @@ CREATE INDEX IF NOT EXISTS idx_user_facts_updated_at ON user_facts(updated_at);
 CREATE INDEX IF NOT EXISTS idx_observer_date ON observer_events(observed_at);
 CREATE INDEX IF NOT EXISTS idx_discovery_gaps_status ON discovery_gaps(status);
 CREATE INDEX IF NOT EXISTS idx_discovery_gaps_category ON discovery_gaps(category);
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON recommendation_feedback(status);
+CREATE INDEX IF NOT EXISTS idx_feedback_followup ON recommendation_feedback(follow_up_date);
 """
 
 

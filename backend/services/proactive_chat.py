@@ -10,6 +10,7 @@ from database import fetch_all, fetch_one, get_meta, set_meta
 from services.discovery import get_open_gaps, mark_gaps_asked_in_response
 from services.llm_client_shared import DEFAULT_MODEL, call_claude
 from services.prompts import CHAT_RESPONSE_FORMAT
+from services.recommendation_feedback import get_pending_recommendation_followup
 from services.test_mode import is_test_mode
 
 logger = logging.getLogger("proactive_chat")
@@ -57,7 +58,11 @@ _MORNING_BRIEF_PROMPT = (
     "Open loop: {open_loop}\n"
     "Unknown about user: {discovery_gap}\n"
     "Yesterday activity: {observer_summary}\n"
-    "Today's signal: {today_signal}\n\n"
+    "Today's signal: {today_signal}\n"
+    "Pending recommendation follow-up: {follow_up}\n\n"
+    "If pending recommendation follow-up is not '—', weave it naturally into "
+    "the brief — e.g. 'Три дня назад я предлагал [recommendation]. Удалось сделать?' "
+    "Keep max 3 sentences total including the follow-up.\n\n"
     + CHAT_RESPONSE_FORMAT
 )
 
@@ -240,6 +245,13 @@ def collect_morning_signals(conn: Any) -> dict[str, Any]:
         gap_category = str(gap.get("category") or "")
         discovery_text = _gap_short_label(str(gap.get("question_hint") or ""))
 
+    follow_up = get_pending_recommendation_followup(conn)
+    follow_up_text = "—"
+    if follow_up:
+        rec = follow_up.get("recommendation") or ""
+        question = follow_up.get("question") or ""
+        follow_up_text = f"{rec} — {question}"
+
     return {
         "open_loop": get_top_open_loop(conn) or "—",
         "discovery_gap": discovery_text,
@@ -247,6 +259,8 @@ def collect_morning_signals(conn: Any) -> dict[str, Any]:
         "observer_summary": get_yesterday_observer_summary(conn) or "—",
         "today_signal": get_today_signal(conn) or "—",
         "recent_observer": get_recent_observer_signal(conn, minutes=30) or "—",
+        "follow_up": follow_up,
+        "follow_up_text": follow_up_text,
     }
 
 
@@ -260,6 +274,7 @@ def build_morning_brief_prompt(signals: dict[str, Any]) -> str:
         discovery_gap=signals.get("discovery_gap") or "—",
         observer_summary=observer,
         today_signal=signals.get("today_signal") or "—",
+        follow_up=signals.get("follow_up_text") or "—",
     )
 
 

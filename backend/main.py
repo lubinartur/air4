@@ -30,6 +30,7 @@ from routers import (
     discovery,
     events,
     feed,
+    feedback,
     finance_recurring,
     followups,
     goals,
@@ -91,6 +92,7 @@ app.include_router(hypotheses.router, prefix="/api", tags=["hypotheses"])
 app.include_router(identity.router, prefix="/api", tags=["identity"])
 app.include_router(interview.router, prefix="/api", tags=["interview"])
 app.include_router(feed.router, prefix="/api", tags=["feed"])
+app.include_router(feedback.router, prefix="/api", tags=["feedback"])
 app.include_router(followups.router, prefix="/api", tags=["followups"])
 app.include_router(recommendation.router, prefix="/api/air4", tags=["recommendation"])
 

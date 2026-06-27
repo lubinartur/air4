@@ -35,6 +35,7 @@ from services.discovery import (
     get_open_gaps,
     mark_gaps_asked_in_response,
 )
+from services.feedback_extractor import extract_feedback_answer
 from services.followup_extractor import (
     extract_followup,
     get_pending_followups_for_today,
@@ -43,6 +44,10 @@ from services.followup_extractor import (
 )
 from services.identity_extractor import extract_identity
 from services.chat_history import fetch_recent_chat_messages
+from services.recommendation_feedback import (
+    detect_and_save_recommendation_feedback,
+    get_recommendation_feedback_context,
+)
 from services.proactive_chat import (
     generate_morning_brief,
     generate_observer_nudge,
@@ -128,6 +133,7 @@ def _load_context(
     str,
     str,
     str,
+    str,
 ]:
     summary = load_summary(conn)
     profile = fetch_one(conn, "SELECT * FROM user_profile WHERE id = 1")
@@ -168,6 +174,7 @@ def _load_context(
     subscriptions_context = get_subscriptions_context(conn)
     observer_context = get_observer_context(conn)
     discovery_context = format_discovery_gaps_context(get_open_gaps(conn, limit=3))
+    feedback_context = get_recommendation_feedback_context(conn, limit=3)
     return (
         summary,
         profile,
@@ -178,6 +185,7 @@ def _load_context(
         subscriptions_context,
         observer_context,
         discovery_context,
+        feedback_context,
     )
 
 
@@ -352,6 +360,48 @@ def _schedule_identity_extraction(user_messages: list[str], api_key: str) -> Non
     asyncio.create_task(_run())
 
 
+def _schedule_feedback_extraction(user_messages: list[str], api_key: str) -> None:
+    """Fire-and-forget: close pending recommendation follow-ups from user reply."""
+    if not user_messages or not api_key.strip():
+        return
+    message = user_messages[-1].strip()
+    if not message:
+        return
+
+    async def _run() -> None:
+        try:
+            with get_db() as conn:
+                await extract_feedback_answer(message, conn, api_key)
+                conn.commit()
+        except Exception:
+            logger.exception("Background feedback extraction failed")
+
+    asyncio.create_task(_run())
+
+
+def _schedule_recommendation_feedback_detection(
+    user_message: str,
+    assistant_response: str,
+    api_key: str,
+) -> None:
+    """Fire-and-forget: detect concrete recommendations in assistant reply."""
+    response = (assistant_response or "").strip()
+    if not response or not api_key.strip():
+        return
+
+    async def _run() -> None:
+        try:
+            with get_db() as conn:
+                await detect_and_save_recommendation_feedback(
+                    conn, response, user_message, api_key
+                )
+                conn.commit()
+        except Exception:
+            logger.exception("Background recommendation feedback detection failed")
+
+    asyncio.create_task(_run())
+
+
 def _schedule_followup_extraction(user_messages: list[str], api_key: str) -> None:
     """Fire-and-forget follow-up extraction after a chat turn."""
     if not user_messages or not api_key.strip():
@@ -497,6 +547,7 @@ async def chat_endpoint(
             subscriptions_context,
             observer_context,
             discovery_context,
+            feedback_context,
         ) = _load_context(conn)
         llm_history = _build_llm_history(body.history, conn)
         # Semantic-ish recall: search the whole archive for events that
@@ -521,6 +572,7 @@ async def chat_endpoint(
         subscriptions_context=subscriptions_context,
         observer_context=observer_context,
         discovery_context=discovery_context,
+        feedback_context=feedback_context,
         current_page=body.current_page,
         relevant_events=relevant_events,
     )
@@ -611,6 +663,10 @@ async def chat_endpoint(
             )
             _schedule_identity_extraction(user_messages, api_key)
             _schedule_followup_extraction(user_messages, api_key)
+            _schedule_feedback_extraction(user_messages, api_key)
+            _schedule_recommendation_feedback_detection(
+                message, assistant_text, api_key
+            )
 
             if pending_actions:
                 top = pending_actions[0]
@@ -644,6 +700,8 @@ async def chat_endpoint(
     )
     _schedule_identity_extraction(user_messages, api_key)
     _schedule_followup_extraction(user_messages, api_key)
+    _schedule_feedback_extraction(user_messages, api_key)
+    _schedule_recommendation_feedback_detection(message, response_text, api_key)
 
     return ChatOut(
         response=response_text,

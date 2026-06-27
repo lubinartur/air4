@@ -784,3 +784,18 @@ class FollowupOut(BaseModel):
     question: str
     status: str
     created_at: str | None = None
+
+
+class RecommendationFeedbackOut(BaseModel):
+    id: int
+    recommendation: str
+    domain: str | None = None
+    context: str | None = None
+    expected_action: str | None = None
+    follow_up_date: str
+    status: str
+    user_feedback: str | None = None
+    outcome: str | None = None
+    confidence_delta: float = 0
+    created_at: str | None = None
+    updated_at: str | None = None

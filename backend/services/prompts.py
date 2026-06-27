@@ -724,6 +724,7 @@ def build_system_context(
     subscriptions_context: str = "",
     observer_context: str = "",
     discovery_context: str = "",
+    feedback_context: str = "",
     current_page: str | None = None,
     relevant_events: list[dict[str, Any]] | None = None,
 ) -> str:
@@ -763,6 +764,9 @@ def build_system_context(
     observer_text = (observer_context or "").strip()
     if observer_text:
         parts.extend(["", observer_text])
+    feedback_text = (feedback_context or "").strip()
+    if feedback_text:
+        parts.extend(["", feedback_text])
     page = (current_page or "").strip()
     if page:
         parts.extend(["", f"Текущая страница UI: {page}"])

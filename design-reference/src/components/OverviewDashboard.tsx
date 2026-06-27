@@ -3,6 +3,7 @@ import {
   ArrowRight,
   ArrowUp,
   Dumbbell,
+  HelpCircle,
   Info,
   Sparkles,
 } from "lucide-react";
@@ -146,6 +147,38 @@ function buildSecondaryChatRequest(signal: SecondarySignal): ChatLaunchRequest {
   return {
     message: `${DOMAIN_CHAT_PREFIX[signal.domain]}: ${signal.one_line}`,
     agent: signal.domain,
+    autoSend: true,
+  };
+}
+
+function buildOverallWhyRequest(primary: PrimaryThinking): ChatLaunchRequest {
+  return {
+    message: "Как ты пришёл к сегодняшнему выводу?",
+    agent: primary.domain,
+    autoSend: true,
+  };
+}
+
+function buildWhySeesRequest(primary: PrimaryThinking): ChatLaunchRequest {
+  return {
+    message: `Почему ты видишь ${primary.sees}? Объясни своё мышление.`,
+    agent: primary.domain,
+    autoSend: true,
+  };
+}
+
+function buildWhyUnderstandsRequest(primary: PrimaryThinking): ChatLaunchRequest {
+  return {
+    message: `Почему ты так понимаешь ситуацию: ${primary.understands}? Объясни своё мышление.`,
+    agent: primary.domain,
+    autoSend: true,
+  };
+}
+
+function buildWhySuggestsRequest(primary: PrimaryThinking): ChatLaunchRequest {
+  return {
+    message: `Почему ты предлагаешь: ${primary.suggests}? Объясни своё мышление.`,
+    agent: primary.domain,
     autoSend: true,
   };
 }
@@ -312,10 +345,12 @@ function ThinkingSection({
   icon,
   label,
   text,
+  onWhy,
 }: {
   icon: string;
   label: string;
   text: string;
+  onWhy?: () => void;
 }) {
   return (
     <div>
@@ -326,6 +361,19 @@ function ThinkingSection({
         {icon} {label}
       </p>
       <p className="text-[14px] leading-[1.6] text-[#e2e8f0]">{text}</p>
+      {onWhy ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onWhy();
+          }}
+          className="mt-2 text-[11px] transition-colors duration-200 hover:text-[#f97316]"
+          style={{ color: C.muted }}
+        >
+          Почему?
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -564,7 +612,25 @@ export function OverviewDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
         {/* AIRCH INTELLIGENCE */}
         <Card className="lg:col-span-3 min-h-[360px] animate-fade-in-up animate-delay-2">
-          <span className={LABEL_CLASS}>AIRCH Intelligence</span>
+          <div className="flex items-center justify-between gap-3">
+            <span className={LABEL_CLASS}>AIRCH Intelligence</span>
+            {!recoLoading && recommendations ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onOpenChatWithMessage(
+                    buildOverallWhyRequest(recommendations.primary),
+                  )
+                }
+                className="p-1.5 rounded-lg transition-colors duration-200 hover:bg-white/[0.06] hover:text-[#f97316]"
+                style={{ color: C.muted }}
+                aria-label="Как ты пришёл к сегодняшнему выводу?"
+                title="Как ты пришёл к сегодняшнему выводу?"
+              >
+                <HelpCircle size={15} />
+              </button>
+            ) : null}
+          </div>
 
           {recoLoading ? (
             <div className="flex flex-col lg:flex-row gap-6 flex-1 mt-5 animate-pulse">
@@ -584,44 +650,57 @@ export function OverviewDashboard({
             </div>
           ) : recommendations ? (
             <div className="flex flex-col lg:flex-row gap-6 flex-1 mt-5">
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenChatWithMessage(
-                    buildPrimaryChatRequest(recommendations.primary),
-                  )
-                }
-                className="flex-[3] min-w-0 text-left rounded-xl p-1 -m-1 hover:bg-white/[0.02] transition-colors group"
-              >
+              <div className="flex-[3] min-w-0">
                 <div className="space-y-5">
                   <ThinkingSection
                     icon="👁"
                     label="ЧТО Я ВИЖУ"
                     text={recommendations.primary.sees}
+                    onWhy={() =>
+                      onOpenChatWithMessage(
+                        buildWhySeesRequest(recommendations.primary),
+                      )
+                    }
                   />
                   <div className="border-t border-white/[0.06]" />
                   <ThinkingSection
                     icon="🧠"
                     label="ЧТО ЭТО ЗНАЧИТ"
                     text={recommendations.primary.understands}
+                    onWhy={() =>
+                      onOpenChatWithMessage(
+                        buildWhyUnderstandsRequest(recommendations.primary),
+                      )
+                    }
                   />
                   <div className="border-t border-white/[0.06]" />
                   <ThinkingSection
                     icon="💡"
                     label="ЧТО ПРЕДЛАГАЮ"
                     text={recommendations.primary.suggests}
+                    onWhy={() =>
+                      onOpenChatWithMessage(
+                        buildWhySuggestsRequest(recommendations.primary),
+                      )
+                    }
                   />
                 </div>
-                <span
-                  className="inline-block mt-5 text-[11px] uppercase tracking-wide font-semibold px-2.5 py-1 rounded-full"
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenChatWithMessage(
+                      buildPrimaryChatRequest(recommendations.primary),
+                    )
+                  }
+                  className="inline-block mt-5 text-[11px] uppercase tracking-wide font-semibold px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
                   style={{
                     color: C.orange,
                     backgroundColor: "rgba(249,115,22,0.12)",
                   }}
                 >
-                  {DOMAIN_BADGE[recommendations.primary.domain]}
-                </span>
-              </button>
+                  {DOMAIN_BADGE[recommendations.primary.domain]} →
+                </button>
+              </div>
 
               <div className="flex-[2] flex flex-col gap-3 min-w-0">
                 {recommendations.secondary.map((signal) => (

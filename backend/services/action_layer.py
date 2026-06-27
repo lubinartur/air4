@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import traceback
 from datetime import date
 from typing import Any
 
@@ -94,7 +95,9 @@ Rules:
 - create_subscription only when the name is NOT already in subscriptions.
 - create_obligation only when the name is NOT already in obligations.
 - update_subscription: data must include id, field (amount|name), value.
-- update_obligation: data must include id, field (monthly_payment|name), value.
+- update_obligation: data must include id; pass any of total_amount,
+  remaining_amount, monthly_payment, interest_rate, due_date, name, category
+  (all provided fields are updated together).
 - create_obligation: name, monthly_payment; optional total_amount, remaining_amount,
   due_date (ISO date), category (loan|tech|rent|other).
 - create_subscription: name, amount; optional currency (default EUR), billing_day.
@@ -493,52 +496,114 @@ def _exec_update_subscription_field(
     return None
 
 
-def _exec_update_obligation_field(db: Any, data: dict[str, Any]) -> dict[str, Any] | None:
+_OBLIGATION_UPDATE_FIELDS = frozenset({
+    "total_amount",
+    "remaining_amount",
+    "monthly_payment",
+    "interest_rate",
+    "due_date",
+    "name",
+    "category",
+})
+_OBLIGATION_NUMERIC_FIELDS = frozenset({
+    "total_amount",
+    "remaining_amount",
+    "monthly_payment",
+    "interest_rate",
+})
+
+
+def _coerce_obligation_field(key: str, value: Any) -> Any:
+    if key in _OBLIGATION_NUMERIC_FIELDS:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid numeric value for {key}: {value!r}") from exc
+    if key == "due_date":
+        s = str(value or "").strip()
+        return s or None
+    if key in ("name", "category"):
+        s = str(value or "").strip()
+        return s or None
+    return value
+
+
+def _exec_update_obligation(db: Any, data: dict[str, Any]) -> dict[str, Any] | None:
+    """Update one or more obligation columns in a single statement."""
     row_id = data.get("id")
-    field = str(data.get("field") or "monthly_payment").strip().lower()
-    value = data.get("value")
-    if row_id is None or value is None:
-        return None
+    if row_id is None:
+        raise ValueError("Missing id")
+
     row = fetch_one(
         db,
-        "SELECT id, name, monthly_payment FROM obligations WHERE id = ?",
+        """
+        SELECT id, name, total_amount, remaining_amount, monthly_payment,
+               interest_rate, due_date, category, is_active
+        FROM obligations
+        WHERE id = ?
+        """,
         (int(row_id),),
     )
     if not row:
-        return None
-    if field == "name":
-        new_name = str(value).strip()
-        if not new_name:
-            return None
-        old_name = str(row.get("name") or "")
-        execute(
-            db,
-            "UPDATE obligations SET name = ?, source = 'chat', "
-            "updated_at = datetime('now') WHERE id = ?",
-            (new_name, int(row_id)),
+        raise ValueError(f"Obligation id={row_id} not found")
+
+    fields: dict[str, Any] = {}
+
+    field = str(data.get("field") or "").strip().lower()
+    value = data.get("value")
+    if field and value is not None:
+        key = "monthly_payment" if field == "amount" else field
+        if key in _OBLIGATION_UPDATE_FIELDS:
+            fields[key] = _coerce_obligation_field(key, value)
+
+    if data.get("amount") is not None and "monthly_payment" not in fields:
+        fields["monthly_payment"] = _coerce_obligation_field(
+            "monthly_payment", data["amount"]
         )
-        return {
-            "type": "obligation",
-            "id": int(row_id),
-            "name": new_name,
-            "action": "updated",
-            "field": "name",
-            "old_value": old_name,
-            "new_value": new_name,
-            "currency": "EUR",
-        }
-    if field in ("monthly_payment", "amount"):
-        action = {
-            "type": "update_obligation",
-            "data": {
-                "kind": "obligation",
-                "id": int(row_id),
-                "name": row.get("name"),
-                "amount": float(value),
-            },
-        }
-        return apply_pending_recurring_action(db, action)
-    return None
+
+    for key in _OBLIGATION_UPDATE_FIELDS:
+        if key in data and data[key] is not None:
+            fields[key] = _coerce_obligation_field(key, data[key])
+
+    if not fields:
+        raise ValueError("Missing id or fields")
+
+    set_clause = ", ".join(f"{k} = ?" for k in fields)
+    values = list(fields.values()) + [int(row_id)]
+    execute(
+        db,
+        f"UPDATE obligations SET {set_clause}, source = 'chat', "
+        f"updated_at = datetime('now') WHERE id = ?",
+        tuple(values),
+    )
+
+    name = str(fields.get("name") or row.get("name") or "")
+    result: dict[str, Any] = {
+        "type": "obligation",
+        "id": int(row_id),
+        "name": name,
+        "action": "updated",
+        "currency": "EUR",
+    }
+
+    if "monthly_payment" in fields:
+        old_monthly = row.get("monthly_payment")
+        result["field"] = "monthly_payment"
+        result["old_value"] = (
+            float(old_monthly) if old_monthly is not None else None
+        )
+        result["new_value"] = float(fields["monthly_payment"])
+    elif len(fields) == 1:
+        only_key = next(iter(fields))
+        result["field"] = only_key
+        result["old_value"] = row.get(only_key)
+        result["new_value"] = fields[only_key]
+    else:
+        result["field"] = "obligation"
+
+    return result
 
 
 def _exec_create_obligation(db: Any, data: dict[str, Any]) -> dict[str, Any] | None:
@@ -650,10 +715,12 @@ def execute_action(db: Any, action: dict[str, Any]) -> dict[str, Any] | None:
                 return _exec_update_subscription_field(db, data)
             return apply_pending_recurring_action(db, action)
         if action_type == "update_obligation":
-            field = str(data.get("field") or "monthly_payment").strip().lower()
-            if field == "name":
-                return _exec_update_obligation_field(db, data)
-            return apply_pending_recurring_action(db, action)
+            try:
+                return _exec_update_obligation(db, data)
+            except Exception as e:
+                print(f"update_obligation error: {e}")
+                traceback.print_exc()
+                raise
         return apply_pending_recurring_action(db, action)
 
     if action_type == "log_workout":

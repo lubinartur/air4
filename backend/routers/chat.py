@@ -42,6 +42,7 @@ from services.followup_extractor import (
     mark_sent_followups_answered,
 )
 from services.identity_extractor import extract_identity
+from services.chat_history import fetch_recent_chat_messages
 from services.proactive_chat import (
     generate_morning_brief,
     generate_observer_nudge,

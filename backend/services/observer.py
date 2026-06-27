@@ -117,6 +117,55 @@ def extract_project_hint(app: str, window: str) -> str:
     return window[:50]
 
 
+def _match_active_project(
+    conn: sqlite3.Connection, project_hint: str
+) -> sqlite3.Row | None:
+    hint = project_hint.strip()
+    if not hint:
+        return None
+    return conn.execute(
+        """
+        SELECT id, name FROM projects
+        WHERE status = 'active'
+          AND (
+            LOWER(name) LIKE '%' || LOWER(?) || '%'
+            OR LOWER(?) LIKE '%' || LOWER(name) || '%'
+          )
+        ORDER BY LENGTH(name) DESC
+        LIMIT 1
+        """,
+        (hint, hint),
+    ).fetchone()
+
+
+def _log_observer_project_activity(
+    conn: sqlite3.Connection,
+    *,
+    project_id: int,
+    app: str,
+    duration: int,
+    observed_at: str,
+) -> None:
+    minutes = max(1, duration // 60)
+    conn.execute(
+        """
+        INSERT INTO project_logs
+        (project_id, note, log_type, duration_minutes, source, created_at)
+        VALUES (?, ?, 'update', ?, 'observer', ?)
+        """,
+        (
+            project_id,
+            f"Observer: {app} активен {minutes} мин",
+            minutes,
+            observed_at,
+        ),
+    )
+    conn.execute(
+        "UPDATE projects SET updated_at = ? WHERE id = ?",
+        (observed_at, project_id),
+    )
+
+
 def is_observer_enabled(db_path: str | None = None) -> bool:
     path = db_path or str(DB_PATH)
     try:
@@ -141,24 +190,43 @@ def save_event(
     project_hint = extract_project_hint(app, window)
     observed_at = datetime.now().isoformat()
     conn = sqlite3.connect(db_path)
-    conn.execute(
-        """
-        INSERT INTO observer_events
-        (app_name, window_title, duration_seconds, domain,
-         project_hint, observed_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            app,
-            window,
-            duration,
-            domain,
-            project_hint,
-            observed_at,
-        ),
-    )
-    conn.commit()
-    conn.close()
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute(
+            """
+            INSERT INTO observer_events
+            (app_name, window_title, duration_seconds, domain,
+             project_hint, observed_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                app,
+                window,
+                duration,
+                domain,
+                project_hint,
+                observed_at,
+            ),
+        )
+
+        if project_hint:
+            project = _match_active_project(conn, project_hint)
+            if project is not None:
+                _log_observer_project_activity(
+                    conn,
+                    project_id=int(project["id"]),
+                    app=app,
+                    duration=duration,
+                    observed_at=observed_at,
+                )
+                print(
+                    f"👁 Linked to project {project['name']} "
+                    f"(#{project['id']})"
+                )
+
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def run_observer(db_path: str | None = None) -> None:

@@ -177,14 +177,28 @@ def get_today_signal(conn: Any) -> str | None:
     row = fetch_one(
         conn,
         """
-        SELECT recommendation FROM dilemmas
-        WHERE recommendation IS NOT NULL AND TRIM(recommendation) != ''
-        ORDER BY datetime(updated_at) DESC, id DESC
+        SELECT primary_thought FROM today_cache
+        WHERE date = date('now', 'localtime')
+          AND primary_thought IS NOT NULL
+          AND TRIM(primary_thought) != ''
+        ORDER BY datetime(generated_at) DESC
         LIMIT 1
         """,
     )
-    if row and row.get("recommendation"):
-        return str(row["recommendation"]).strip()[:600]
+    if row and row.get("primary_thought"):
+        return str(row["primary_thought"]).strip()[:600]
+
+    row = fetch_one(
+        conn,
+        """
+        SELECT primary_thought FROM today_cache
+        WHERE primary_thought IS NOT NULL AND TRIM(primary_thought) != ''
+        ORDER BY datetime(generated_at) DESC
+        LIMIT 1
+        """,
+    )
+    if row and row.get("primary_thought"):
+        return str(row["primary_thought"]).strip()[:600]
     return None
 
 

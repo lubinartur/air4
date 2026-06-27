@@ -107,7 +107,6 @@ def _flush_session(
     if domain == "other":
         return
     save_event(db_path, app, window or "", duration, domain)
-    print(f"👁 {app} — {duration // 60}мин")
 
 
 def extract_project_hint(app: str, window: str) -> str:

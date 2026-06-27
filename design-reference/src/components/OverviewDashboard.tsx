@@ -11,6 +11,7 @@ import {
   fetchEvents,
   fetchHypotheses,
   fetchMonthlyFixed,
+  fetchObserverToday,
   fetchProfile,
   fetchSubscriptions,
   hasFinanceData,
@@ -21,6 +22,8 @@ import {
   type DomainRecommendation,
   type DomainRecommendations,
   type Observation,
+  type ObserverToday,
+  type ObserverTodayAggregated,
   type Project,
   type Summary,
   type UserFact,
@@ -87,6 +90,42 @@ const DOMAIN_CHAT_PREFIX: Record<DomainRecommendation["domain"], string> = {
 };
 
 const WEEK_GOAL = 4;
+const OBSERVER_REFRESH_MS = 5 * 60 * 1000;
+
+function localDateKey(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isToday(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const normalized = iso.includes("T") ? iso : iso.replace(" ", "T");
+  const d = new Date(normalized);
+  if (Number.isNaN(d.getTime())) return false;
+  return localDateKey(d) === localDateKey(new Date());
+}
+
+function formatObserverDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}мин`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}ч ${m}мин` : `${h}ч`;
+}
+
+function formatObserverAppLabel(item: ObserverTodayAggregated): string {
+  return item.project ? `${item.app} · ${item.project}` : item.app;
+}
+
+function formatProjectActivityLabel(project: Project): string {
+  if (isToday(project.updated_at)) {
+    return `${project.name} — активен сегодня`;
+  }
+  const days = daysSince(project.updated_at);
+  if (days >= 999) return "нет активности";
+  return `${days}д назад`;
+}
 
 function buildDomainChatRequest(
   reco: DomainRecommendation,
@@ -300,6 +339,8 @@ export function OverviewDashboard({
   const [monthlyFixedTotal, setMonthlyFixedTotal] = useState<number | null>(null);
   const [eventsTotal, setEventsTotal] = useState(0);
   const [confirmedPatterns, setConfirmedPatterns] = useState(0);
+  const [observerToday, setObserverToday] = useState<ObserverToday | null>(null);
+  const [observerLoading, setObserverLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -356,6 +397,47 @@ export function OverviewDashboard({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadObserver = async () => {
+      try {
+        const data = await fetchObserverToday();
+        if (!cancelled) setObserverToday(data);
+      } catch {
+        if (!cancelled) setObserverToday(null);
+      } finally {
+        if (!cancelled) setObserverLoading(false);
+      }
+    };
+
+    void loadObserver();
+    const id = window.setInterval(() => {
+      void loadObserver();
+    }, OBSERVER_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const observerApps = useMemo(
+    () => (observerToday?.by_app_aggregated ?? []).slice(0, 3),
+    [observerToday],
+  );
+
+  const observerMaxMinutes = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...(observerToday?.by_app_aggregated ?? []).map((a) => a.total_minutes),
+      ),
+    [observerToday],
+  );
+
+  const observerHasData = (observerToday?.total_minutes ?? 0) > 0;
 
   const activeProjects = useMemo(
     () => projects.filter((p) => p.status === "active"),
@@ -591,7 +673,7 @@ export function OverviewDashboard({
       </div>
 
       {/* Bottom row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
         {/* ПРОЕКТЫ */}
         <Card
           className="min-h-[220px] animate-fade-in-up animate-delay-3"
@@ -628,7 +710,15 @@ export function OverviewDashboard({
                   {topProjectPct}%
                 </span>
               </div>
-              <p className={METRIC_CAPTION_CLASS}>
+              <p
+                className={METRIC_CAPTION_CLASS}
+                style={{
+                  color: isToday(topProject.updated_at) ? C.orange : C.muted,
+                }}
+              >
+                {formatProjectActivityLabel(topProject)}
+              </p>
+              <p className={META_LABEL_CLASS}>
                 {activeProjects.length} активный
                 {waitingProjects > 0 ? ` · ${waitingProjects} ожидают` : ""}
               </p>
@@ -675,6 +765,75 @@ export function OverviewDashboard({
               </span>
             </div>
           </div>
+        </Card>
+
+        {/* АКТИВНОСТЬ */}
+        <Card
+          className={`animate-fade-in-up animate-delay-3 ${
+            observerHasData ? "min-h-[280px]" : "min-h-[220px]"
+          }`}
+          onClick={() => onPageChange("Observer")}
+        >
+          <TileHeader
+            label="Активность сегодня"
+            onDetail={() => onPageChange("Observer")}
+          />
+
+          {observerLoading ? (
+            <div className="flex flex-col flex-1 animate-pulse space-y-3 mt-1">
+              <div className="h-9 w-28 rounded bg-white/10" />
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="h-3 w-full rounded bg-white/10" />
+                  <div className="h-1 w-full rounded bg-white/10" />
+                </div>
+              ))}
+            </div>
+          ) : !observerHasData ? (
+            <p className={META_LABEL_CLASS}>Нет данных</p>
+          ) : (
+            <div className="flex flex-col flex-1 min-h-0">
+              <MetricValue>
+                {formatObserverDuration(observerToday?.total_minutes ?? 0)}
+              </MetricValue>
+              <div className="mt-4 space-y-2.5 flex-1">
+                {observerApps.map((item) => {
+                  const barPct = Math.round(
+                    (item.total_minutes / observerMaxMinutes) * 100,
+                  );
+                  return (
+                    <div
+                      key={`${item.app}-${item.project ?? ""}`}
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-2"
+                    >
+                      <span
+                        className="text-[11px] truncate"
+                        style={{ color: C.muted }}
+                        title={formatObserverAppLabel(item)}
+                      >
+                        {formatObserverAppLabel(item)}
+                      </span>
+                      <div className="h-1 rounded-[2px] overflow-hidden bg-white/[0.08]">
+                        <div
+                          className="h-full rounded-[2px] transition-all duration-500"
+                          style={{
+                            width: `${barPct}%`,
+                            backgroundColor: C.orange,
+                          }}
+                        />
+                      </div>
+                      <span
+                        className="text-[11px] tabular-nums shrink-0 text-right"
+                        style={{ color: C.muted }}
+                      >
+                        {formatObserverDuration(item.total_minutes)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* ПАМЯТЬ */}

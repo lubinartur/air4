@@ -1629,6 +1629,12 @@ export type ObserverEvent = {
   observed_at: string | null;
 };
 
+export type ObserverTodayAggregated = {
+  app: string;
+  project?: string;
+  total_minutes: number;
+};
+
 export type ObserverTodayByApp = {
   app: string;
   window: string;
@@ -1639,6 +1645,7 @@ export type ObserverTodayByApp = {
 export type ObserverToday = {
   date: string;
   total_minutes: number;
+  by_app_aggregated: ObserverTodayAggregated[];
   by_domain: Record<
     string,
     { minutes: number; events: ObserverEvent[] }

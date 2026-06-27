@@ -31,6 +31,7 @@ TRACKED_APPS = {
 }
 
 MIN_DURATION = 60  # 1 minute (raise after confirming observer works)
+IDLE_THRESHOLD = 300  # 5 minutes — pause session tracking while away
 
 _observer_running = False
 _observer_thread: threading.Thread | None = None
@@ -62,6 +63,42 @@ def get_active_app() -> dict[str, str]:
             "window": parts[1].strip() if len(parts) > 1 else "",
         }
     return {"app": "", "window": ""}
+
+
+def get_idle_seconds() -> int:
+    """Seconds since last keyboard/mouse input (macOS only)."""
+    if sys.platform != "darwin":
+        return 0
+    result = subprocess.run(
+        ["ioreg", "-c", "IOHIDSystem"],
+        capture_output=True,
+        text=True,
+    )
+    match = re.search(r'"HIDIdleTime"\s*=\s*(\d+)', result.stdout)
+    if match:
+        return int(match.group(1)) // 1_000_000_000
+    return 0
+
+
+def _flush_session(
+    db_path: str,
+    app: str | None,
+    window: str | None,
+    session_start: float | None,
+    *,
+    idle_seconds: int = 0,
+) -> None:
+    """Persist a tracked session if it meets the minimum duration."""
+    if not app or session_start is None:
+        return
+    duration = max(0, int(time.time() - session_start) - idle_seconds)
+    if duration < MIN_DURATION:
+        return
+    domain = TRACKED_APPS.get(app, "other")
+    if domain == "other":
+        return
+    save_event(db_path, app, window or "", duration, domain)
+    print(f"👁 {app} — {duration // 60}мин")
 
 
 def extract_project_hint(app: str, window: str) -> str:
@@ -142,6 +179,23 @@ def run_observer(db_path: str | None = None) -> None:
                 time.sleep(30)
                 continue
 
+            idle = get_idle_seconds()
+            if idle > IDLE_THRESHOLD:
+                if current_app and session_start:
+                    print(f"👁 Idle {idle}s — closing session for {current_app}")
+                    _flush_session(
+                        path,
+                        current_app,
+                        current_window,
+                        session_start,
+                        idle_seconds=idle,
+                    )
+                    current_app = None
+                    current_window = None
+                    session_start = None
+                time.sleep(check_interval)
+                continue
+
             active = get_active_app()
             app = active["app"]
             window = active["window"]
@@ -149,18 +203,12 @@ def run_observer(db_path: str | None = None) -> None:
             if app != current_app or window != current_window:
                 print(f"👁 Switch detected: {current_app} → {app}")
                 if current_app and session_start:
-                    duration = int(time.time() - session_start)
-                    if duration >= MIN_DURATION:
-                        domain = TRACKED_APPS.get(current_app, "other")
-                        if domain != "other":
-                            save_event(
-                                path,
-                                current_app,
-                                current_window or "",
-                                duration,
-                                domain,
-                            )
-                            print(f"👁 {current_app} — {duration // 60}мин")
+                    _flush_session(
+                        path,
+                        current_app,
+                        current_window,
+                        session_start,
+                    )
 
                 current_app = app
                 current_window = window

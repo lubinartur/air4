@@ -30,7 +30,11 @@ from schemas import (
     ConfirmActionOut,
 )
 from services.body_extractor import extract_body_data
-from services.chat_history import fetch_recent_chat_messages, save_exchange
+from services.discovery import (
+    format_discovery_gaps_context,
+    get_open_gaps,
+    mark_gaps_asked_in_response,
+)
 from services.followup_extractor import (
     extract_followup,
     get_pending_followups_for_today,
@@ -114,6 +118,7 @@ def _load_context(
     str,
     str,
     str,
+    str,
 ]:
     summary = load_summary(conn)
     profile = fetch_one(conn, "SELECT * FROM user_profile WHERE id = 1")
@@ -153,6 +158,7 @@ def _load_context(
     health_checkups_context = get_health_checkups_context(conn)
     subscriptions_context = get_subscriptions_context(conn)
     observer_context = get_observer_context(conn)
+    discovery_context = format_discovery_gaps_context(get_open_gaps(conn, limit=3))
     return (
         summary,
         profile,
@@ -162,6 +168,7 @@ def _load_context(
         health_checkups_context,
         subscriptions_context,
         observer_context,
+        discovery_context,
     )
 
 
@@ -424,6 +431,8 @@ def _persist_exchange(
                 attachment=attachment,
             )
             mark_sent_followups_answered(conn)
+            mark_gaps_asked_in_response(conn, assistant_message)
+            conn.commit()
     except Exception:
         logger.exception("Failed to persist chat exchange")
 
@@ -478,6 +487,7 @@ async def chat_endpoint(
             health_checkups_context,
             subscriptions_context,
             observer_context,
+            discovery_context,
         ) = _load_context(conn)
         llm_history = _build_llm_history(body.history, conn)
         # Semantic-ish recall: search the whole archive for events that
@@ -501,6 +511,7 @@ async def chat_endpoint(
         health_checkups_context=health_checkups_context,
         subscriptions_context=subscriptions_context,
         observer_context=observer_context,
+        discovery_context=discovery_context,
         current_page=body.current_page,
         relevant_events=relevant_events,
     )

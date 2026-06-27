@@ -25,6 +25,10 @@ from services.fact_extractor import (
     _upsert_fact,
 )
 from services.decision_extractor import _find_duplicate, _merge_into_existing
+from services.discovery import (
+    apply_facts_to_discovery_gaps,
+    apply_user_text_to_discovery_gaps,
+)
 from services.llm_client import parse_json_object
 from services.llm_client_shared import DEFAULT_MODEL, call_claude
 from services.workout_extractor import _normalize_workout, _save_workout
@@ -239,6 +243,8 @@ async def extract_all(
 
     try:
         facts = _save_facts(conn, data.get("facts"))
+        apply_facts_to_discovery_gaps(conn, facts)
+        apply_user_text_to_discovery_gaps(conn, messages)
     except Exception:
         logger.exception("unified: fact persistence failed")
         facts = []

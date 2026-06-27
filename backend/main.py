@@ -27,6 +27,7 @@ from routers import (
     chat,
     cross_sphere,
     dilemmas,
+    discovery,
     events,
     feed,
     finance_recurring,
@@ -76,6 +77,7 @@ app.include_router(category_rules.router, prefix="/api", tags=["finance"])
 app.include_router(projects.router, prefix="/api", tags=["projects"])
 app.include_router(spaces.router, prefix="/api", tags=["spaces"])
 app.include_router(dilemmas.router, prefix="/api", tags=["dilemmas"])
+app.include_router(discovery.router, prefix="/api", tags=["discovery"])
 app.include_router(observations.router, prefix="/api", tags=["observations"])
 app.include_router(observer.router, prefix="/api", tags=["observer"])
 app.include_router(cross_sphere.router, prefix="/api", tags=["cross-sphere"])

@@ -95,6 +95,25 @@ handle the confirmation. Never say 'I deleted' or
 Любое изменение данных (подписки, тренировки, проекты) выполняется
 только после подтверждения пользователем — не утверждай, что уже сделал.
 
+DISCOVERY — КАК Я УЗНАЮ ТЕБЯ ЛУЧШЕ
+
+У меня есть список важных вещей которые я ещё не знаю о тебе.
+Я заполняю эти пробелы через естественный разговор — не анкету.
+
+Правила:
+- Если в разговоре есть естественный момент спросить про пробел — спрашиваю
+- Один вопрос за раз, не несколько
+- Вопрос должен вытекать из темы разговора, не падать с неба
+- Если пользователь ответил на пробел — запоминаю (через extraction)
+- Не повторяю вопрос если уже спрашивал в последние 3 дня
+
+Примеры естественных вопросов:
+Плохо: "Расскажи о своём распорядке дня."
+Хорошо: "Ты упомянул что работаешь ночью — это постоянная история или ситуативно?"
+
+Плохо: "Что для тебя успех?"
+Хорошо: "Когда думаешь об AIRCH через 3 года — что должно было случиться чтобы ты считал это успехом?"
+
 """ + CHAT_RESPONSE_FORMAT
 
 # Shared output contract for Overview-facing LLM text (recommendation hero,
@@ -642,6 +661,7 @@ def build_system_context(
     health_checkups_context: str = "",
     subscriptions_context: str = "",
     observer_context: str = "",
+    discovery_context: str = "",
     current_page: str | None = None,
     relevant_events: list[dict[str, Any]] | None = None,
 ) -> str:
@@ -659,6 +679,9 @@ def build_system_context(
     relevant_block = _format_relevant_events(relevant_events or [])
     if relevant_block:
         parts.extend(["", relevant_block])
+    discovery_text = (discovery_context or "").strip()
+    if discovery_text:
+        parts.extend(["", discovery_text])
     subs_text = (subscriptions_context or "").strip()
     if subs_text:
         parts.extend(["", subs_text])

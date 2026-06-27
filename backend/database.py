@@ -394,6 +394,18 @@ CREATE TABLE IF NOT EXISTS category_rules (
     created_at     TEXT DEFAULT (datetime('now')),
     updated_at     TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS discovery_gaps (
+    id              INTEGER PRIMARY KEY,
+    category        TEXT NOT NULL UNIQUE,
+    question_hint   TEXT NOT NULL,
+    priority        INTEGER DEFAULT 2,
+    status          TEXT DEFAULT 'open',
+    learned_value   TEXT,
+    last_asked      TEXT,
+    created_at      TEXT DEFAULT (datetime('now')),
+    updated_at      TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """
@@ -435,6 +447,8 @@ CREATE INDEX IF NOT EXISTS idx_observations_created_at ON observations(created_a
 CREATE INDEX IF NOT EXISTS idx_subscriptions_updated_at ON subscriptions(updated_at);
 CREATE INDEX IF NOT EXISTS idx_user_facts_updated_at ON user_facts(updated_at);
 CREATE INDEX IF NOT EXISTS idx_observer_date ON observer_events(observed_at);
+CREATE INDEX IF NOT EXISTS idx_discovery_gaps_status ON discovery_gaps(status);
+CREATE INDEX IF NOT EXISTS idx_discovery_gaps_category ON discovery_gaps(category);
 """
 
 
@@ -680,6 +694,9 @@ def init_db() -> None:
             "INSERT OR IGNORE INTO user_profile (id, name, context) VALUES (1, NULL, NULL)"
         )
         _seed_income_sources(conn)
+        from services.discovery import seed_discovery_gaps
+
+        seed_discovery_gaps(conn)
         conn.commit()
     finally:
         conn.close()

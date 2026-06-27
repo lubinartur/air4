@@ -488,6 +488,22 @@ class TrainingLogImportOut(BaseModel):
     chat_notice: str | None = None
 
 
+class DiscoveryGapOut(BaseModel):
+    id: int
+    category: str
+    question_hint: str
+    priority: int = 2
+    status: str = "open"
+    learned_value: str | None = None
+    last_asked: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class DiscoveryGapsListOut(BaseModel):
+    gaps: list[DiscoveryGapOut] = Field(default_factory=list)
+
+
 class HealthMarkerOut(BaseModel):
     id: int
     marker_name: str

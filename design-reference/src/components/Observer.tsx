@@ -153,13 +153,14 @@ export function ObserverPage() {
   };
 
   const byProject = useMemo(() => {
-    if (!today?.by_app) return [];
+    const items = today?.by_app_aggregated ?? [];
+    if (!items.length) return [];
     const map = new Map<string, { minutes: number; apps: Set<string> }>();
-    for (const item of today.by_app) {
-      const hint = item.project_hint?.trim();
+    for (const item of items) {
+      const hint = item.project?.trim();
       if (!hint) continue;
       const cur = map.get(hint) ?? { minutes: 0, apps: new Set<string>() };
-      cur.minutes += item.minutes;
+      cur.minutes += item.total_minutes;
       cur.apps.add(item.app);
       map.set(hint, cur);
     }
@@ -171,6 +172,12 @@ export function ObserverPage() {
         apps: [...data.apps].join(", "),
       }));
   }, [today]);
+
+  const todayAggregated = today?.by_app_aggregated ?? [];
+  const maxTodayMinutes = useMemo(
+    () => Math.max(1, ...todayAggregated.map((item) => item.total_minutes)),
+    [todayAggregated],
+  );
 
   const historyByDay = useMemo(() => {
     const todayLocal = localDateKey(new Date());
@@ -238,41 +245,39 @@ export function ObserverPage() {
             <h2 className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.1em] mb-6">
               Сегодня
             </h2>
-            {!today?.by_app?.length ? (
+            {!todayAggregated.length ? (
               <p className="text-sm text-[#64748b]">
-                Пока нет записей. Сессии от 5 минут в отслеживаемых приложениях.
+                Пока нет записей. Сессии от 1 минуты в отслеживаемых приложениях.
               </p>
             ) : (
-              <div className="space-y-3">
-                {today.by_app.map((item) => (
-                  <div
-                    key={`${item.app}-${item.project_hint}`}
-                    className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0"
-                  >
-                    <span className="text-lg leading-none mt-0.5">
-                      {appEmoji(item.app)}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-bold text-[#f1f5f9]">
-                        {item.app}
-                        {item.project_hint ? (
-                          <span className="text-[#94a3b8] font-medium">
-                            {" "}
-                            · {item.project_hint}
-                          </span>
-                        ) : item.window ? (
-                          <span className="text-[#94a3b8] font-medium">
-                            {" "}
-                            · {item.window.slice(0, 40)}
-                          </span>
-                        ) : null}
-                      </p>
+              <div className="space-y-4">
+                {todayAggregated.map((item) => {
+                  const barPct = Math.round(
+                    (item.total_minutes / maxTodayMinutes) * 100,
+                  );
+                  const label = item.project
+                    ? `${item.app} · ${item.project}`
+                    : item.app;
+                  return (
+                    <div key={`${item.app}-${item.project ?? ""}`}>
+                      <div className="flex items-center justify-between gap-3 mb-1.5">
+                        <p className="text-[14px] font-bold text-[#f1f5f9] truncate">
+                          <span className="mr-1.5">{appEmoji(item.app)}</span>
+                          {label}
+                        </p>
+                        <span className="text-[13px] font-bold text-[#cbd5e1] shrink-0">
+                          {formatDuration(item.total_minutes)}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#f97316] transition-all"
+                          style={{ width: `${barPct}%` }}
+                        />
+                      </div>
                     </div>
-                    <span className="text-[13px] font-bold text-[#cbd5e1] shrink-0">
-                      {formatDuration(item.minutes)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

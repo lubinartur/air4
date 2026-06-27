@@ -86,7 +86,26 @@ def observer_today() -> dict[str, Any]:
         )
 
     events = [_row_to_event(r) for r in rows]
-    total_seconds = sum(int(e["duration_seconds"]) for e in events)
+
+    agg_map: dict[tuple[str, str], int] = defaultdict(int)
+    for event in events:
+        app = event["app_name"]
+        project = (event.get("project_hint") or "").strip()
+        agg_map[(app, project)] += int(event["duration_seconds"])
+
+    by_app_aggregated: list[dict[str, Any]] = []
+    for (app, project), seconds in sorted(
+        agg_map.items(), key=lambda item: -item[1]
+    ):
+        row: dict[str, Any] = {
+            "app": app,
+            "total_minutes": seconds // 60,
+        }
+        if project:
+            row["project"] = project
+        by_app_aggregated.append(row)
+
+    total_minutes = sum(item["total_minutes"] for item in by_app_aggregated)
 
     by_domain: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"minutes": 0, "events": []}
@@ -126,7 +145,8 @@ def observer_today() -> dict[str, Any]:
 
     return {
         "date": today_str,
-        "total_minutes": total_seconds // 60,
+        "total_minutes": total_minutes,
+        "by_app_aggregated": by_app_aggregated,
         "by_domain": dict(by_domain),
         "by_app": by_app,
         "recent": events[:10],

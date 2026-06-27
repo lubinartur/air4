@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 
 from database import DB_PATH
+from services.test_mode import is_test_mode
 
 TRACKED_APPS = {
     "Cursor": "projects",
@@ -32,10 +33,18 @@ TRACKED_APPS = {
 
 MIN_DURATION = 60  # 1 minute (raise after confirming observer works)
 IDLE_THRESHOLD = 300  # 5 minutes — pause session tracking while away
+PERIODIC_FLUSH_SECONDS = 300
+_TEST_PERIODIC_FLUSH_SECONDS = 60
 
 _observer_running = False
 _observer_thread: threading.Thread | None = None
 _observer_lock = threading.Lock()
+
+
+def periodic_flush_interval() -> int:
+    if is_test_mode():
+        return _TEST_PERIODIC_FLUSH_SECONDS
+    return PERIODIC_FLUSH_SECONDS
 
 
 def get_active_app() -> dict[str, str]:
@@ -237,6 +246,8 @@ def run_observer(db_path: str | None = None) -> None:
     current_app: str | None = None
     current_window: str | None = None
     session_start: float | None = None
+    last_flush_time = time.time()
+    flush_interval = periodic_flush_interval()
     check_interval = 10
 
     print("👁 Observer started")
@@ -281,6 +292,27 @@ def run_observer(db_path: str | None = None) -> None:
                 current_app = app
                 current_window = window
                 session_start = time.time()
+
+            now = time.time()
+            if now - last_flush_time >= flush_interval:
+                if current_app and session_start:
+                    duration = int(now - session_start)
+                    if duration >= MIN_DURATION:
+                        domain = TRACKED_APPS.get(current_app, "other")
+                        if domain != "other":
+                            save_event(
+                                path,
+                                current_app,
+                                current_window or "",
+                                duration,
+                                domain,
+                            )
+                            print(
+                                f"👁 Periodic flush: {current_app} — "
+                                f"{duration // 60}мин"
+                            )
+                            session_start = time.time()
+                last_flush_time = now
 
         except Exception as e:
             print(f"Observer error: {e}")

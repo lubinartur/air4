@@ -99,6 +99,7 @@ export function ChatPanel({
   const sendMessageRef = useRef<
     (text: string, options?: { agent?: ChatAgent }) => Promise<void>
   >(() => Promise.resolve());
+  const chatStreamRef = useRef(0);
 
   useEffect(() => {
     saveChatHistory(messages);
@@ -140,6 +141,12 @@ export function ChatPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    setPendingActions([]);
+  }, [currentPage]);
+
+  useEffect(() => () => setPendingActions([]), []);
 
   useEffect(() => {
     if (!pendingChatRequest) return;
@@ -203,6 +210,7 @@ export function ChatPanel({
   const handleSend = async () => {
     if (isLoading) return;
     if (!input.trim() && !attachment) return;
+    setPendingActions([]);
     await sendMessage(input.trim());
   };
 
@@ -261,6 +269,8 @@ export function ChatPanel({
     options?: { agent?: ChatAgent },
   ) => {
     if (isLoading) return;
+    const streamId = ++chatStreamRef.current;
+    setPendingActions([]);
     const outgoingAttachment = attachment;
     if (!text.trim() && !outgoingAttachment) return;
 
@@ -277,7 +287,6 @@ export function ChatPanel({
     setInput("");
     setAttachment(null);
     setAttachmentError(null);
-    setPendingActions([]);
     setIsLoading(true);
 
     if (pendingInterview) {
@@ -350,16 +359,13 @@ export function ChatPanel({
             });
           },
           onMeta: (incoming) => {
+            if (streamId !== chatStreamRef.current) return;
             meta = incoming;
-            if (incoming.pending_actions?.length) {
-              setPendingActions(incoming.pending_actions);
-            }
+            setPendingActions(incoming.pending_actions ?? []);
           },
           onPendingAction: (action) => {
-            console.log("pending_action SSE received:", action);
-            setPendingActions((prev) =>
-              prev.length > 0 ? prev : [action],
-            );
+            if (streamId !== chatStreamRef.current) return;
+            setPendingActions([action]);
           },
           onError: (msg) => {
             console.error("Chat stream error:", msg);

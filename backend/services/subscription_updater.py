@@ -1,19 +1,12 @@
 """Detect and apply price corrections to subscriptions/obligations.
 
-The chat pipeline calls :func:`detect_recurring_corrections` after the LLM
-response is generated.  A user message such as
+The chat pipeline calls :func:`detect_recurring_corrections` on the user's
+message to build pending actions (price updates and delete commands).
+Writes happen only when the user confirms via
+``POST /api/chat/confirm-action`` → :func:`apply_pending_recurring_action`.
 
-    "Страховка мотоцикл стоит 15.61 евро, не 43"
-
-is parsed into
-
-    {name: "Страховка Мотоцикл", new_amount: 15.61}
-
-and the matching row in `subscriptions` or `obligations` is updated.
-
-Detection is intentionally conservative: we only update when ALL non-stop
-tokens of a stored item's name appear in the message, and we ignore
-amounts that are explicitly tagged as wrong ("не 43", "вместо 43").
+Delete commands (``удали Netflix``, ``delete Spotify``, …) use fuzzy name
+matching (≥0.5 similarity). Price updates require an explicit new amount.
 """
 
 from __future__ import annotations
@@ -23,7 +16,7 @@ import logging
 import re
 from typing import Any
 
-from database import execute, fetch_all
+from database import execute, fetch_all, fetch_one
 
 logger = logging.getLogger("subscription_updater")
 
@@ -67,16 +60,37 @@ _WRONG_AMOUNT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Deletion intent.  Matches Russian verb stems with any ending plus the
-# common English equivalents.  `\b` is Unicode-aware in Python 3.
-_DELETE_INTENT_RE = re.compile(
-    r"(?:^|\W)("
-    r"удал[а-яё]*|убер[а-яё]*|убир[а-яё]*|сн[её]с[а-яё]*|"
-    r"выкин[а-яё]*|отмен[а-яё]*|отпи[сш][а-яё]*|"
-    r"remove[ds]?|delete[ds]?|cancel(?:l?ed)?"
-    r")(?:$|\W)",
+# Exact delete verbs — word-boundary match only (no stem wildcards).
+_DELETE_VERB = (
+    r"удали|удалить|убери|убрать|отмени|отменить|"
+    r"cancel|delete|remove"
+)
+_DELETE_COMMAND_RE = re.compile(
+    rf"(?:^|(?<=\s))(?P<verb>{_DELETE_VERB})(?=\s)\s+"
+    rf"(?P<name>.+)$",
     re.IGNORECASE,
 )
+# Direct negation before a delete verb: «не удали», «не удалить».
+_DELETE_VERB_NEGATED_RE = re.compile(
+    rf"(?:^|\s)не\s+(?:{_DELETE_VERB})\b",
+    re.IGNORECASE,
+)
+# Imperative negation: «не удаляй», «не убирай».
+_DELETE_IMPERATIVE_NEGATED_RE = re.compile(
+    r"(?:^|\s)не\s+(?:удаляй|убирай|отменяй)\b",
+    re.IGNORECASE,
+)
+# Modal negation before/after verb: «не можем удалить», «удалить не сможем».
+_DELETE_MODAL_NEGATED_RE = re.compile(
+    r"(?:^|\s)не\s+(?:могу|можем|можешь|сможем|будем|станем|надо|нужно|стоит)\b"
+    r"|"
+    rf"\b(?:{_DELETE_VERB})\s+не\s+"
+    r"(?:могу|можем|можешь|сможем|будем|станем|надо|нужно|стоит)\b",
+    re.IGNORECASE,
+)
+_DELETE_MIN_NAME_LEN = 3
+_DELETE_MIN_SIMILARITY = 0.5
+_DELETE_CONFIDENCE = 0.85
 
 # Names that are amounts, cadence labels, or other non-service junk in DB.
 _JUNK_NAME_LITERALS = frozenset({
@@ -101,27 +115,21 @@ _PARENS_WITH_AMOUNT_RE = re.compile(
 _EURO_IN_TEXT_RE = re.compile(r"€\s*[\d]", re.IGNORECASE)
 _DOLLAR_IN_TEXT_RE = re.compile(r"\$\s*[\d]")
 
-# Assistant-stated price updates: "Обновляю Netflix: €12 → €15".
-_ASSISTANT_UPDATE_VERB_RE = (
-    r"(?:обновляю|обновил[аи]?|меняю|изменяю|ставлю|устанавливаю|"
-    r"updating|updated|setting|changing)\s+"
+# Russian colloquial transliterations → canonical Latin service names.
+# Both sides of a match are normalized to Latin so «нетфликс» ↔ «Netflix».
+_TRANSLIT_RU_TO_LAT: tuple[tuple[str, str], ...] = (
+    ("нетфликс", "netflix"),
+    ("спотифай", "spotify"),
+    ("клод", "claude"),
+    ("гугл", "google"),
+    ("эпл", "apple"),
+    ("телеграм", "telegram"),
+    ("ютуб", "youtube"),
+    ("гитхаб", "github"),
+    ("мидджорни", "midjourney"),
 )
-_ASSISTANT_COLON_PRICE_RE = re.compile(
-    rf"(?:{_ASSISTANT_UPDATE_VERB_RE})?"
-    r"(?P<name>[^:\n€$]+?)"
-    r"\s*:\s*"
-    r"(?:€|EUR|\$)?\s*(?P<old>[\d][\d\s.,]*)"
-    r"\s*(?:→|->|—|–|to)\s*"
-    r"(?:€|EUR|\$)?\s*(?P<new>[\d][\d\s.,]*)",
-    re.IGNORECASE,
-)
-_ASSISTANT_INLINE_PRICE_RE = re.compile(
-    r"(?P<name>[A-Za-zА-Яа-яЁё][\w\s.'-]{1,40}?)"
-    r"\s+"
-    r"(?:€|EUR|\$)?\s*(?P<old>[\d][\d\s.,]*)"
-    r"\s*(?:→|->|—|–|to)\s*"
-    r"(?:€|EUR|\$)?\s*(?P<new>[\d][\d\s.,]*)",
-    re.IGNORECASE,
+_TRANSLIT_LAT_CANONICAL: frozenset[str] = frozenset(
+    lat for _, lat in _TRANSLIT_RU_TO_LAT
 )
 
 
@@ -189,9 +197,29 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^\w\s]+", " ", (text or "").lower())
 
 
+def _normalize_for_match(text: str) -> str:
+    """Lowercase, strip punctuation, map RU transliterations → Latin canonical."""
+    s = _normalize(text)
+    s = re.sub(r"\s+", " ", s).strip()
+    for ru, lat in _TRANSLIT_RU_TO_LAT:
+        s = re.sub(rf"(?<!\w){re.escape(ru)}(?!\w)", lat, s)
+    # Latin DB names (Netflix, netflix) → same canonical token as RU input.
+    for lat in _TRANSLIT_LAT_CANONICAL:
+        s = re.sub(rf"(?<!\w){re.escape(lat)}(?!\w)", lat, s)
+    return s
+
+
 def _tokenize(text: str) -> list[str]:
     return [
         t for t in _normalize(text).split()
+        if len(t) >= _MIN_TOKEN_LEN and t not in _STOPWORDS
+    ]
+
+
+def _tokenize_for_match(text: str) -> list[str]:
+    """Tokenize after transliteration normalization for name matching."""
+    return [
+        t for t in _normalize_for_match(text).split()
         if len(t) >= _MIN_TOKEN_LEN and t not in _STOPWORDS
     ]
 
@@ -235,7 +263,7 @@ def _is_junk_recurring_name(name: str) -> bool:
 
 def _name_similarity(a: str, b: str) -> float:
     return difflib.SequenceMatcher(
-        None, _normalize(a), _normalize(b)
+        None, _normalize_for_match(a), _normalize_for_match(b)
     ).ratio()
 
 
@@ -257,7 +285,7 @@ def _message_matches_recurring_name(
 
 
 def _name_tokens(name: str) -> list[str]:
-    return _tokenize(name)
+    return _tokenize_for_match(name)
 
 
 def _full_name_match(name: str, message_stems: set[str]) -> bool:
@@ -290,18 +318,31 @@ def _load_rows(db: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     try:
         subs = fetch_all(
             db,
-            "SELECT id, name, amount, currency FROM subscriptions "
+            "SELECT id, name, amount, currency, is_active FROM subscriptions "
             "WHERE COALESCE(is_active, 1) = 1",
         )
         obls = fetch_all(
             db,
-            "SELECT id, name, monthly_payment FROM obligations "
+            "SELECT id, name, monthly_payment, is_active FROM obligations "
             "WHERE COALESCE(is_active, 1) = 1",
         )
     except Exception:
         logger.exception("Failed to load recurring rows for match")
         return [], []
     return [dict(r) for r in subs], [dict(r) for r in obls]
+
+
+def _row_is_active(row: dict[str, Any] | None) -> bool:
+    """True when a subscription/obligation row is active (NULL → active)."""
+    if not row:
+        return False
+    val = row.get("is_active")
+    if val is None:
+        return True
+    try:
+        return int(val) == 1
+    except (TypeError, ValueError):
+        return bool(val)
 
 
 def _choose(
@@ -318,6 +359,112 @@ def _choose(
     if obl_match:
         return "obligation", obl_match
     return None, None
+
+
+def _is_negated_delete_message(text: str) -> bool:
+    """True when the message negates or questions deletion intent."""
+    clean = (text or "").strip()
+    if not clean:
+        return False
+    if _DELETE_VERB_NEGATED_RE.search(clean):
+        return True
+    if _DELETE_IMPERATIVE_NEGATED_RE.search(clean):
+        return True
+    if _DELETE_MODAL_NEGATED_RE.search(clean):
+        return True
+    return False
+
+
+def _is_invalid_delete_target(name: str) -> bool:
+    """Reject captured tails that are not a real subscription/obligation name."""
+    clean = re.sub(r"[.!?,;:]+$", "", (name or "").strip()).strip()
+    if len(clean) < _DELETE_MIN_NAME_LEN:
+        return True
+    lowered = clean.lower()
+    if lowered in {"ли", "разве", "правда"}:
+        return True
+    if re.match(r"^не\s+", lowered):
+        return True
+    if re.match(
+        r"^не\s+(?:сможем|можем|могу|можешь|надо|нужно|стоит|будем)\b",
+        lowered,
+    ):
+        return True
+    return False
+
+
+def _extract_delete_target_name(text: str) -> str | None:
+    """Return the subscription/obligation name after a delete verb."""
+    clean = (text or "").strip()
+    if not clean or _is_negated_delete_message(clean):
+        return None
+
+    for match in _DELETE_COMMAND_RE.finditer(clean):
+        start = match.start("verb")
+        if start > 0 and re.search(r"не\s+$", clean[:start], re.IGNORECASE):
+            continue
+        name = re.sub(
+            r"[.!?,;:]+$", "", (match.group("name") or "").strip()
+        ).strip()
+        if _is_invalid_delete_target(name):
+            continue
+        return name
+    return None
+
+
+def _row_fuzzy_match_score(
+    target: str, db_name: str, target_stems: set[str], *, min_similarity: float
+) -> float:
+    """Score how well ``target`` refers to a DB recurring row name."""
+    if _is_junk_recurring_name(db_name):
+        return 0.0
+    sim = _name_similarity(target, db_name)
+    if sim >= min_similarity:
+        return sim
+    if _full_name_match(db_name, target_stems):
+        return max(sim, 0.8)
+    name_tokens = _name_tokens(db_name)
+    if not name_tokens:
+        return 0.0
+    matched = sum(1 for t in name_tokens if _stem(t) in target_stems)
+    ratio = matched / len(name_tokens)
+    if ratio >= min_similarity:
+        return max(sim, ratio)
+    return 0.0
+
+
+def _pick_best_fuzzy(
+    subs: list[dict[str, Any]],
+    obls: list[dict[str, Any]],
+    target: str,
+    target_stems: set[str],
+    *,
+    min_similarity: float,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Pick the best subscription/obligation row for a delete command."""
+    best_kind: str | None = None
+    best_row: dict[str, Any] | None = None
+    best_score = 0.0
+    best_specificity = 0
+
+    for kind, pool in (("subscription", subs), ("obligation", obls)):
+        for row in pool:
+            name = str(row.get("name") or "")
+            score = _row_fuzzy_match_score(
+                target, name, target_stems, min_similarity=min_similarity
+            )
+            if score < min_similarity:
+                continue
+            specificity = len(_name_tokens(name))
+            if score > best_score or (
+                score == best_score and specificity > best_specificity
+            ):
+                best_kind = kind
+                best_row = row
+                best_score = score
+                best_specificity = specificity
+
+    return best_kind, best_row
 
 
 def _soft_delete(db: Any, kind: str, row_id: int) -> bool:
@@ -400,6 +547,13 @@ def _build_pending_description(
     currency: str = "EUR",
 ) -> str:
     if is_delete:
+        symbol = "€" if currency.upper() == "EUR" else f"{currency} "
+        if old_value is not None:
+            try:
+                amount_str = f"{symbol}{float(old_value):.2f}"
+                return f"Удалить {name} ({amount_str}/мес)"
+            except (TypeError, ValueError):
+                pass
         return f"Удалить {name}"
     symbol = "€" if currency.upper() == "EUR" else f"{currency} "
     try:
@@ -460,6 +614,11 @@ def _build_correction_pending(
     }
     if is_delete:
         data["action"] = "deleted"
+        if old is not None:
+            try:
+                data["amount"] = float(old)
+            except (TypeError, ValueError):
+                pass
     else:
         data["action"] = "updated"
         data["amount"] = amount
@@ -473,45 +632,81 @@ def _build_correction_pending(
     }
 
 
-def _choose_by_candidate_name(
-    subs: list[dict[str, Any]],
-    obls: list[dict[str, Any]],
-    candidate_name: str,
-) -> tuple[str | None, dict[str, Any] | None]:
-    clean = re.sub(r"[*_\"'`]+", "", (candidate_name or "").strip())
-    if not clean or _is_junk_recurring_name(clean):
-        return None, None
-    stems = {_stem(t) for t in _tokenize(clean)}
-    if not stems:
-        return None, None
-    kind, chosen = _choose(subs, obls, stems)
-    if not chosen or not kind:
-        return None, None
-    db_name = str(chosen.get("name") or "")
-    if _is_junk_recurring_name(db_name):
-        return None, None
-    if _name_similarity(clean, db_name) < 0.4 and not _full_name_match(
-        db_name, stems
-    ):
-        return None, None
-    return kind, chosen
-
-
-def _detect_from_user_message(
+def _detect_delete_command(
     db: Any, message: str
 ) -> list[dict[str, Any]]:
-    """Detect recurring corrections from the user's message."""
+    """Detect delete commands like ``удали Netflix`` with fuzzy name matching."""
+    text = (message or "").strip()
+    if not text or _is_negated_delete_message(text):
+        return []
+
+    target_name = _extract_delete_target_name(text)
+    if not target_name:
+        return []
+
+    match_text = target_name
+    match_stems = {_stem(t) for t in _tokenize_for_match(match_text)}
+    if not match_stems:
+        return []
+
+    subs, obls = _load_rows(db)
+    kind, chosen = _pick_best_fuzzy(
+        subs,
+        obls,
+        match_text,
+        match_stems,
+        min_similarity=_DELETE_MIN_SIMILARITY,
+    )
+    if not chosen or not kind:
+        logger.info(
+            "delete command skipped (no DB match): target=%r message=%r",
+            match_text[:80],
+            text[:120],
+        )
+        return []
+
+    name = str(chosen.get("name") or "")
+    if not _message_matches_recurring_name(text, name, match_stems):
+        logger.info(
+            "delete command skipped (low name confidence): name=%r message=%r",
+            name,
+            text[:120],
+        )
+        return []
+
+    if not _row_is_active(chosen):
+        logger.info(
+            "delete command skipped (inactive): name=%r message=%r",
+            name,
+            text[:120],
+        )
+        return []
+
+    return [
+        _build_correction_pending(
+            kind=kind,
+            chosen=chosen,
+            is_delete=True,
+            amount=None,
+            confidence=_DELETE_CONFIDENCE,
+        )
+    ]
+
+
+def _detect_price_update(
+    db: Any, message: str
+) -> list[dict[str, Any]]:
+    """Detect price corrections from the user's message."""
     text = (message or "").strip()
     if not text:
         return []
 
-    msg_stems = {_stem(t) for t in _tokenize(text)}
+    msg_stems = {_stem(t) for t in _tokenize_for_match(text)}
     if not msg_stems:
         return []
 
-    is_delete = bool(_DELETE_INTENT_RE.search(text))
-    amount = None if is_delete else _pick_correction_amount(text)
-    if not is_delete and amount is None:
+    amount = _pick_correction_amount(text)
+    if amount is None:
         return []
 
     subs, obls = _load_rows(db)
@@ -533,7 +728,15 @@ def _detect_from_user_message(
     else:
         old = chosen.get("monthly_payment")
 
-    if not is_delete and old is not None and amount is not None and float(old) == amount:
+    if old is not None and float(old) == amount:
+        return []
+
+    if not _row_is_active(chosen):
+        logger.info(
+            "recurring correction skipped (inactive): name=%r message=%r",
+            name,
+            text[:120],
+        )
         return []
 
     specificity = len(_name_tokens(name))
@@ -543,103 +746,32 @@ def _detect_from_user_message(
         _build_correction_pending(
             kind=kind,
             chosen=chosen,
-            is_delete=is_delete,
+            is_delete=False,
             amount=amount,
             confidence=confidence,
         )
     ]
 
 
-def _detect_from_assistant_text(
-    db: Any, assistant_text: str
+def _detect_from_user_message(
+    db: Any, message: str
 ) -> list[dict[str, Any]]:
-    """Detect explicit price updates stated in AIR4's reply."""
-    text = (assistant_text or "").strip()
-    if not text:
-        return []
-
-    subs, obls = _load_rows(db)
-    pending: list[dict[str, Any]] = []
-    seen: set[tuple[str, int]] = set()
-
-    patterns = (_ASSISTANT_COLON_PRICE_RE, _ASSISTANT_INLINE_PRICE_RE)
-    for pattern in patterns:
-        for match in pattern.finditer(text):
-            raw_name = re.sub(
-                r"[*_\"'`]+", "", (match.group("name") or "").strip()
-            )
-            raw_name = re.sub(
-                _ASSISTANT_UPDATE_VERB_RE, "", raw_name, flags=re.IGNORECASE
-            ).strip()
-            new_amount = _parse_amount(match.group("new") or "")
-            old_amount = _parse_amount(match.group("old") or "")
-            if not raw_name or new_amount is None:
-                continue
-
-            kind, chosen = _choose_by_candidate_name(subs, obls, raw_name)
-            if not chosen or not kind:
-                continue
-
-            row_id = int(chosen["id"])
-            dedupe_key = (kind, row_id)
-            if dedupe_key in seen:
-                continue
-            seen.add(dedupe_key)
-
-            if kind == "subscription":
-                db_old = chosen.get("amount")
-            else:
-                db_old = chosen.get("monthly_payment")
-            old_f = (
-                float(old_amount)
-                if old_amount is not None
-                else (float(db_old) if db_old is not None else None)
-            )
-            if old_f is not None and float(old_f) == new_amount:
-                continue
-
-            name = str(chosen.get("name") or "")
-            specificity = len(_name_tokens(name))
-            confidence = min(0.98, 0.82 + 0.05 * specificity)
-
-            pending.append(
-                _build_correction_pending(
-                    kind=kind,
-                    chosen=chosen,
-                    is_delete=False,
-                    amount=new_amount,
-                    old_override=old_f,
-                    confidence=confidence,
-                )
-            )
-    return pending
+    """Detect recurring corrections from the user's message."""
+    delete_pending = _detect_delete_command(db, message)
+    if delete_pending:
+        return delete_pending
+    return _detect_price_update(db, message)
 
 
 def detect_recurring_corrections(
-    db: Any, message: str, assistant_text: str = ""
+    db: Any, message: str
 ) -> list[dict[str, Any]]:
-    """Detect chat-side edits to recurring items without applying them."""
-    results: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
+    """Detect chat-side edits to recurring items from the user's message only.
 
-    for item in (
-        *_detect_from_assistant_text(db, assistant_text),
-        *_detect_from_user_message(db, message),
-    ):
-        key = (
-            str(item.get("type") or ""),
-            str(item.get("description") or ""),
-        )
-        if key in seen:
-            continue
-        seen.add(key)
-        results.append(item)
-
-    results.sort(
-        key=lambda a: float(a.get("confidence") or 0),
-        reverse=True,
-    )
-    return results
+    Does not write to the database — call :func:`apply_pending_recurring_action`
+    after the user confirms via ``POST /api/chat/confirm-action``.
+    """
+    return _detect_from_user_message(db, message)
 
 
 def apply_pending_recurring_action(
@@ -654,6 +786,14 @@ def apply_pending_recurring_action(
 
     action_type = str(action.get("type") or "")
     if action_type.startswith("delete_"):
+        table = "subscriptions" if kind == "subscription" else "obligations"
+        row = fetch_one(
+            db,
+            f"SELECT is_active FROM {table} WHERE id = ?",
+            (int(row_id),),
+        )
+        if not row or not _row_is_active(row):
+            return None
         if not _soft_delete(db, kind, int(row_id)):
             return None
         return {
@@ -669,38 +809,9 @@ def apply_pending_recurring_action(
     subs, obls = _load_rows(db)
     pool = subs if kind == "subscription" else obls
     row = next((r for r in pool if int(r.get("id") or 0) == int(row_id)), None)
-    if not row:
-        row = {
-            "id": int(row_id),
-            "name": data.get("name"),
-            "amount": data.get("old_value"),
-            "monthly_payment": data.get("old_value"),
-            "currency": data.get("currency") or "EUR",
-        }
+    if not row or not _row_is_active(row):
+        return None
     return _apply_update(db, kind, row, float(amount))
-
-
-def apply_recurring_corrections(
-    db: Any, message: str, assistant_text: str = ""
-) -> list[dict[str, Any]]:
-    """Detect chat-side edits to recurring items and apply them to the DB.
-
-    Supports two intents on the user's last message:
-      • Price correction → updates `subscriptions.amount` /
-        `obligations.monthly_payment`.
-      • Deletion         → soft-deletes (sets `is_active = 0`) when the
-        message contains an explicit removal verb plus a name match.
-
-    Returns a list of descriptors with an `action` of `"updated"` or
-    `"deleted"`.
-    """
-    pending = detect_recurring_corrections(db, message, assistant_text)
-    applied: list[dict[str, Any]] = []
-    for item in pending:
-        result = apply_pending_recurring_action(db, item)
-        if result:
-            applied.append(result)
-    return applied
 
 
 def format_confirmation(updates: list[dict[str, Any]]) -> str:

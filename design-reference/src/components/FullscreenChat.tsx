@@ -187,6 +187,7 @@ export function FullscreenChat({
   const sendMessageRef = useRef<
     (text: string, options?: { agent?: ChatAgent }) => Promise<void>
   >(() => Promise.resolve());
+  const chatStreamRef = useRef(0);
   // Text of the Morning Brief message (if shown), so we can render a
   // "Доброе утро" label above that specific assistant bubble.
   const [morningBriefText, setMorningBriefText] = useState<string | null>(null);
@@ -200,6 +201,8 @@ export function FullscreenChat({
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => () => setPendingActions([]), []);
 
   const pills = useMemo<ContextPill[]>(() => {
     const out: ContextPill[] = [];
@@ -324,6 +327,8 @@ export function FullscreenChat({
     text: string,
     options?: { agent?: ChatAgent },
   ) => {
+    const streamId = ++chatStreamRef.current;
+    setPendingActions([]);
     const outgoingAttachment = attachment;
     if (!text.trim() && !outgoingAttachment) return;
 
@@ -343,7 +348,6 @@ export function FullscreenChat({
     setInput("");
     setAttachment(null);
     setAttachmentError(null);
-    setPendingActions([]);
 
     let receivedAny = false;
     let meta: ChatResponseMeta | undefined;
@@ -391,16 +395,13 @@ export function FullscreenChat({
             });
           },
           onMeta: (incoming) => {
+            if (streamId !== chatStreamRef.current) return;
             meta = incoming;
-            if (incoming.pending_actions?.length) {
-              setPendingActions(incoming.pending_actions);
-            }
+            setPendingActions(incoming.pending_actions ?? []);
           },
           onPendingAction: (action) => {
-            console.log("pending_action SSE received:", action);
-            setPendingActions((prev) =>
-              prev.length > 0 ? prev : [action],
-            );
+            if (streamId !== chatStreamRef.current) return;
+            setPendingActions([action]);
           },
           onError: (msg) => {
             console.error("Chat stream error:", msg);
@@ -466,6 +467,7 @@ export function FullscreenChat({
 
   const handleSend = async () => {
     if (!input.trim() && !attachment) return;
+    setPendingActions([]);
     await sendMessage(input.trim());
   };
 

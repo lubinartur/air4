@@ -823,6 +823,19 @@ def _upsert_obligation_from_fact(
     return result
 
 
+def _row_is_active(row: dict[str, Any] | None) -> bool:
+    """True when a subscription/obligation row is active (NULL → active)."""
+    if not row:
+        return False
+    val = row.get("is_active")
+    if val is None:
+        return True
+    try:
+        return int(val) == 1
+    except (TypeError, ValueError):
+        return bool(val)
+
+
 def detect_subscription_from_fact(
     db: Any, fact: dict[str, Any]
 ) -> dict[str, Any] | None:
@@ -840,7 +853,13 @@ def detect_subscription_from_fact(
         return None
     existing = fetch_one(
         db,
-        "SELECT id, source, amount FROM subscriptions WHERE LOWER(name) = LOWER(?)",
+        """
+        SELECT id, source, amount, is_active
+        FROM subscriptions
+        WHERE LOWER(name) = LOWER(?)
+        ORDER BY COALESCE(is_active, 1) DESC, id DESC
+        LIMIT 1
+        """,
         (name,),
     )
     symbol = "€"
@@ -852,6 +871,9 @@ def detect_subscription_from_fact(
         "fact": fact,
     }
     if existing is not None:
+        if not _row_is_active(existing):
+            logger.info("subscription detect skip (inactive): name=%r", name)
+            return None
         if str(existing.get("source") or "").lower() == "manual":
             return None
         old = existing.get("amount")
@@ -936,9 +958,11 @@ def detect_obligation_from_fact(
     existing = fetch_one(
         db,
         """
-        SELECT id, source, monthly_payment
+        SELECT id, source, monthly_payment, is_active
         FROM obligations
         WHERE LOWER(name) = LOWER(?)
+        ORDER BY COALESCE(is_active, 1) DESC, id DESC
+        LIMIT 1
         """,
         (name,),
     )
@@ -953,6 +977,9 @@ def detect_obligation_from_fact(
         "fact": fact,
     }
     if existing is not None:
+        if not _row_is_active(existing):
+            logger.info("obligation detect skip (inactive): name=%r", name)
+            return None
         if str(existing.get("source") or "").lower() == "manual":
             return None
         old_monthly = existing.get("monthly_payment")
@@ -1034,31 +1061,6 @@ def apply_recurring_from_fact_pending(
     except Exception:
         logger.exception(
             "Failed to apply fact recurring pending action: %s", fact.get("key")
-        )
-    return None
-
-
-def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> dict[str, Any] | None:
-    """Apply a subscription/obligation mirror from a fact (confirmation path only).
-
-    Chat extractors must call :func:`detect_recurring_from_fact` instead so
-    financial rows are not written until the user confirms.
-    """
-    key = str(fact.get("key") or "")
-    try:
-        if _fact_looks_like_subscription(fact):
-            logger.debug("fact recurring apply: subscription key=%r", key)
-            return _upsert_subscription_from_fact(db, fact)
-        if _fact_looks_like_obligation(fact):
-            logger.info(
-                "fact recurring apply: obligation key=%r value=%r",
-                key,
-                str(fact.get("value") or "")[:160],
-            )
-            return _upsert_obligation_from_fact(db, fact)
-    except Exception:
-        logger.exception(
-            "Failed to mirror fact to recurring table: %s", fact.get("key")
         )
     return None
 

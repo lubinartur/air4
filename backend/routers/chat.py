@@ -56,10 +56,7 @@ from services.prompts import (
     strip_internal_xml_tags,
 )
 from services.fact_extractor import apply_recurring_from_fact_pending
-from services.obligation_from_chat import (
-    apply_pending_obligation_action,
-    detect_obligation_confirmations,
-)
+from services.obligation_from_chat import apply_pending_obligation_action
 from services.subscription_updater import (
     apply_pending_recurring_action,
     detect_recurring_corrections,
@@ -77,7 +74,9 @@ _CHAT_AGENT_INSTRUCTIONS: dict[str, str] = {
         "КОНТЕКСТ ДИАЛОГА — ФИНАНСЫ:\n"
         "Пользователь пришёл разобрать финансовую ситуацию. Держи фокус на тратах, "
         "обязательствах, подписках, резерве и решениях с цифрами. "
-        "Связывай с проектами или здоровьем только если это напрямую помогает решению."
+        "Связывай с проектами или здоровьем только если это напрямую помогает решению. "
+        "Не утверждай, что уже изменил подписку или обязательство — изменения "
+        "применяются только после подтверждения пользователем."
     ),
     "projects": (
         "КОНТЕКСТ ДИАЛОГА — ПРОЕКТЫ:\n"
@@ -416,27 +415,12 @@ def _apply_pending_chat_action(db: Any, action: dict[str, Any]) -> dict[str, Any
     return None
 
 
-def _detect_corrections_safely(
-    message: str, assistant_text: str = ""
-) -> list[dict[str, Any]]:
+def _detect_corrections_safely(message: str) -> list[dict[str, Any]]:
     try:
         with get_db() as conn:
-            return detect_recurring_corrections(conn, message, assistant_text)
+            return detect_recurring_corrections(conn, message)
     except Exception:
         logger.exception("Recurring correction detection failed")
-        return []
-
-
-def _detect_obligation_confirmations_safely(
-    assistant_text: str,
-) -> list[dict[str, Any]]:
-    text = (assistant_text or "").strip()
-    if not text:
-        return []
-    try:
-        return detect_obligation_confirmations(text)
-    except Exception:
-        logger.exception("Obligation confirmation detection failed")
         return []
 
 
@@ -615,10 +599,7 @@ async def chat_endpoint(
 
             full_text = strip_internal_xml_tags("".join(chunks))
 
-            recurring_pending = _detect_corrections_safely(message, full_text)
-            print(f"detect_recurring_corrections: {recurring_pending}")
-            obligation_pending = _detect_obligation_confirmations_safely(full_text)
-            print(f"detect_obligation_confirmations: {obligation_pending}")
+            recurring_pending = _detect_corrections_safely(message)
 
             # Run extractors before persistence so the workout footer
             # (if any) is folded into the same `chat_messages` row that
@@ -627,10 +608,8 @@ async def chat_endpoint(
             fact_pending, saved_workout = await _run_post_chat_extractors(
                 user_messages, api_key
             )
-            print(f"detect_recurring_from_facts: {fact_pending}")
             pending_actions = _merge_pending_actions(
                 recurring_pending,
-                obligation_pending,
                 fact_pending,
             )
             workout_footer = format_workout_footer(saved_workout)
@@ -646,7 +625,6 @@ async def chat_endpoint(
 
             if pending_actions:
                 top = pending_actions[0]
-                print(f"Pending action detected: {top}")
                 yield f"data: {_pending_action_payload(top)}\n\n"
 
             yield f"data: {_meta_payload(pending_actions=pending_actions)}\n\n"
@@ -665,24 +643,17 @@ async def chat_endpoint(
 
     response_text = strip_internal_xml_tags(response_text)
 
-    recurring_pending = _detect_corrections_safely(message, response_text)
-    print(f"detect_recurring_corrections: {recurring_pending}")
-    obligation_pending = _detect_obligation_confirmations_safely(response_text)
-    print(f"detect_obligation_confirmations: {obligation_pending}")
+    recurring_pending = _detect_corrections_safely(message)
 
     # Extractors run before persistence so the workout footer (if any)
     # is part of the response payload AND the saved chat_messages row.
     fact_pending, saved_workout = await _run_post_chat_extractors(
         user_messages, api_key
     )
-    print(f"detect_recurring_from_facts: {fact_pending}")
     pending_actions = _merge_pending_actions(
         recurring_pending,
-        obligation_pending,
         fact_pending,
     )
-    for action in pending_actions:
-        print(f"Pending action detected: {action}")
     response_text = response_text + format_workout_footer(saved_workout)
 
     _persist_exchange(

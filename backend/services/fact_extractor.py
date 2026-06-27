@@ -59,7 +59,17 @@ _OBLIGATION_KEY_EXCLUDE = re.compile(
     r"|work|employment|office|job|project|freelance"
     r"|rents_out|rental_income|owns_|rents_apartment_for_income"
     r"|saving|investment"
+    r"|monthly_obligations|total_obligations|financial_obligations"
     r")",
+    re.IGNORECASE,
+)
+
+_AGGREGATE_OBLIGATION_KEY_RE = re.compile(
+    r"(monthly_obligations|total_obligations|financial_obligations)",
+    re.IGNORECASE,
+)
+_PURE_CURRENCY_VALUE_RE = re.compile(
+    r"^\s*(?:€|\$|eur|евро|usd)?\s*[\d][\d\s.,]*\s*(?:€|eur|евро|usd|\$)?\s*$",
     re.IGNORECASE,
 )
 
@@ -349,11 +359,50 @@ def _fact_looks_like_subscription(fact: dict[str, Any]) -> bool:
 def _fact_looks_like_obligation(fact: dict[str, Any]) -> bool:
     key = str(fact.get("key") or "")
     value = str(fact.get("value") or "")
+    if _is_aggregate_obligation_fact(fact):
+        return False
     if is_obligation_key(key):
         return True
     if _looks_like_installment_plan_value(value):
         return True
     return False
+
+
+def _is_aggregate_obligation_fact(fact: dict[str, Any]) -> bool:
+    """Aggregate obligation totals — not a specific loan/subscription row."""
+    key = str(fact.get("key") or "").lower().strip()
+    value = str(fact.get("value") or "").strip()
+    if not key and not value:
+        return True
+    if key in ("monthly_obligations", "total_obligations"):
+        return True
+    if _AGGREGATE_OBLIGATION_KEY_RE.search(key):
+        return True
+    if "monthly_obligations" in key:
+        return True
+    if "total" in key and "obligation" in key:
+        return True
+    if value and _PURE_CURRENCY_VALUE_RE.match(value):
+        return True
+    if value and _value_looks_like_multi_item_list(value):
+        return True
+    return False
+
+
+def _value_looks_like_multi_item_list(value: str) -> bool:
+    """Comma-separated rollups like 'iPhone 111.25, Rent €700, …'."""
+    if "," not in value:
+        return False
+    parts = [p.strip() for p in value.split(",") if p.strip()]
+    if len(parts) < 2:
+        return False
+    labelled = sum(
+        1 for p in parts if re.search(r"[a-zA-Zа-яА-ЯёЁ]", p)
+    )
+    currency_hits = sum(
+        1 for p in parts if re.search(r"€|\beur\b|евро", p, re.IGNORECASE)
+    )
+    return labelled >= 2 or currency_hits >= 2
 
 
 def _matched_known_service(key: str) -> str | None:
@@ -744,55 +793,17 @@ def _upsert_obligation_from_fact(
 ) -> dict[str, Any] | None:
     key = str(fact.get("key") or "")
     value = str(fact.get("value") or "")
-    key_match = is_obligation_key(key)
-    installment_value = _looks_like_installment_plan_value(value)
-    has_monthly = _has_monthly_cadence(value)
-
-    if _looks_like_inbound_money(value):
-        logger.info(
-            "obligation mirror skip (inbound money): key=%r value=%r",
-            key,
-            value[:120],
-        )
+    parsed = _parse_obligation_amounts_from_fact(fact)
+    if not parsed:
+        if _looks_like_inbound_money(value):
+            logger.info(
+                "obligation mirror skip (inbound money): key=%r value=%r",
+                key,
+                value[:120],
+            )
         return None
 
-    amounts = parse_obligation_amounts(value)
-    monthly = amounts.get("monthly_payment")
-    total = amounts.get("total_amount")
-    remaining = amounts.get("remaining_amount")
-
-    if monthly is None and has_monthly:
-        monthly = parse_amount_from_text(value)
-
-    if monthly is None and total is None and remaining is None:
-        fallback = parse_all_amounts_from_text(value)
-        if fallback:
-            if key_match or installment_value:
-                total = fallback[0]
-            elif has_monthly:
-                monthly = fallback[0]
-
-    # Allow obligation-suffixed keys with a principal amount even when the
-    # user never said "в месяц" (common for "iPhone €1335" facts).
-    if not (has_monthly or installment_value or key_match):
-        logger.info(
-            "obligation mirror skip (no cadence/key): key=%r value=%r",
-            key,
-            value[:120],
-        )
-        return None
-
-    if not any(
-        x is not None and x > 0 for x in (monthly, total, remaining)
-    ):
-        logger.info(
-            "obligation mirror skip (no amount): key=%r value=%r",
-            key,
-            value[:120],
-        )
-        return None
-
-    name = _obligation_name_from_fact(fact)
+    name, monthly, total, remaining = parsed
     result = persist_obligation(
         db,
         name=name,
@@ -812,31 +823,239 @@ def _upsert_obligation_from_fact(
     return result
 
 
+def detect_subscription_from_fact(
+    db: Any, fact: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Build a pending action for a subscription fact without writing."""
+    key = str(fact.get("key") or "")
+    value = str(fact.get("value") or "")
+    has_known_service = _matched_known_service(key) is not None
+    if not has_known_service and not _has_monthly_cadence(value):
+        return None
+    amount = parse_amount_from_text(value)
+    if amount is None or amount <= 0:
+        return None
+    name = canonical_subscription_name(key)
+    if is_blacklisted_subscription_name(name):
+        return None
+    existing = fetch_one(
+        db,
+        "SELECT id, source, amount FROM subscriptions WHERE LOWER(name) = LOWER(?)",
+        (name,),
+    )
+    symbol = "€"
+    data: dict[str, Any] = {
+        "kind": "subscription",
+        "name": name,
+        "currency": "EUR",
+        "source": "fact_extractor",
+        "fact": fact,
+    }
+    if existing is not None:
+        if str(existing.get("source") or "").lower() == "manual":
+            return None
+        old = existing.get("amount")
+        if old is not None and float(old) == amount:
+            return None
+        old_f = float(old) if old is not None else None
+        data.update({
+            "id": int(existing["id"]),
+            "amount": amount,
+            "old_value": old_f,
+            "action": "updated",
+        })
+        old_str = f"{symbol}{old_f:.2f}" if old_f is not None else "?"
+        description = f"Обновить {name}: {old_str} → {symbol}{amount:.2f}"
+        return {
+            "type": "update_subscription",
+            "description": description,
+            "confidence": 0.55,
+            "data": data,
+        }
+    data.update({"amount": amount, "action": "created"})
+    return {
+        "type": "create_subscription",
+        "description": f"Добавить подписку: {name} — {symbol}{amount:.2f}/мес",
+        "confidence": 0.55,
+        "data": data,
+    }
+
+
+def _parse_obligation_amounts_from_fact(
+    fact: dict[str, Any],
+) -> tuple[str, float | None, float | None, float | None] | None:
+    key = str(fact.get("key") or "")
+    value = str(fact.get("value") or "")
+    key_match = is_obligation_key(key)
+    installment_value = _looks_like_installment_plan_value(value)
+    has_monthly = _has_monthly_cadence(value)
+
+    if _looks_like_inbound_money(value):
+        return None
+
+    amounts = parse_obligation_amounts(value)
+    monthly = amounts.get("monthly_payment")
+    total = amounts.get("total_amount")
+    remaining = amounts.get("remaining_amount")
+
+    if monthly is None and has_monthly:
+        monthly = parse_amount_from_text(value)
+
+    if monthly is None and total is None and remaining is None:
+        fallback = parse_all_amounts_from_text(value)
+        if fallback:
+            if key_match or installment_value:
+                total = fallback[0]
+            elif has_monthly:
+                monthly = fallback[0]
+
+    if not (has_monthly or installment_value or key_match):
+        return None
+
+    if not any(x is not None and x > 0 for x in (monthly, total, remaining)):
+        return None
+
+    return (_obligation_name_from_fact(fact), monthly, total, remaining)
+
+
+def detect_obligation_from_fact(
+    db: Any, fact: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Build a pending action for an obligation fact without writing."""
+    if _is_aggregate_obligation_fact(fact):
+        logger.info(
+            "obligation detect skip (aggregate): key=%r value=%r",
+            fact.get("key"),
+            str(fact.get("value") or "")[:120],
+        )
+        return None
+    parsed = _parse_obligation_amounts_from_fact(fact)
+    if not parsed:
+        return None
+    name, monthly, total, remaining = parsed
+    existing = fetch_one(
+        db,
+        """
+        SELECT id, source, monthly_payment
+        FROM obligations
+        WHERE LOWER(name) = LOWER(?)
+        """,
+        (name,),
+    )
+    symbol = "€"
+    reported = monthly or total or remaining or 0.0
+    data: dict[str, Any] = {
+        "name": name,
+        "monthly_payment": monthly,
+        "total_amount": total,
+        "remaining_amount": remaining,
+        "source": "fact_extractor",
+        "fact": fact,
+    }
+    if existing is not None:
+        if str(existing.get("source") or "").lower() == "manual":
+            return None
+        old_monthly = existing.get("monthly_payment")
+        data.update({
+            "kind": "obligation",
+            "id": int(existing["id"]),
+            "old_value": float(old_monthly) if old_monthly is not None else None,
+            "amount": float(reported),
+            "action": "updated",
+        })
+        old_f = data["old_value"]
+        old_str = f"{symbol}{old_f:.2f}" if old_f is not None else "?"
+        description = f"Обновить {name}: {old_str} → {symbol}{float(reported):.2f}"
+        return {
+            "type": "update_obligation",
+            "description": description,
+            "confidence": 0.55,
+            "data": data,
+        }
+    if monthly is not None:
+        try:
+            monthly_str = f"{symbol}{float(monthly):.2f}"
+        except (TypeError, ValueError):
+            monthly_str = f"{symbol}?"
+        description = f"Добавить в обязательства: {name} — {monthly_str}/мес"
+    else:
+        description = f"Добавить в обязательства: {name}"
+    data["action"] = "created"
+    return {
+        "type": "create_obligation",
+        "description": description,
+        "confidence": 0.55,
+        "data": data,
+    }
+
+
+def detect_recurring_from_fact(
+    db: Any, fact: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Detect subscription/obligation changes from a fact without writing."""
+    key = str(fact.get("key") or "")
+    if _is_aggregate_obligation_fact(fact):
+        logger.info(
+            "fact recurring detect skip (aggregate): key=%r value=%r",
+            key,
+            str(fact.get("value") or "")[:120],
+        )
+        return None
+    try:
+        if _fact_looks_like_subscription(fact):
+            logger.debug("fact recurring detect: subscription candidate key=%r", key)
+            return detect_subscription_from_fact(db, fact)
+        if _fact_looks_like_obligation(fact):
+            logger.info(
+                "fact recurring detect: obligation candidate key=%r value=%r",
+                key,
+                str(fact.get("value") or "")[:160],
+            )
+            return detect_obligation_from_fact(db, fact)
+    except Exception:
+        logger.exception(
+            "Failed to detect recurring change from fact: %s", fact.get("key")
+        )
+    return None
+
+
+def apply_recurring_from_fact_pending(
+    db: Any, action: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Apply a fact-sourced pending action after user confirmation."""
+    fact = (action.get("data") or {}).get("fact")
+    if not isinstance(fact, dict):
+        return None
+    try:
+        if _fact_looks_like_subscription(fact):
+            return _upsert_subscription_from_fact(db, fact)
+        if _fact_looks_like_obligation(fact):
+            return _upsert_obligation_from_fact(db, fact)
+    except Exception:
+        logger.exception(
+            "Failed to apply fact recurring pending action: %s", fact.get("key")
+        )
+    return None
+
+
 def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> dict[str, Any] | None:
-    """If a fact describes a subscription or loan, mirror it into the
-    dedicated table so finance UI can show structured rows.
+    """Apply a subscription/obligation mirror from a fact (confirmation path only).
 
-    Only triggers when the fact key matches a strict allow-list pattern
-    and a positive € amount is parseable from the value. Work facts,
-    project facts, credit-card usage strategies, account balances and
-    interest-free periods are never mirrored.
-
-    Returns a `recurring_updated`-shaped dict when a row was created or
-    updated, else ``None``.
+    Chat extractors must call :func:`detect_recurring_from_fact` instead so
+    financial rows are not written until the user confirms.
     """
     key = str(fact.get("key") or "")
     try:
         if _fact_looks_like_subscription(fact):
-            logger.debug("fact recurring: subscription candidate key=%r", key)
+            logger.debug("fact recurring apply: subscription key=%r", key)
             return _upsert_subscription_from_fact(db, fact)
         if _fact_looks_like_obligation(fact):
             logger.info(
-                "fact recurring: obligation candidate key=%r value=%r",
+                "fact recurring apply: obligation key=%r value=%r",
                 key,
                 str(fact.get("value") or "")[:160],
             )
             return _upsert_obligation_from_fact(db, fact)
-        logger.debug("fact recurring: not mirrored key=%r", key)
     except Exception:
         logger.exception(
             "Failed to mirror fact to recurring table: %s", fact.get("key")
@@ -847,6 +1066,7 @@ def _maybe_persist_recurring(db: Any, fact: dict[str, Any]) -> dict[str, Any] | 
 async def extract_facts(
     user_messages: list[str], db: Any, api_key: str
 ) -> tuple[list[dict], list[dict[str, Any]]]:
+    """Returns saved facts and pending financial actions (not applied)."""
     messages = [m.strip() for m in user_messages if (m or "").strip()]
     if not messages:
         return [], []
@@ -861,7 +1081,7 @@ async def extract_facts(
         return [], []
 
     saved: list[dict] = []
-    recurring_updated: list[dict[str, Any]] = []
+    pending_actions: list[dict[str, Any]] = []
     logger.info(
         "fact_extractor: LLM returned %d raw item(s) from %d message(s)",
         len(items),
@@ -883,16 +1103,15 @@ async def extract_facts(
             row = _upsert_fact(db, fact)
             if row is not None:
                 saved.append(row)
-                recurring = _maybe_persist_recurring(db, fact)
-                if recurring is not None:
-                    recurring_updated.append(recurring)
+                pending = detect_recurring_from_fact(db, fact)
+                if pending is not None:
+                    pending_actions.append(pending)
                     logger.info(
-                        "fact_extractor: mirrored recurring %s id=%s name=%r",
-                        recurring.get("type"),
-                        recurring.get("id"),
-                        recurring.get("name"),
+                        "fact_extractor: pending recurring action %s %r",
+                        pending.get("type"),
+                        pending.get("description"),
                     )
         except Exception:
             logger.exception("Failed to save fact: %s", fact.get("key"))
 
-    return saved, recurring_updated
+    return saved, pending_actions

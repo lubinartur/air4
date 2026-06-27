@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class UploadSummaryOut(BaseModel):
@@ -64,6 +64,45 @@ class ChatOut(BaseModel):
     event_saved: dict[str, Any] | None = None
     facts_saved: list[dict[str, Any]] = Field(default_factory=list)
     recurring_updated: list[dict[str, Any]] = Field(default_factory=list)
+    pending_actions: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class PendingActionIn(BaseModel):
+    type: str
+    description: str
+    data: dict[str, Any] = Field(default_factory=dict)
+    confidence: float | None = None
+
+
+class ConfirmActionIn(BaseModel):
+    action: PendingActionIn
+
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_direct_action(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "type" in data and "action" not in data:
+            return {"action": data}
+        return data
+
+
+class CancelActionIn(BaseModel):
+    action: PendingActionIn
+
+    @model_validator(mode="before")
+    @classmethod
+    def _unwrap_direct_action(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "type" in data and "action" not in data:
+            return {"action": data}
+        return data
+
+
+class ConfirmActionOut(BaseModel):
+    message: str
+    recurring_updated: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class CancelActionOut(BaseModel):
+    message: str
 
 
 class ChatMessageOut(BaseModel):

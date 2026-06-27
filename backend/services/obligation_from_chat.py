@@ -136,79 +136,80 @@ def _extract_block(text: str, trigger_end: int) -> str:
     return tail.strip()
 
 
-def apply_obligation_confirmations(
-    db: Any, assistant_text: str
-) -> list[dict[str, Any]]:
-    """Parse assistant reply for obligation confirmations and upsert rows."""
+def detect_obligation_confirmations(assistant_text: str) -> list[dict[str, Any]]:
+    """Parse assistant reply for obligation confirmations without persisting."""
     text = (assistant_text or "").strip()
-    logger.info(
-        "obligation_from_chat: scanning assistant_text len=%d preview=%r",
-        len(text),
-        text[:200],
-    )
     if not text:
         return []
 
     matches = list(_TRIGGER_RE.finditer(text))
-    logger.info(
-        "obligation_from_chat: trigger matches=%d at offsets=%s",
-        len(matches),
-        [m.start() for m in matches],
-    )
     if not matches:
         return []
 
-    updates: list[dict[str, Any]] = []
+    pending: list[dict[str, Any]] = []
     seen_names: set[str] = set()
 
     for match in matches:
         block = _extract_block(text, match.end())
-        logger.info(
-            "obligation_from_chat: trigger=%r block=%r",
-            match.group(0),
-            block[:300],
-        )
         if not block:
-            logger.warning("obligation_from_chat: empty block after trigger")
             continue
 
         name = _name_from_block(block)
         amounts = parse_obligation_amounts(block)
-        logger.info(
-            "obligation_from_chat: parsed name=%r monthly=%s total=%s remaining=%s",
-            name,
-            amounts.get("monthly_payment"),
-            amounts.get("total_amount"),
-            amounts.get("remaining_amount"),
-        )
-
         if name.lower() in seen_names:
-            logger.info(
-                "obligation_from_chat: duplicate block within reply, skipping name=%r",
-                name,
-            )
             continue
         seen_names.add(name.lower())
 
-        result = persist_obligation(
-            db,
-            name=name,
-            monthly_payment=amounts.get("monthly_payment"),
-            total_amount=amounts.get("total_amount"),
-            remaining_amount=amounts.get("remaining_amount"),
-        )
+        monthly = amounts.get("monthly_payment")
+        symbol = "€"
+        if monthly is not None:
+            try:
+                monthly_str = f"{symbol}{float(monthly):.2f}"
+            except (TypeError, ValueError):
+                monthly_str = f"{symbol}?"
+            description = f"Добавить в обязательства: {name} — {monthly_str}/мес"
+        else:
+            description = f"Добавить в обязательства: {name}"
+
+        pending.append({
+            "type": "create_obligation",
+            "description": description,
+            "confidence": 0.8,
+            "data": {
+                "name": name,
+                "monthly_payment": amounts.get("monthly_payment"),
+                "total_amount": amounts.get("total_amount"),
+                "remaining_amount": amounts.get("remaining_amount"),
+            },
+        })
+    return pending
+
+
+def apply_pending_obligation_action(
+    db: Any, action: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Persist a pending obligation action from detect_obligation_confirmations."""
+    data = action.get("data") or {}
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return None
+    return persist_obligation(
+        db,
+        name=name,
+        monthly_payment=data.get("monthly_payment"),
+        total_amount=data.get("total_amount"),
+        remaining_amount=data.get("remaining_amount"),
+    )
+
+
+def apply_obligation_confirmations(
+    db: Any, assistant_text: str
+) -> list[dict[str, Any]]:
+    """Parse assistant reply for obligation confirmations and upsert rows."""
+    pending = detect_obligation_confirmations(assistant_text)
+    updates: list[dict[str, Any]] = []
+    for item in pending:
+        result = apply_pending_obligation_action(db, item)
         if result is not None:
             updates.append(result)
-            logger.info(
-                "obligation_from_chat: PERSISTED id=%s action=%s name=%r",
-                result.get("id"),
-                result.get("action"),
-                result.get("name"),
-            )
-        else:
-            logger.warning(
-                "obligation_from_chat: persist_obligation returned None name=%r amounts=%s",
-                name,
-                amounts,
-            )
     return updates

@@ -195,6 +195,32 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.post("/api/chat/confirm-action", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/chat/confirm-action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/chat/cancel-action", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/chat/cancel-action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/projects", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/projects", req.query));

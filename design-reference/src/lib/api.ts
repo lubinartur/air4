@@ -357,8 +357,42 @@ export type RecurringUpdate = {
   currency?: string;
 };
 
+export type PendingChatAction = {
+  type: string;
+  description: string;
+  confidence?: number;
+  data: Record<string, unknown>;
+};
+
+/** Ensure we send a complete pending action payload to the backend. */
+export function normalizePendingAction(
+  raw: unknown
+): PendingChatAction | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const inner =
+    record.action && typeof record.action === "object"
+      ? (record.action as Record<string, unknown>)
+      : record;
+  if (typeof inner.type !== "string" || typeof inner.description !== "string") {
+    return null;
+  }
+  return {
+    type: inner.type,
+    description: inner.description,
+    data:
+      inner.data && typeof inner.data === "object"
+        ? (inner.data as Record<string, unknown>)
+        : {},
+    ...(typeof inner.confidence === "number"
+      ? { confidence: inner.confidence }
+      : {}),
+  };
+}
+
 export type ChatResponseMeta = {
   recurring_updated?: RecurringUpdate[];
+  pending_actions?: PendingChatAction[];
 };
 
 /** Image / PDF uploaded with a chat message. Used both for outgoing
@@ -376,6 +410,8 @@ export type ChatStreamCallbacks = {
   onDelta?: (text: string) => void;
   /** Fired once when the backend emits its post-LLM metadata. */
   onMeta?: (meta: ChatResponseMeta) => void;
+  /** Fired when the backend proposes a data change needing confirmation. */
+  onPendingAction?: (action: PendingChatAction) => void;
   /** Fired if the backend or transport reports an error mid-stream. */
   onError?: (message: string) => void;
 };
@@ -472,7 +508,11 @@ export async function streamChat(
         .map((line) => line.slice(5).trimStart());
       if (dataLines.length === 0) continue;
 
-      let event: { type?: string; text?: string } & ChatResponseMeta;
+      let event: {
+        type?: string;
+        text?: string;
+        action?: PendingChatAction;
+      } & ChatResponseMeta;
       try {
         event = JSON.parse(dataLines.join("\n"));
       } catch {
@@ -487,6 +527,8 @@ export async function streamChat(
         }
       } else if (event.type === "meta") {
         callbacks.onMeta?.(event);
+      } else if (event.type === "pending_action" && event.action) {
+        callbacks.onPendingAction?.(event.action as PendingChatAction);
       } else if (event.type === "error") {
         const msg = String(event.text ?? "stream error");
         callbacks.onError?.(msg);
@@ -496,6 +538,45 @@ export async function streamChat(
   }
 
   return assembled;
+}
+
+export async function confirmChatAction(
+  action: PendingChatAction
+): Promise<{ message: string; recurring_updated: RecurringUpdate[] }> {
+  const normalized = normalizePendingAction(action);
+  if (!normalized) {
+    throw new Error("Invalid pending action payload");
+  }
+  console.log("Sending confirm-action:", normalized);
+  const res = await fetch("/api/chat/confirm-action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: normalized }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(detail || "Не удалось применить действие");
+  }
+  return res.json();
+}
+
+export async function cancelChatAction(
+  action: PendingChatAction
+): Promise<{ message: string }> {
+  const normalized = normalizePendingAction(action);
+  if (!normalized) {
+    throw new Error("Invalid pending action payload");
+  }
+  const res = await fetch("/api/chat/cancel-action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: normalized }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(detail || "Не удалось отменить действие");
+  }
+  return res.json();
 }
 
 export type ChatHistoryMessage = {

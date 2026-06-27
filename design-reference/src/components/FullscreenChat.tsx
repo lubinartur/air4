@@ -8,11 +8,14 @@ import type { Message, MessageAttachment, Page } from "../types";
 import {
   fetchChatHistory,
   streamChat,
+  confirmChatAction,
+  cancelChatAction,
   type BodyMetric,
   type ChatAgent,
   type ChatLaunchRequest,
   type ChatResponseMeta,
   type Dilemma,
+  type PendingChatAction,
   type Project,
   type Summary,
   type UserFact,
@@ -27,6 +30,7 @@ import {
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
 import { EnergyStateDropdown } from "./EnergyStateDropdown";
+import { PendingActionBar } from "./PendingActionBar";
 import { PAGE_LABELS } from "../constants";
 
 interface FullscreenChatProps {
@@ -178,6 +182,8 @@ export function FullscreenChat({
   const [sessionAgent, setSessionAgent] = useState<ChatAgent | undefined>();
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [pendingActions, setPendingActions] = useState<PendingChatAction[]>([]);
+  const [pendingBusy, setPendingBusy] = useState(false);
   const sendMessageRef = useRef<
     (text: string, options?: { agent?: ChatAgent }) => Promise<void>
   >(() => Promise.resolve());
@@ -337,6 +343,7 @@ export function FullscreenChat({
     setInput("");
     setAttachment(null);
     setAttachmentError(null);
+    setPendingActions([]);
 
     let receivedAny = false;
     let meta: ChatResponseMeta | undefined;
@@ -385,6 +392,15 @@ export function FullscreenChat({
           },
           onMeta: (incoming) => {
             meta = incoming;
+            if (incoming.pending_actions?.length) {
+              setPendingActions(incoming.pending_actions);
+            }
+          },
+          onPendingAction: (action) => {
+            console.log("pending_action SSE received:", action);
+            setPendingActions((prev) =>
+              prev.length > 0 ? prev : [action],
+            );
           },
           onError: (msg) => {
             console.error("Chat stream error:", msg);
@@ -451,6 +467,56 @@ export function FullscreenChat({
   const handleSend = async () => {
     if (!input.trim() && !attachment) return;
     await sendMessage(input.trim());
+  };
+
+  const currentPending = pendingActions[0];
+
+  const handleConfirmPending = async (action: PendingChatAction) => {
+    console.log("handleConfirmPending, pendingActions[0]:", pendingActions[0]);
+    if (!action?.type || pendingBusy) return;
+    setPendingActions((prev) => prev.slice(1));
+    setPendingBusy(true);
+    try {
+      const res = await confirmChatAction(action);
+      const note = res.message.replace(/^_|_$/g, "").trim();
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: note || "Изменение применено." },
+      ]);
+      onMessageSent?.({ recurring_updated: res.recurring_updated });
+    } catch {
+      setPendingActions((prev) => [action, ...prev]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Не удалось применить изменение.",
+        },
+      ]);
+    } finally {
+      setPendingBusy(false);
+    }
+  };
+
+  const handleCancelPending = async (action: PendingChatAction) => {
+    if (!action?.type || pendingBusy) return;
+    setPendingBusy(true);
+    try {
+      const res = await cancelChatAction(action);
+      setPendingActions((prev) => prev.slice(1));
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: res.message },
+      ]);
+    } catch {
+      setPendingActions((prev) => prev.slice(1));
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Ок, не меняю данные." },
+      ]);
+    } finally {
+      setPendingBusy(false);
+    }
   };
 
   return (
@@ -561,6 +627,15 @@ export function FullscreenChat({
 
         <div className="px-6 py-3 border-t border-white/[0.06] shrink-0 bg-[#13131f]">
           <div className="max-w-[720px] mx-auto w-full">
+            {currentPending && (
+              <PendingActionBar
+                action={currentPending}
+                busy={pendingBusy}
+                onConfirm={(action) => void handleConfirmPending(action)}
+                onCancel={(action) => void handleCancelPending(action)}
+                className="mb-2"
+              />
+            )}
             {(attachment || attachmentError) && (
               <div className="mb-2 space-y-1.5">
                 {attachment && (

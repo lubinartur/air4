@@ -8,10 +8,13 @@ import {
   fetchInterviewQuestion,
   streamChat,
   submitInterviewAnswer,
+  confirmChatAction,
+  cancelChatAction,
   type ChatAgent,
   type ChatLaunchRequest,
   type ChatResponseMeta,
   type Observation,
+  type PendingChatAction,
 } from "../lib/api";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
 import {
@@ -22,6 +25,7 @@ import {
   readFileAsAttachment,
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
+import { PendingActionBar } from "./PendingActionBar";
 
 /** Soft assistant markdown — no rules, no underlines, medium-weight bold. */
 const assistantMarkdownComponents: Components = {
@@ -88,6 +92,8 @@ export function ChatPanel({
   const [interviewQuestion, setInterviewQuestion] = useState<string | null>(null);
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [pendingActions, setPendingActions] = useState<PendingChatAction[]>([]);
+  const [pendingBusy, setPendingBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sendMessageRef = useRef<
@@ -200,6 +206,56 @@ export function ChatPanel({
     await sendMessage(input.trim());
   };
 
+  const currentPending = pendingActions[0];
+
+  const handleConfirmPending = async (action: PendingChatAction) => {
+    console.log("handleConfirmPending, pendingActions[0]:", pendingActions[0]);
+    if (!action?.type || pendingBusy) return;
+    setPendingActions((prev) => prev.slice(1));
+    setPendingBusy(true);
+    try {
+      const res = await confirmChatAction(action);
+      const note = res.message.replace(/^_|_$/g, "").trim();
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: note || "Изменение применено." },
+      ]);
+      onMessageSent?.({ recurring_updated: res.recurring_updated });
+    } catch {
+      setPendingActions((prev) => [action, ...prev]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Не удалось применить изменение.",
+        },
+      ]);
+    } finally {
+      setPendingBusy(false);
+    }
+  };
+
+  const handleCancelPending = async (action: PendingChatAction) => {
+    if (!action?.type || pendingBusy) return;
+    setPendingBusy(true);
+    try {
+      const res = await cancelChatAction(action);
+      setPendingActions((prev) => prev.slice(1));
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: res.message },
+      ]);
+    } catch {
+      setPendingActions((prev) => prev.slice(1));
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Ок, не меняю данные." },
+      ]);
+    } finally {
+      setPendingBusy(false);
+    }
+  };
+
   const sendMessage = async (
     text: string,
     options?: { agent?: ChatAgent },
@@ -221,6 +277,7 @@ export function ChatPanel({
     setInput("");
     setAttachment(null);
     setAttachmentError(null);
+    setPendingActions([]);
     setIsLoading(true);
 
     if (pendingInterview) {
@@ -294,6 +351,15 @@ export function ChatPanel({
           },
           onMeta: (incoming) => {
             meta = incoming;
+            if (incoming.pending_actions?.length) {
+              setPendingActions(incoming.pending_actions);
+            }
+          },
+          onPendingAction: (action) => {
+            console.log("pending_action SSE received:", action);
+            setPendingActions((prev) =>
+              prev.length > 0 ? prev : [action],
+            );
           },
           onError: (msg) => {
             console.error("Chat stream error:", msg);
@@ -453,6 +519,15 @@ export function ChatPanel({
       </div>
 
       <div className="px-4 py-3 border-t border-white/[0.06] shrink-0 bg-[#13131f]">
+        {currentPending && (
+          <PendingActionBar
+            action={currentPending}
+            busy={pendingBusy}
+            onConfirm={(action) => void handleConfirmPending(action)}
+            onCancel={(action) => void handleCancelPending(action)}
+            className="mb-2"
+          />
+        )}
         {(attachment || attachmentError) && (
           <div className="mb-2 space-y-1.5">
             {attachment && (

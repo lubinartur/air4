@@ -21,7 +21,7 @@ from typing import Any
 
 from services.event_extractor import _normalize_event, _save_event
 from services.fact_extractor import (
-    _maybe_persist_recurring,
+    detect_recurring_from_fact,
     _normalize_fact,
     _upsert_fact,
 )
@@ -100,9 +100,9 @@ def _save_facts(
     conn: Any, items: Any
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     saved: list[dict[str, Any]] = []
-    recurring_updated: list[dict[str, Any]] = []
+    pending_actions: list[dict[str, Any]] = []
     if not isinstance(items, list):
-        return saved, recurring_updated
+        return saved, pending_actions
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -113,12 +113,12 @@ def _save_facts(
             row = _upsert_fact(conn, fact)
             if row is not None:
                 saved.append(row)
-                recurring = _maybe_persist_recurring(conn, fact)
-                if recurring is not None:
-                    recurring_updated.append(recurring)
+                pending = detect_recurring_from_fact(conn, fact)
+                if pending is not None:
+                    pending_actions.append(pending)
         except Exception:
             logger.exception("unified: failed to save fact %s", fact.get("key"))
-    return saved, recurring_updated
+    return saved, pending_actions
 
 
 def _save_decision(conn: Any, raw: dict[str, Any]) -> dict[str, Any] | None:
@@ -202,7 +202,7 @@ async def extract_all(
         "workout": {...saved row...} | None,
         "facts": [...saved rows...],
         "decisions": [...saved/merged rows...],
-        "recurring_updated": [...subscription/obligation descriptors...],
+        "pending_actions": [...pending subscription/obligation actions...],
       }
 
     Never raises — on any failure it returns the empty-shaped result so
@@ -213,7 +213,7 @@ async def extract_all(
         "workout": None,
         "facts": [],
         "decisions": [],
-        "recurring_updated": [],
+        "pending_actions": [],
     }
 
     messages = [m.strip() for m in user_messages if (m or "").strip()]
@@ -247,10 +247,10 @@ async def extract_all(
         workout = None
 
     try:
-        facts, recurring_updated = _save_facts(conn, data.get("facts"))
+        facts, pending_actions = _save_facts(conn, data.get("facts"))
     except Exception:
         logger.exception("unified: fact persistence failed")
-        facts, recurring_updated = [], []
+        facts, pending_actions = [], []
 
     try:
         decisions = _save_decisions(conn, data.get("decisions"))
@@ -263,5 +263,5 @@ async def extract_all(
         "workout": workout,
         "facts": facts,
         "decisions": decisions,
-        "recurring_updated": recurring_updated,
+        "pending_actions": pending_actions,
     }

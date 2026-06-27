@@ -18,7 +18,17 @@ from fastapi import Query
 
 from database import fetch_all, fetch_one, get_db
 from routers.recommendation import air4_mode_instruction, normalize_air4_mode
-from schemas import ChatAttachment, ChatHistoryOut, ChatIn, ChatMessageOut, ChatOut
+from schemas import (
+    CancelActionIn,
+    CancelActionOut,
+    ChatAttachment,
+    ChatHistoryOut,
+    ChatIn,
+    ChatMessageOut,
+    ChatOut,
+    ConfirmActionIn,
+    ConfirmActionOut,
+)
 from services.body_extractor import extract_body_data
 from services.chat_history import fetch_recent_chat_messages, save_exchange
 from services.followup_extractor import (
@@ -45,9 +55,14 @@ from services.prompts import (
     search_relevant_events,
     strip_internal_xml_tags,
 )
-from services.obligation_from_chat import apply_obligation_confirmations
+from services.fact_extractor import apply_recurring_from_fact_pending
+from services.obligation_from_chat import (
+    apply_pending_obligation_action,
+    detect_obligation_confirmations,
+)
 from services.subscription_updater import (
-    apply_recurring_corrections,
+    apply_pending_recurring_action,
+    detect_recurring_corrections,
     format_confirmation,
 )
 from services.summary_loader import load_summary
@@ -265,9 +280,8 @@ async def _run_post_chat_extractors(
     """Run post-chat side effects.
 
     Returns a tuple of:
-      • recurring rows created/updated by fact extraction
-        (subscriptions / obligations), surfaced as meta so the Finance
-        page can refetch immediately.
+      • pending financial actions detected by fact extraction (not applied
+        until the user confirms in chat)
       • the workout row inserted by `extract_workout`, or ``None`` —
         used by the chat router to append a `_Записал: …_` footer to
         the assistant message.
@@ -277,10 +291,10 @@ async def _run_post_chat_extractors(
     delta). Failures inside any extractor are logged and swallowed — a
     side-effect crash must never break the user's chat reply.
     """
-    recurring_from_facts: list[dict[str, Any]] = []
+    pending_from_facts: list[dict[str, Any]] = []
     saved_workout: dict[str, Any] | None = None
     if not user_messages:
-        return recurring_from_facts, saved_workout
+        return pending_from_facts, saved_workout
     # body_extractor stays separate — it's rule-based (no LLM), so it
     # doesn't contribute to the 429 problem and runs regardless of the
     # API key being set.
@@ -290,7 +304,7 @@ async def _run_post_chat_extractors(
     except Exception:
         logger.exception("Background body extraction failed")
     if not api_key.strip():
-        return recurring_from_facts, saved_workout
+        return pending_from_facts, saved_workout
     # Unified extractor: ONE Haiku call replaces the previous four
     # sequential LLM calls (events + workout + facts + decisions), which
     # were tripping Anthropic 429 rate limits. Wrapped so a failure here
@@ -299,10 +313,10 @@ async def _run_post_chat_extractors(
         with get_db() as conn:
             result = await extract_all(user_messages, conn, api_key)
         saved_workout = result.get("workout")
-        recurring_from_facts = result.get("recurring_updated") or []
+        pending_from_facts = result.get("pending_actions") or []
     except Exception:
         logger.exception("Background unified extraction failed")
-    return recurring_from_facts, saved_workout
+    return pending_from_facts, saved_workout
 
 
 def _schedule_identity_extraction(user_messages: list[str], api_key: str) -> None:
@@ -341,71 +355,96 @@ def _schedule_followup_extraction(user_messages: list[str], api_key: str) -> Non
     asyncio.create_task(_run())
 
 
-def _merge_recurring_updates(
-    correction_updates: list[dict[str, Any]],
-    extractor_updates: list[dict[str, Any]],
+def _pending_action_confidence(action: dict[str, Any]) -> float:
+    try:
+        return float(action.get("confidence") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _merge_pending_actions(
+    *groups: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Combine subscription_updater corrections with fact_extractor
-    creates/updates. Corrections win on duplicate (type, id) pairs."""
-    if not extractor_updates:
-        return list(correction_updates)
-    if not correction_updates:
-        return list(extractor_updates)
-    seen = {(u.get("type"), u.get("id")) for u in correction_updates}
-    merged = list(correction_updates)
-    for item in extractor_updates:
-        key = (item.get("type"), item.get("id"))
-        if key in seen:
-            continue
-        merged.append(item)
-        seen.add(key)
+    """Combine pending actions, dedupe, rank highest confidence first."""
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for group in groups:
+        for action in group:
+            key = (
+                str(action.get("type") or ""),
+                str(action.get("description") or ""),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(action)
+    merged.sort(key=_pending_action_confidence, reverse=True)
     return merged
 
 
-def _meta_payload(recurring_updated: list[dict[str, Any]] | None = None) -> str:
+def _meta_payload(
+    recurring_updated: list[dict[str, Any]] | None = None,
+    pending_actions: list[dict[str, Any]] | None = None,
+) -> str:
     return json.dumps(
         {
             "type": "meta",
             "event_saved": None,
             "facts_saved": [],
             "recurring_updated": recurring_updated or [],
+            "pending_actions": pending_actions or [],
         },
         ensure_ascii=False,
     )
 
 
-def _apply_corrections_safely(message: str) -> list[dict[str, Any]]:
+def _apply_pending_chat_action(db: Any, action: dict[str, Any]) -> dict[str, Any] | None:
+    data = action.get("data") or {}
+    if isinstance(data.get("fact"), dict):
+        return apply_recurring_from_fact_pending(db, action)
+
+    action_type = str(action.get("type") or "")
+    if action_type in (
+        "update_subscription",
+        "delete_subscription",
+        "update_obligation",
+        "delete_obligation",
+    ):
+        return apply_pending_recurring_action(db, action)
+    if action_type == "create_obligation":
+        return apply_pending_obligation_action(db, action)
+    return None
+
+
+def _detect_corrections_safely(
+    message: str, assistant_text: str = ""
+) -> list[dict[str, Any]]:
     try:
         with get_db() as conn:
-            return apply_recurring_corrections(conn, message)
+            return detect_recurring_corrections(conn, message, assistant_text)
     except Exception:
-        logger.exception("Recurring correction step failed")
+        logger.exception("Recurring correction detection failed")
         return []
 
 
-def _apply_obligation_confirmations_safely(assistant_text: str) -> list[dict[str, Any]]:
-    """When AIR4 says it added an obligation, persist it for real."""
+def _detect_obligation_confirmations_safely(
+    assistant_text: str,
+) -> list[dict[str, Any]]:
     text = (assistant_text or "").strip()
-    logger.info(
-        "chat: apply_obligation_confirmations called len=%d preview=%r",
-        len(text),
-        text[:200],
-    )
     if not text:
-        logger.info("chat: empty assistant_text, skipping obligation parse")
         return []
     try:
-        with get_db() as conn:
-            result = apply_obligation_confirmations(conn, text)
-        logger.info(
-            "chat: apply_obligation_confirmations returned %d update(s): %s",
-            len(result),
-            [(u.get("type"), u.get("id"), u.get("name"), u.get("action")) for u in result],
-        )
-        return result
+        return detect_obligation_confirmations(text)
     except Exception:
-        logger.exception("Obligation confirmation step failed")
+        logger.exception("Obligation confirmation detection failed")
         return []
+
+
+def _pending_action_payload(action: dict[str, Any]) -> str:
+    return json.dumps(
+        {"type": "pending_action", "action": action},
+        ensure_ascii=False,
+    )
 
 
 def _persist_exchange(
@@ -576,38 +615,41 @@ async def chat_endpoint(
 
             full_text = strip_internal_xml_tags("".join(chunks))
 
-            updates = _apply_corrections_safely(message)
-            obligation_updates = _apply_obligation_confirmations_safely(full_text)
-            confirmation = format_confirmation(updates + obligation_updates)
-            if confirmation:
-                yield f"data: {json.dumps({'type': 'delta', 'text': confirmation}, ensure_ascii=False)}\n\n"
+            recurring_pending = _detect_corrections_safely(message, full_text)
+            print(f"detect_recurring_corrections: {recurring_pending}")
+            obligation_pending = _detect_obligation_confirmations_safely(full_text)
+            print(f"detect_obligation_confirmations: {obligation_pending}")
 
             # Run extractors before persistence so the workout footer
             # (if any) is folded into the same `chat_messages` row that
             # we save below — and yielded as one final delta so the FE
             # sees it without a reload.
-            fact_recurring, saved_workout = await _run_post_chat_extractors(
+            fact_pending, saved_workout = await _run_post_chat_extractors(
                 user_messages, api_key
+            )
+            print(f"detect_recurring_from_facts: {fact_pending}")
+            pending_actions = _merge_pending_actions(
+                recurring_pending,
+                obligation_pending,
+                fact_pending,
             )
             workout_footer = format_workout_footer(saved_workout)
             if workout_footer:
                 yield f"data: {json.dumps({'type': 'delta', 'text': workout_footer}, ensure_ascii=False)}\n\n"
 
-            assistant_text = (
-                (full_text or "") + (confirmation or "") + (workout_footer or "")
-            )
+            assistant_text = (full_text or "") + (workout_footer or "")
             _persist_exchange(
                 message, assistant_text, body.current_page, attachment=attachment
             )
             _schedule_identity_extraction(user_messages, api_key)
             _schedule_followup_extraction(user_messages, api_key)
 
-            all_updates = _merge_recurring_updates(
-                updates,
-                _merge_recurring_updates(obligation_updates, fact_recurring),
-            )
+            if pending_actions:
+                top = pending_actions[0]
+                print(f"Pending action detected: {top}")
+                yield f"data: {_pending_action_payload(top)}\n\n"
 
-            yield f"data: {_meta_payload(all_updates)}\n\n"
+            yield f"data: {_meta_payload(pending_actions=pending_actions)}\n\n"
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(
@@ -623,17 +665,24 @@ async def chat_endpoint(
 
     response_text = strip_internal_xml_tags(response_text)
 
-    updates = _apply_corrections_safely(message)
-    obligation_updates = _apply_obligation_confirmations_safely(response_text)
-    response_text = response_text + format_confirmation(
-        updates + obligation_updates
-    )
+    recurring_pending = _detect_corrections_safely(message, response_text)
+    print(f"detect_recurring_corrections: {recurring_pending}")
+    obligation_pending = _detect_obligation_confirmations_safely(response_text)
+    print(f"detect_obligation_confirmations: {obligation_pending}")
 
     # Extractors run before persistence so the workout footer (if any)
     # is part of the response payload AND the saved chat_messages row.
-    fact_recurring, saved_workout = await _run_post_chat_extractors(
+    fact_pending, saved_workout = await _run_post_chat_extractors(
         user_messages, api_key
     )
+    print(f"detect_recurring_from_facts: {fact_pending}")
+    pending_actions = _merge_pending_actions(
+        recurring_pending,
+        obligation_pending,
+        fact_pending,
+    )
+    for action in pending_actions:
+        print(f"Pending action detected: {action}")
     response_text = response_text + format_workout_footer(saved_workout)
 
     _persist_exchange(
@@ -641,16 +690,13 @@ async def chat_endpoint(
     )
     _schedule_identity_extraction(user_messages, api_key)
     _schedule_followup_extraction(user_messages, api_key)
-    all_updates = _merge_recurring_updates(
-        updates,
-        _merge_recurring_updates(obligation_updates, fact_recurring),
-    )
 
     return ChatOut(
         response=response_text,
         event_saved=None,
         facts_saved=[],
-        recurring_updated=all_updates,
+        recurring_updated=[],
+        pending_actions=pending_actions,
     )
 
 
@@ -692,6 +738,33 @@ def chat_history(limit: int = Query(50, ge=1, le=500)) -> ChatHistoryOut:
         for r in rows
     ]
     return ChatHistoryOut(messages=messages)
+
+
+@router.post("/chat/confirm-action", response_model=ConfirmActionOut)
+def confirm_chat_action(body: ConfirmActionIn) -> ConfirmActionOut:
+    """Apply a pending data change the user confirmed in chat."""
+    action = body.action.model_dump()
+    with get_db() as conn:
+        result = _apply_pending_chat_action(conn, action)
+    if not result:
+        raise HTTPException(
+            status_code=400,
+            detail="Не удалось применить действие.",
+        )
+    confirmation = format_confirmation([result]).strip()
+    message = confirmation or f"Готово: {action.get('description', 'изменение применено')}"
+    return ConfirmActionOut(message=message, recurring_updated=[result])
+
+
+@router.post("/chat/cancel-action", response_model=CancelActionOut)
+def cancel_chat_action(body: CancelActionIn) -> CancelActionOut:
+    """User declined a pending data change."""
+    description = (body.action.description or "").strip()
+    if description:
+        message = f"Ок, не меняю: {description}."
+    else:
+        message = "Ок, не меняю данные."
+    return CancelActionOut(message=message)
 
 
 # --- Morning Brief -------------------------------------------------------

@@ -2,13 +2,14 @@
 
 Reads a compact slice of the user's state (recent transactions, active
 projects, recent workouts, profile, facts), asks Claude Haiku for ONE
-opinionated recommendation, and returns it as structured JSON. The
-result is cached in-memory for 30 minutes so repeated Overview loads
-don't re-hit the LLM on every navigation.
+opinionated recommendation, and returns it as structured JSON. Overview
+recommendations are cached in `_app_meta` for 30 minutes so repeated
+Overview loads and backend restarts don't re-hit the LLM.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ from typing import Any, Literal
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from database import fetch_all, fetch_one, get_db
+from database import fetch_all, fetch_one, get_db, get_meta, set_meta
 from services.llm_client import parse_json_object
 from services.llm_client_shared import call_claude
 from services.prompts import get_subscriptions_context
@@ -29,13 +30,11 @@ logger = logging.getLogger("recommendation")
 
 _PROFILE_ID = 1
 _CACHE_TTL_SECONDS = 30 * 60
+_OVERVIEW_CACHE_KEY = "overview_cache"
 
-# Simple in-process cache: {"data": Recommendation, "expires_at": float}.
-# Intentionally a plain dict (no redis) — a single recommendation shared
-# across the one local user is all this endpoint serves.
+# In-process cache for legacy /recommendation endpoint only.
 _cache: dict[str, Any] = {}
 _domain_cache: dict[str, dict[str, Any]] = {}
-_overview_cache: dict[str, Any] = {}
 
 Domain = Literal["finance", "projects", "health"]
 _DOMAINS: tuple[Domain, ...] = ("finance", "projects", "health")
@@ -635,6 +634,79 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _parse_iso_ts(raw: Any) -> datetime | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    try:
+        ts = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts
+
+
+def _cache_is_fresh(generated_at: Any, ttl_seconds: int) -> bool:
+    ts = _parse_iso_ts(generated_at)
+    if ts is None:
+        return False
+    age = (datetime.now(timezone.utc) - ts).total_seconds()
+    return age < ttl_seconds
+
+
+def _load_overview_cache(conn: Any) -> OverviewRecommendationsOut | None:
+    raw = get_meta(conn, _OVERVIEW_CACHE_KEY)
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("recommendation: invalid overview_cache JSON")
+        return None
+    if not _cache_is_fresh(payload.get("generated_at"), _CACHE_TTL_SECONDS):
+        return None
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return None
+    try:
+        return OverviewRecommendationsOut.model_validate(data)
+    except Exception:
+        logger.exception("recommendation: failed to parse cached overview")
+        return None
+
+
+def _save_overview_cache(conn: Any, result: OverviewRecommendationsOut) -> None:
+    payload = {
+        "data": result.model_dump(),
+        "generated_at": _now_iso(),
+    }
+    set_meta(conn, _OVERVIEW_CACHE_KEY, json.dumps(payload, ensure_ascii=False))
+
+
+def clear_overview_cache(conn: Any) -> None:
+    conn.execute("DELETE FROM _app_meta WHERE key = ?", (_OVERVIEW_CACHE_KEY,))
+
+
+def read_overview_cache_signal(conn: Any) -> str | None:
+    """Compact text from persisted overview cache for proactive signals."""
+    raw = get_meta(conn, _OVERVIEW_CACHE_KEY)
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    data = payload.get("data") or {}
+    primary = data.get("primary") or {}
+    parts = [
+        str(primary.get("sees") or "").strip(),
+        str(primary.get("suggests") or "").strip(),
+    ]
+    text = " ".join(part for part in parts if part)
+    return text[:600] if text else None
+
+
 def _primary_fallback_sees(domain: Domain) -> str:
     fallbacks = {
         "finance": "Финансовых данных мало — без выписок картина размытая.",
@@ -711,11 +783,6 @@ def _fallback_overview() -> OverviewRecommendationsOut:
 async def _generate_overview_recommendations(
     context: str, mode: str
 ) -> OverviewRecommendationsOut:
-    now = time.time()
-    cached = _overview_cache.get("data")
-    if cached is not None and now < _overview_cache.get("expires_at", 0.0):
-        return cached  # type: ignore[return-value]
-
     prompt = _OVERVIEW_THINKING_PROMPT.format(context=context)
     mode_suffix = air4_mode_instruction(mode)
     if mode_suffix:
@@ -728,14 +795,9 @@ async def _generate_overview_recommendations(
         raw_text = ""
 
     if not raw_text.strip():
-        result = _fallback_overview()
-    else:
-        parsed = parse_json_object(raw_text)
-        result = _coerce_overview(parsed) if parsed else _fallback_overview()
-
-    _overview_cache["data"] = result
-    _overview_cache["expires_at"] = now + _CACHE_TTL_SECONDS
-    return result
+        return _fallback_overview()
+    parsed = parse_json_object(raw_text)
+    return _coerce_overview(parsed) if parsed else _fallback_overview()
 
 
 def _domain_fallback_action(domain: Domain) -> str:
@@ -814,9 +876,14 @@ async def get_recommendation() -> Recommendation:
 async def get_domain_recommendations() -> OverviewRecommendationsOut:
     """Overview AIRCH Intelligence — primary 3-part thinking + secondary signals."""
     with get_db() as conn:
+        cached = _load_overview_cache(conn)
+        if cached is not None:
+            return cached
         mode = read_air4_mode(conn)
         context = _build_overview_context(conn)
-    return await _generate_overview_recommendations(context, mode)
+        result = await _generate_overview_recommendations(context, mode)
+        _save_overview_cache(conn, result)
+        return result
 
 
 @router.get("/mode", response_model=ModeOut)
@@ -841,8 +908,8 @@ def set_mode(body: ModeIn) -> ModeOut:
             "WHERE id = ?",
             (mode, _PROFILE_ID),
         )
+        clear_overview_cache(conn)
         conn.commit()
     _cache.clear()
     _domain_cache.clear()
-    _overview_cache.clear()
     return ModeOut(mode=mode)

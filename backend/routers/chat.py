@@ -6,8 +6,7 @@ import binascii
 import json
 import logging
 import os
-import time
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
@@ -16,7 +15,7 @@ from pydantic import BaseModel
 
 from fastapi import Query
 
-from database import fetch_all, fetch_one, get_db
+from database import fetch_all, fetch_one, get_db, get_meta, set_meta
 from routers.recommendation import air4_mode_instruction, normalize_air4_mode
 from schemas import (
     CancelActionIn,
@@ -793,8 +792,33 @@ class ObserverNudgeOut(BaseModel):
     content: str = ""
 
 
-_MORNING_BRIEF_TTL_SECONDS = 60 * 60
-_morning_brief_cache: dict[str, Any] = {}
+_MORNING_BRIEF_META_PREFIX = "morning_brief_cache_"
+
+
+def _morning_brief_meta_key(day: date | None = None) -> str:
+    return f"{_MORNING_BRIEF_META_PREFIX}{ (day or date.today()).isoformat()}"
+
+
+def _load_morning_brief_cache(conn) -> str | None:
+    raw = get_meta(conn, _morning_brief_meta_key())
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    message = str(payload.get("message") or "").strip()
+    return message or None
+
+
+def _save_morning_brief_cache(conn, message: str) -> None:
+    payload = {
+        "message": message,
+        "generated_at": datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat(),
+    }
+    set_meta(conn, _morning_brief_meta_key(), json.dumps(payload, ensure_ascii=False))
 
 
 @router.get("/chat/morning-brief", response_model=MorningBriefOut)
@@ -803,17 +827,13 @@ async def morning_brief() -> MorningBriefOut:
     with get_db() as conn:
         if not should_show_proactive_brief(conn):
             return MorningBriefOut(has_brief=False, should_show=False)
-
-    cache_key = f"morning_brief_{date.today()}"
-    now = time.time()
-    entry = _morning_brief_cache.get(cache_key)
-    if entry and now < entry.get("expires_at", 0.0):
-        message = entry["message"]
-        return MorningBriefOut(
-            has_brief=True,
-            should_show=True,
-            message=message,
-        )
+        cached_message = _load_morning_brief_cache(conn)
+        if cached_message:
+            return MorningBriefOut(
+                has_brief=True,
+                should_show=True,
+                message=cached_message,
+            )
 
     api_key = _api_key()
     if not api_key.strip():
@@ -828,6 +848,8 @@ async def morning_brief() -> MorningBriefOut:
                     f"{message}\n\n{pending_followups[0]['question']}".strip()
                 )
                 mark_followups_sent(conn, [int(pending_followups[0]["id"])])
+            if message:
+                _save_morning_brief_cache(conn, message)
             conn.commit()
     except Exception:
         logger.exception("morning-brief: generation failed")
@@ -836,10 +858,6 @@ async def morning_brief() -> MorningBriefOut:
     if not message:
         return MorningBriefOut(has_brief=False, should_show=False)
 
-    _morning_brief_cache[cache_key] = {
-        "message": message,
-        "expires_at": now + _MORNING_BRIEF_TTL_SECONDS,
-    }
     return MorningBriefOut(has_brief=True, should_show=True, message=message)
 
 

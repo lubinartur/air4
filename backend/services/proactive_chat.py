@@ -169,15 +169,13 @@ def get_recent_observer_signal(conn: Any, minutes: int = 30) -> str | None:
 
 def get_today_signal(conn: Any) -> str | None:
     try:
-        from routers.recommendation import _cache as rec_cache
+        from routers.recommendation import read_overview_cache_signal
 
-        cached = rec_cache.get("data")
-        if cached is not None:
-            text = str(getattr(cached, "recommendation", "") or "").strip()
-            if text:
-                return text[:600]
+        cached = read_overview_cache_signal(conn)
+        if cached:
+            return cached
     except Exception:
-        logger.exception("proactive: failed to read recommendation cache")
+        logger.exception("proactive: failed to read overview cache")
 
     row = fetch_one(
         conn,

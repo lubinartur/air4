@@ -69,6 +69,20 @@ def save_chat_message(
         return None
 
 
+def save_system_notice(
+    db: Any,
+    content: str,
+    page: str | None = None,
+) -> int | None:
+    """Persist a one-way system notice visible in chat history and the LLM."""
+    text = (content or "").strip()
+    if not text:
+        return None
+    if not text.startswith("[Система]"):
+        text = f"[Система]: {text}"
+    return save_chat_message(db, _ROLE_ASSISTANT, text, page)
+
+
 def save_exchange(
     db: Any,
     *,

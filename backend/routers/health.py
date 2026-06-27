@@ -9,7 +9,11 @@ from typing import Annotated
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from database import fetch_all, fetch_one, get_db
-from import_training_log import import_to_db, parse_training_log
+from import_training_log import (
+    build_training_import_chat_notice,
+    import_to_db,
+    parse_training_log,
+)
 from schemas import (
     BodyMetricIn,
     BodyMetricOut,
@@ -24,6 +28,7 @@ from schemas import (
     WorkoutOut,
     WorkoutSetOut,
 )
+from services.chat_history import save_system_notice
 
 router = APIRouter()
 
@@ -331,14 +336,24 @@ async def import_training_log_endpoint(
         ) from exc
 
     workouts = parse_training_log(content)
+    chat_notice: str | None = None
     with get_db() as conn:
         result = import_to_db(workouts, conn)
+        notice = build_training_import_chat_notice(
+            conn,
+            int(result["imported"]),
+            int(result["skipped"]),
+        )
+        if notice:
+            save_system_notice(conn, notice, page="sport")
+            chat_notice = notice
         conn.commit()
 
     return TrainingLogImportOut(
         imported=result["imported"],
         skipped=result["skipped"],
         workouts=[_workout_to_out(row) for row in result["workouts"]],
+        chat_notice=chat_notice,
     )
 
 

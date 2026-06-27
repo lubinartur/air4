@@ -21,6 +21,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { requestChatRefresh } from "../lib/chatEvents";
 import { cn } from "../lib/utils";
 import { t } from "../lib/typography";
 import {
@@ -388,6 +389,9 @@ export function Sport() {
       try {
         const result = await importTrainingLog(file);
         await refetchWorkouts();
+        if (result.chat_notice) {
+          requestChatRefresh();
+        }
         setImportMessage(
           `Импортировано ${result.imported} тренировок, ${result.skipped} пропущено`
         );

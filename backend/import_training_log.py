@@ -16,6 +16,22 @@ from database import fetch_one, get_db, init_db
 
 SOURCE = "arch"
 
+_MONTHS_RU_GEN = (
+    "",
+    "января",
+    "февраля",
+    "марта",
+    "апреля",
+    "мая",
+    "июня",
+    "июля",
+    "августа",
+    "сентября",
+    "октября",
+    "ноября",
+    "декабря",
+)
+
 DATE_IN_PARENS = re.compile(r"\((\d{2})\.(\d{2})\.(\d{4})\)")
 DAY_HEADER = re.compile(r"День\s+\d+\s*[—\-]\s*(.+?)\s*\(", re.I)
 CARDIO_HEADER = re.compile(r"Кардио\s*[—\-]\s*(.+?)\s*\(", re.I)
@@ -365,6 +381,58 @@ def _duplicate_exists(conn: sqlite3.Connection, workout_date: str, workout_type:
         (workout_date, workout_type),
     ).fetchone()
     return row is not None
+
+
+def _format_ru_date(iso_date: str) -> str:
+    try:
+        _year_s, month_s, day_s = iso_date.split("-", 2)
+        month = int(month_s)
+        day = int(day_s)
+    except (TypeError, ValueError, IndexError):
+        return iso_date
+    if month < 1 or month > 12:
+        return iso_date
+    return f"{day} {_MONTHS_RU_GEN[month]}"
+
+
+def _workout_short_label(row: dict[str, Any]) -> str:
+    notes = str(row.get("notes") or "").strip()
+    if notes:
+        label = notes.split(".")[0].split(":")[0].strip()
+        if label:
+            return label
+    workout_type = str(row.get("type") or "").strip()
+    return workout_type or "тренировка"
+
+
+def build_training_import_chat_notice(
+    db: Any,
+    imported: int,
+    skipped: int,
+) -> str | None:
+    """Build a chat-visible notice after a training-log import."""
+    if imported <= 0 and skipped <= 0:
+        return None
+
+    summary = f"Импортировано {imported} тренировок"
+    if skipped > 0:
+        summary += f", {skipped} пропущено"
+
+    latest = fetch_one(
+        db,
+        """
+        SELECT date, type, notes
+        FROM workouts
+        ORDER BY date DESC, id DESC
+        LIMIT 1
+        """,
+    )
+    if latest is not None:
+        date_label = _format_ru_date(str(latest.get("date") or ""))
+        workout_label = _workout_short_label(latest)
+        summary += f". Последняя: {date_label}, {workout_label}"
+
+    return f"[Система]: {summary}."
 
 
 def import_training_log(path: Path) -> tuple[int, int]:

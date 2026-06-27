@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from "react";
 import { ArrowUp, Maximize2, Paperclip, RefreshCw, X } from "lucide-react";
 import { Message, MessageAttachment, Page } from "../types";
 import { cn } from "../lib/utils";
@@ -17,6 +17,7 @@ import {
   type PendingChatAction,
 } from "../lib/api";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
+import { CHAT_REFRESH_EVENT } from "../lib/chatEvents";
 import {
   ATTACHMENT_ACCEPT,
   describeAttachmentError,
@@ -105,36 +106,41 @@ export function ChatPanel({
     saveChatHistory(messages);
   }, [messages]);
 
+  const loadRemoteHistory = useCallback(async () => {
+    const res = await fetchChatHistory(50);
+    const remote: Message[] = res.messages
+      .filter(
+        (m) =>
+          (m.role === "user" || m.role === "assistant") &&
+          m.content.trim() !== ""
+      )
+      .map((m) => ({
+        role: m.role,
+        content: m.content,
+        attachment: m.attachment ?? undefined,
+      }));
+    if (remote.length > 0) setMessages(remote);
+    return remote;
+  }, []);
+
   /** Hydrate the chat thread from the backend chat_messages table. Falls back
    *  to whatever loadChatHistory() already returned from sessionStorage if
    *  the request fails or the server has no rows yet. */
   useEffect(() => {
-    let cancelled = false;
-    void fetchChatHistory(50)
-      .then((res) => {
-        if (cancelled) return;
-        const remote: Message[] = res.messages
-          .filter(
-            (m) =>
-              (m.role === "user" || m.role === "assistant") &&
-              m.content.trim() !== ""
-          )
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-            // Carry the attachment forward so reloads show the image
-            // thumbnail / PDF pill the user originally sent.
-            attachment: m.attachment ?? undefined,
-          }));
-        if (remote.length > 0) setMessages(remote);
-      })
-      .catch(() => {
-        /* keep localStorage fallback */
+    void loadRemoteHistory().catch(() => {
+      /* keep sessionStorage fallback */
+    });
+  }, [loadRemoteHistory]);
+
+  useEffect(() => {
+    const onRefresh = () => {
+      void loadRemoteHistory().catch(() => {
+        /* non-fatal */
       });
-    return () => {
-      cancelled = true;
     };
-  }, []);
+    window.addEventListener(CHAT_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(CHAT_REFRESH_EVENT, onRefresh);
+  }, [loadRemoteHistory]);
 
   useEffect(() => {
     if (scrollRef.current) {

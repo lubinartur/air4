@@ -485,6 +485,7 @@ class TrainingLogImportOut(BaseModel):
     imported: int
     skipped: int
     workouts: list[WorkoutOut] = Field(default_factory=list)
+    chat_notice: str | None = None
 
 
 class HealthMarkerOut(BaseModel):

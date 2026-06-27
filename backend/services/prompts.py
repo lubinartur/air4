@@ -231,9 +231,9 @@ def _exercise_max_weight(exercise: dict[str, Any]) -> float | None:
 
 def _format_workouts(workouts: list[dict[str, Any]]) -> str:
     if not workouts:
-        return "ТРЕНИРОВКИ (Coaich): нет записей."
+        return "ТРЕНИРОВКИ: нет записей."
 
-    lines: list[str] = ["ТРЕНИРОВКИ (последние 10 из Coaich):"]
+    lines: list[str] = ["ТРЕНИРОВКИ (последние 10):"]
     for w in workouts:
         date_s = str(w.get("date") or "").strip() or "?"
         type_s = str(w.get("type") or "").strip() or "—"
@@ -263,15 +263,14 @@ def _format_workouts(workouts: list[dict[str, Any]]) -> str:
 
 
 def get_workouts_context(db: Any) -> str:
-    """Last 10 Coaich workouts formatted for the chat system prompt."""
+    """Last 10 workouts from the DB, formatted for the chat system prompt."""
     from database import fetch_all  # local import to avoid circular at module load
 
     rows = fetch_all(
         db,
         """
-        SELECT date, type, duration, exercises
+        SELECT date, type, duration, exercises, notes
         FROM workouts
-        WHERE source = 'coaich'
         ORDER BY date DESC, id DESC
         LIMIT 10
         """,
@@ -665,7 +664,14 @@ def build_system_context(
         parts.extend(["", subs_text])
     workouts_text = (workouts_context or "").strip()
     if workouts_text:
-        parts.extend(["", workouts_text])
+        parts.extend(
+            [
+                "",
+                workouts_text,
+                "",
+                "Данные о тренировках обновляются в реальном времени из БД.",
+            ]
+        )
     health_text = (health_checkups_context or "").strip()
     if health_text:
         parts.extend(["", health_text])

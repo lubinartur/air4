@@ -1027,6 +1027,7 @@ export type TrainingLogImportResult = {
   imported: number;
   skipped: number;
   workouts: Workout[];
+  chat_notice: string | null;
 };
 
 function normalizeWorkoutRow(raw: Record<string, unknown>): Workout {
@@ -1081,6 +1082,8 @@ export async function importTrainingLog(
     imported: Number(data.imported ?? 0),
     skipped: Number(data.skipped ?? 0),
     workouts,
+    chat_notice:
+      data.chat_notice != null ? String(data.chat_notice) : null,
   };
 }
 

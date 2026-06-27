@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useMemo, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from "react";
 import { ArrowLeft, ArrowUp, Paperclip, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "../lib/utils";
 import ReactMarkdown, { type Components } from "react-markdown";
 import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
+import { CHAT_REFRESH_EVENT } from "../lib/chatEvents";
 import type { Message, MessageAttachment, Page } from "../types";
 import {
   fetchChatHistory,
@@ -304,6 +305,32 @@ export function FullscreenChat({
       cancelled = true;
     };
   }, []);
+
+  const loadRemoteHistory = useCallback(async () => {
+    const res = await fetchChatHistory(50);
+    const remote: Message[] = res.messages
+      .filter(
+        (m) =>
+          (m.role === "user" || m.role === "assistant") &&
+          m.content.trim() !== ""
+      )
+      .map((m) => ({
+        role: m.role,
+        content: m.content,
+        attachment: m.attachment ?? undefined,
+      }));
+    if (remote.length > 0) setMessages(remote);
+  }, []);
+
+  useEffect(() => {
+    const onRefresh = () => {
+      void loadRemoteHistory().catch(() => {
+        /* non-fatal */
+      });
+    };
+    window.addEventListener(CHAT_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(CHAT_REFRESH_EVENT, onRefresh);
+  }, [loadRemoteHistory]);
 
   useEffect(() => {
     if (scrollRef.current) {

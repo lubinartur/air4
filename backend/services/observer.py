@@ -19,8 +19,10 @@ TRACKED_APPS = {
     "Terminal": "projects",
     "Xcode": "projects",
     "Chrome": "browser",
+    "Google Chrome": "browser",
     "Safari": "browser",
     "Firefox": "browser",
+    "Arc": "browser",
     "Telegram": "communication",
     "Slack": "communication",
     "Mail": "communication",
@@ -31,7 +33,8 @@ TRACKED_APPS = {
     "Obsidian": "life",
 }
 
-MIN_DURATION = 60  # 1 minute (raise after confirming observer works)
+MIN_DURATION = 60  # 1 minute for most apps
+BROWSER_MIN_DURATION = 30  # browser tabs switch faster
 IDLE_THRESHOLD = 300  # 5 minutes — pause session tracking while away
 PERIODIC_FLUSH_SECONDS = 300
 _TEST_PERIODIC_FLUSH_SECONDS = 60
@@ -45,6 +48,58 @@ def periodic_flush_interval() -> int:
     if is_test_mode():
         return _TEST_PERIODIC_FLUSH_SECONDS
     return PERIODIC_FLUSH_SECONDS
+
+
+def _is_browser_app(app: str) -> bool:
+    return TRACKED_APPS.get(app) == "browser"
+
+
+def _min_duration_for_app(app: str) -> int:
+    if _is_browser_app(app):
+        return BROWSER_MIN_DURATION
+    return MIN_DURATION
+
+
+def _parse_browser_domain(window_title: str) -> tuple[str, str] | None:
+    """Map a browser window title to (domain, project_hint).
+
+    Returns None when the session should be skipped (noisy mail tabs).
+    """
+    title = (window_title or "").strip()
+    lower = title.lower()
+    if not lower:
+        return ("browser", "")
+
+    if "gmail" in lower or "mail.google" in lower:
+        return None
+    if lower == "mail" or lower.startswith("mail —") or lower.startswith("mail -"):
+        return None
+    if re.search(r"\b(inbox|outlook|yahoo mail)\b", lower):
+        return None
+
+    if "claude.ai" in lower:
+        return ("ai_tools", "claude")
+    if "github.com" in lower or re.search(r"\bgithub\b", lower):
+        return ("projects", "github")
+    if "figma.com" in lower:
+        return ("projects", "figma")
+    if "localhost:3000" in lower or "127.0.0.1:3000" in lower:
+        return ("projects", "air4")
+
+    return ("browser", "")
+
+
+def _resolve_session_metadata(
+    app: str, window: str
+) -> tuple[str, str] | None:
+    """Return (domain, project_hint) for a session, or None to skip."""
+    if _is_browser_app(app):
+        return _parse_browser_domain(window)
+
+    domain = TRACKED_APPS.get(app, "other")
+    if domain == "other":
+        return None
+    return domain, extract_project_hint(app, window)
 
 
 def get_active_app() -> dict[str, str]:
@@ -101,12 +156,20 @@ def _flush_session(
     if not app or session_start is None:
         return
     duration = max(0, int(time.time() - session_start) - idle_seconds)
-    if duration < MIN_DURATION:
+    if duration < _min_duration_for_app(app):
         return
-    domain = TRACKED_APPS.get(app, "other")
-    if domain == "other":
+    meta = _resolve_session_metadata(app, window or "")
+    if meta is None:
         return
-    save_event(db_path, app, window or "", duration, domain)
+    domain, project_hint = meta
+    save_event(
+        db_path,
+        app,
+        window or "",
+        duration,
+        domain,
+        project_hint=project_hint,
+    )
 
 
 def extract_project_hint(app: str, window: str) -> str:
@@ -193,9 +256,11 @@ def save_event(
     window: str,
     duration: int,
     domain: str,
+    *,
+    project_hint: str | None = None,
 ) -> None:
     print(f"👁 Saving: {app} | {window} | {duration}s | {domain}")
-    project_hint = extract_project_hint(app, window)
+    hint = project_hint if project_hint is not None else extract_project_hint(app, window)
     observed_at = datetime.now().isoformat()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -212,13 +277,13 @@ def save_event(
                 window,
                 duration,
                 domain,
-                project_hint,
+                hint,
                 observed_at,
             ),
         )
 
-        if project_hint:
-            project = _match_active_project(conn, project_hint)
+        if hint:
+            project = _match_active_project(conn, hint)
             if project is not None:
                 _log_observer_project_activity(
                     conn,
@@ -296,15 +361,19 @@ def run_observer(db_path: str | None = None) -> None:
             if now - last_flush_time >= flush_interval:
                 if current_app and session_start:
                     duration = int(now - session_start)
-                    if duration >= MIN_DURATION:
-                        domain = TRACKED_APPS.get(current_app, "other")
-                        if domain != "other":
+                    if duration >= _min_duration_for_app(current_app):
+                        meta = _resolve_session_metadata(
+                            current_app, current_window or ""
+                        )
+                        if meta is not None:
+                            domain, project_hint = meta
                             save_event(
                                 path,
                                 current_app,
                                 current_window or "",
                                 duration,
                                 domain,
+                                project_hint=project_hint,
                             )
                             print(
                                 f"👁 Periodic flush: {current_app} — "

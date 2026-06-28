@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { ArrowLeft, ArrowUp, Paperclip, X } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "../lib/utils";
 import ReactMarkdown, { type Components } from "react-markdown";
-import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
+import { saveChatHistory } from "../lib/chatStorage";
 import { CHAT_REFRESH_EVENT } from "../lib/chatEvents";
 import { recordUserMessage, syncLastUserActivityFromHistory } from "../lib/proactiveChat";
 import { useProactiveChatMessages } from "../lib/useProactiveChatMessages";
@@ -48,6 +48,10 @@ interface FullscreenChatProps {
   onMessageSent?: (meta?: ChatResponseMeta) => void;
   pendingChatRequest?: ChatLaunchRequest | null;
   onPendingChatRequestConsumed?: () => void;
+  messages: Message[];
+  onMessagesChange: Dispatch<SetStateAction<Message[]>>;
+  pendingActions: PendingChatAction[];
+  onPendingActionsChange: Dispatch<SetStateAction<PendingChatAction[]>>;
 }
 
 type ContextPill = {
@@ -179,20 +183,22 @@ export function FullscreenChat({
   onMessageSent,
   pendingChatRequest,
   onPendingChatRequestConsumed,
+  messages,
+  onMessagesChange,
+  pendingActions,
+  onPendingActionsChange,
 }: FullscreenChatProps) {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
   const [sessionAgent, setSessionAgent] = useState<ChatAgent | undefined>();
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
-  const [pendingActions, setPendingActions] = useState<PendingChatAction[]>([]);
   const [pendingBusy, setPendingBusy] = useState(false);
   const sendMessageRef = useRef<
     (text: string, options?: { agent?: ChatAgent }) => Promise<void>
   >(() => Promise.resolve());
   const chatStreamRef = useRef(0);
   const [historyReady, setHistoryReady] = useState(false);
-  const { morningBriefText } = useProactiveChatMessages(setMessages, historyReady);
+  const { morningBriefText } = useProactiveChatMessages(onMessagesChange, historyReady);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,8 +209,6 @@ export function FullscreenChat({
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
-
-  useEffect(() => () => setPendingActions([]), []);
 
   const pills = useMemo<ContextPill[]>(() => {
     const out: ContextPill[] = [];
@@ -254,8 +258,12 @@ export function FullscreenChat({
     saveChatHistory(messages);
   }, [messages]);
 
-  // Load chat history from the backend; proactive brief/nudge handled by hook.
+  // Load chat history from the backend when shared state is still empty.
   useEffect(() => {
+    if (messages.length > 0) {
+      setHistoryReady(true);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -273,10 +281,10 @@ export function FullscreenChat({
               content: m.content,
               attachment: m.attachment ?? undefined,
             }));
-          if (remote.length > 0) setMessages(remote);
+          if (remote.length > 0) onMessagesChange(remote);
         }
       } catch {
-        /* keep localStorage fallback */
+        /* keep empty thread */
       } finally {
         if (!cancelled) setHistoryReady(true);
       }
@@ -284,7 +292,7 @@ export function FullscreenChat({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [messages.length, onMessagesChange]);
 
   const loadRemoteHistory = useCallback(async () => {
     const res = await fetchChatHistory(50);
@@ -300,8 +308,8 @@ export function FullscreenChat({
         attachment: m.attachment ?? undefined,
       }));
     syncLastUserActivityFromHistory(res.messages);
-    if (remote.length > 0) setMessages(remote);
-  }, []);
+    if (remote.length > 0) onMessagesChange(remote);
+  }, [onMessagesChange]);
 
   useEffect(() => {
     const onRefresh = () => {
@@ -336,7 +344,7 @@ export function FullscreenChat({
     options?: { agent?: ChatAgent },
   ) => {
     const streamId = ++chatStreamRef.current;
-    setPendingActions([]);
+    onPendingActionsChange([]);
     const outgoingAttachment = attachment;
     if (!text.trim() && !outgoingAttachment) return;
 
@@ -344,7 +352,7 @@ export function FullscreenChat({
     if (options?.agent) setSessionAgent(options.agent);
 
     const historyBeforeAssistant = messages;
-    setMessages((prev) => [
+    onMessagesChange((prev) => [
       ...prev,
       {
         role: "user",
@@ -362,7 +370,7 @@ export function FullscreenChat({
     let meta: ChatResponseMeta | undefined;
 
     const finalizeLast = (transform: (last: Message) => Message) =>
-      setMessages((prev) => {
+      onMessagesChange((prev) => {
         if (prev.length === 0) return prev;
         const last = prev[prev.length - 1];
         if (last.role !== "assistant") return prev;
@@ -389,7 +397,7 @@ export function FullscreenChat({
         {
           onDelta: (delta) => {
             receivedAny = true;
-            setMessages((prev) => {
+            onMessagesChange((prev) => {
               if (prev.length === 0) return prev;
               const last = prev[prev.length - 1];
               if (last.role !== "assistant") return prev;
@@ -406,11 +414,11 @@ export function FullscreenChat({
           onMeta: (incoming) => {
             if (streamId !== chatStreamRef.current) return;
             meta = incoming;
-            setPendingActions(incoming.pending_actions ?? []);
+            onPendingActionsChange(incoming.pending_actions ?? []);
           },
           onPendingAction: (action) => {
             if (streamId !== chatStreamRef.current) return;
-            setPendingActions([action]);
+            onPendingActionsChange([action]);
           },
           onError: (msg) => {
             console.error("Chat stream error:", msg);
@@ -439,7 +447,7 @@ export function FullscreenChat({
 
       onMessageSent?.(meta);
     } catch {
-      setMessages((prev) => {
+      onMessagesChange((prev) => {
         const last = prev[prev.length - 1];
         const failureBubble: Message = {
           role: "assistant",
@@ -476,7 +484,7 @@ export function FullscreenChat({
 
   const handleSend = async () => {
     if (!input.trim() && !attachment) return;
-    setPendingActions([]);
+    onPendingActionsChange([]);
     await sendMessage(input.trim());
   };
 
@@ -485,19 +493,19 @@ export function FullscreenChat({
   const handleConfirmPending = async (action: PendingChatAction) => {
     console.log("handleConfirmPending, pendingActions[0]:", pendingActions[0]);
     if (!action?.type || pendingBusy) return;
-    setPendingActions((prev) => prev.slice(1));
+    onPendingActionsChange((prev) => prev.slice(1));
     setPendingBusy(true);
     try {
       const res = await confirmChatAction(action);
       const note = res.message.replace(/^_|_$/g, "").trim();
-      setMessages((prev) => [
+      onMessagesChange((prev) => [
         ...prev,
         { role: "assistant", content: note || "Изменение применено." },
       ]);
       onMessageSent?.({ recurring_updated: res.recurring_updated });
     } catch {
-      setPendingActions((prev) => [action, ...prev]);
-      setMessages((prev) => [
+      onPendingActionsChange((prev) => [action, ...prev]);
+      onMessagesChange((prev) => [
         ...prev,
         {
           role: "assistant",
@@ -511,16 +519,16 @@ export function FullscreenChat({
 
   const handleCancelPending = async (action: PendingChatAction) => {
     if (!action?.type || pendingBusy) return;
-    setPendingActions((prev) => prev.slice(1));
+    onPendingActionsChange((prev) => prev.slice(1));
     setPendingBusy(true);
     try {
       const res = await cancelChatAction(action);
-      setMessages((prev) => [
+      onMessagesChange((prev) => [
         ...prev,
         { role: "assistant", content: res.message },
       ]);
     } catch {
-      setMessages((prev) => [
+      onMessagesChange((prev) => [
         ...prev,
         { role: "assistant", content: "Ок, не меняю данные." },
       ]);

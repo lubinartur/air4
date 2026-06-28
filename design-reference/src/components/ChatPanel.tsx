@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { ArrowUp, Maximize2, Paperclip, RefreshCw, X } from "lucide-react";
 import { Message, MessageAttachment, Page } from "../types";
 import { cn } from "../lib/utils";
@@ -16,7 +16,7 @@ import {
   type Observation,
   type PendingChatAction,
 } from "../lib/api";
-import { loadChatHistory, saveChatHistory } from "../lib/chatStorage";
+import { saveChatHistory } from "../lib/chatStorage";
 import { CHAT_REFRESH_EVENT } from "../lib/chatEvents";
 import { recordUserMessage, syncLastUserActivityFromHistory } from "../lib/proactiveChat";
 import { useProactiveChatMessages } from "../lib/useProactiveChatMessages";
@@ -76,6 +76,10 @@ interface ChatPanelProps {
   pendingChatRequest?: ChatLaunchRequest | null;
   onPendingChatRequestConsumed?: () => void;
   onExpand?: () => void;
+  messages: Message[];
+  onMessagesChange: Dispatch<SetStateAction<Message[]>>;
+  pendingActions: PendingChatAction[];
+  onPendingActionsChange: Dispatch<SetStateAction<PendingChatAction[]>>;
 }
 
 export function ChatPanel({
@@ -87,15 +91,17 @@ export function ChatPanel({
   pendingChatRequest,
   onPendingChatRequestConsumed,
   onExpand,
+  messages,
+  onMessagesChange,
+  pendingActions,
+  onPendingActionsChange,
 }: ChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>(() => loadChatHistory());
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionAgent, setSessionAgent] = useState<ChatAgent | undefined>();
   const [interviewQuestion, setInterviewQuestion] = useState<string | null>(null);
   const [attachment, setAttachment] = useState<MessageAttachment | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
-  const [pendingActions, setPendingActions] = useState<PendingChatAction[]>([]);
   const [pendingBusy, setPendingBusy] = useState(false);
   const [historyReady, setHistoryReady] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -105,7 +111,7 @@ export function ChatPanel({
   >(() => Promise.resolve());
   const chatStreamRef = useRef(0);
 
-  useProactiveChatMessages(setMessages, historyReady);
+  useProactiveChatMessages(onMessagesChange, historyReady);
 
   useEffect(() => {
     saveChatHistory(messages);
@@ -125,20 +131,22 @@ export function ChatPanel({
         attachment: m.attachment ?? undefined,
       }));
     syncLastUserActivityFromHistory(res.messages);
-    if (remote.length > 0) setMessages(remote);
+    if (remote.length > 0) onMessagesChange(remote);
     return remote;
-  }, []);
+  }, [onMessagesChange]);
 
-  /** Hydrate the chat thread from the backend chat_messages table. Falls back
-   *  to whatever loadChatHistory() already returned from sessionStorage if
-   *  the request fails or the server has no rows yet. */
+  /** Hydrate from backend when shared state is still empty. */
   useEffect(() => {
+    if (messages.length > 0) {
+      setHistoryReady(true);
+      return;
+    }
     void loadRemoteHistory()
       .catch(() => {
-        /* keep sessionStorage fallback */
+        /* keep empty thread */
       })
       .finally(() => setHistoryReady(true));
-  }, [loadRemoteHistory]);
+  }, [loadRemoteHistory, messages.length]);
 
   useEffect(() => {
     const onRefresh = () => {
@@ -157,10 +165,8 @@ export function ChatPanel({
   }, [messages, isLoading]);
 
   useEffect(() => {
-    setPendingActions([]);
-  }, [currentPage]);
-
-  useEffect(() => () => setPendingActions([]), []);
+    onPendingActionsChange([]);
+  }, [currentPage, onPendingActionsChange]);
 
   useEffect(() => {
     if (!pendingChatRequest) return;
@@ -224,7 +230,7 @@ export function ChatPanel({
   const handleSend = async () => {
     if (isLoading) return;
     if (!input.trim() && !attachment) return;
-    setPendingActions([]);
+    onPendingActionsChange([]);
     await sendMessage(input.trim());
   };
 
@@ -233,20 +239,20 @@ export function ChatPanel({
   const handleConfirmPending = async (action: PendingChatAction) => {
     console.log("handleConfirmPending, pendingActions[0]:", pendingActions[0]);
     if (!action?.type || pendingBusy) return;
-    setPendingActions((prev) => prev.slice(1));
+    onPendingActionsChange((prev) => prev.slice(1));
     setPendingBusy(true);
     try {
       const res = await confirmChatAction(action);
       const note = res.message.replace(/^_|_$/g, "").trim();
-      setMessages((prev) => [
+      onMessagesChange((prev) => [
         ...prev,
         { role: "assistant", content: note || "Изменение применено." },
       ]);
       onMessageSent?.({ recurring_updated: res.recurring_updated });
       // handleMessageSent → refetchFinanceRecurring when recurring_updated
     } catch {
-      setPendingActions((prev) => [action, ...prev]);
-      setMessages((prev) => [
+      onPendingActionsChange((prev) => [action, ...prev]);
+      onMessagesChange((prev) => [
         ...prev,
         {
           role: "assistant",
@@ -260,16 +266,16 @@ export function ChatPanel({
 
   const handleCancelPending = async (action: PendingChatAction) => {
     if (!action?.type || pendingBusy) return;
-    setPendingActions((prev) => prev.slice(1));
+    onPendingActionsChange((prev) => prev.slice(1));
     setPendingBusy(true);
     try {
       const res = await cancelChatAction(action);
-      setMessages((prev) => [
+      onMessagesChange((prev) => [
         ...prev,
         { role: "assistant", content: res.message },
       ]);
     } catch {
-      setMessages((prev) => [
+      onMessagesChange((prev) => [
         ...prev,
         { role: "assistant", content: "Ок, не меняю данные." },
       ]);
@@ -284,7 +290,7 @@ export function ChatPanel({
   ) => {
     if (isLoading) return;
     const streamId = ++chatStreamRef.current;
-    setPendingActions([]);
+    onPendingActionsChange([]);
     const outgoingAttachment = attachment;
     if (!text.trim() && !outgoingAttachment) return;
 
@@ -297,7 +303,7 @@ export function ChatPanel({
       content: text.trim(),
       attachment: outgoingAttachment ?? undefined,
     };
-    setMessages((prev) => [...prev, userMessage]);
+    onMessagesChange((prev) => [...prev, userMessage]);
     recordUserMessage();
     setInput("");
     setAttachment(null);
@@ -322,7 +328,7 @@ export function ChatPanel({
     }
 
     const historyBeforeAssistant = messages;
-    setMessages((prev) => [
+    onMessagesChange((prev) => [
       ...prev,
       { role: "assistant", content: "", chunks: [], isStreaming: true },
     ]);
@@ -331,7 +337,7 @@ export function ChatPanel({
     let meta: ChatResponseMeta | undefined;
 
     const finalizeLast = (transform: (last: Message) => Message) =>
-      setMessages((prev) => {
+      onMessagesChange((prev) => {
         if (prev.length === 0) return prev;
         const last = prev[prev.length - 1];
         if (last.role !== "assistant") return prev;
@@ -359,7 +365,7 @@ export function ChatPanel({
         {
           onDelta: (delta) => {
             receivedAny = true;
-            setMessages((prev) => {
+            onMessagesChange((prev) => {
               if (prev.length === 0) return prev;
               const last = prev[prev.length - 1];
               if (last.role !== "assistant") return prev;
@@ -376,11 +382,11 @@ export function ChatPanel({
           onMeta: (incoming) => {
             if (streamId !== chatStreamRef.current) return;
             meta = incoming;
-            setPendingActions(incoming.pending_actions ?? []);
+            onPendingActionsChange(incoming.pending_actions ?? []);
           },
           onPendingAction: (action) => {
             if (streamId !== chatStreamRef.current) return;
-            setPendingActions([action]);
+            onPendingActionsChange([action]);
           },
           onError: (msg) => {
             console.error("Chat stream error:", msg);

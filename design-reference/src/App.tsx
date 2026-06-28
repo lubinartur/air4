@@ -21,6 +21,7 @@ import { FullscreenChat } from "./components/FullscreenChat";
 import { CSVUpload } from "./components/CSVUpload";
 import { OverviewDashboard } from "./components/OverviewDashboard";
 import { Page } from "./types";
+import type { Message } from "./types";
 import { cn } from "./lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -38,6 +39,7 @@ import {
   pickDisplayObservation,
   type ChatLaunchRequest,
   type ChatResponseMeta,
+  type PendingChatAction,
   type Summary,
   hasRecurringFinanceUpdates,
   type Project,
@@ -77,6 +79,10 @@ export default function App() {
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [pendingChatRequest, setPendingChatRequest] =
     useState<ChatLaunchRequest | null>(null);
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
+  const [pendingActions, setPendingActions] = useState<PendingChatAction[]>(
+    []
+  );
   const [previousPage, setPreviousPage] = useState<Page>(() =>
     pageFromPath(
       typeof window !== "undefined" ? window.location.pathname : "/",
@@ -421,6 +427,10 @@ export default function App() {
           dilemmas={dilemmas}
           facts={facts}
           onMessageSent={handleMessageSent}
+          messages={chatMessages}
+          onMessagesChange={setChatMessages}
+          pendingActions={pendingActions}
+          onPendingActionsChange={setPendingActions}
         />
       </div>
     );
@@ -461,6 +471,10 @@ export default function App() {
                   onMessageSent={handleMessageSent}
                   pendingChatRequest={pendingChatRequest}
                   onPendingChatRequestConsumed={() => setPendingChatRequest(null)}
+                  messages={chatMessages}
+                  onMessagesChange={setChatMessages}
+                  pendingActions={pendingActions}
+                  onPendingActionsChange={setPendingActions}
                 />
               ) : currentPage === "Overview" ? (
                 <OverviewDashboard
@@ -547,6 +561,10 @@ export default function App() {
           pendingChatRequest={pendingChatRequest}
           onPendingChatRequestConsumed={() => setPendingChatRequest(null)}
           onExpand={() => setCurrentPage("Chat")}
+          messages={chatMessages}
+          onMessagesChange={setChatMessages}
+          pendingActions={pendingActions}
+          onPendingActionsChange={setPendingActions}
         />
       )}
     </div>

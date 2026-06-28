@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   Briefcase,
   Check,
+  ChevronDown,
   Clock,
   ListTodo,
   Pause,
@@ -33,6 +34,7 @@ import {
   stopSession,
   toggleTodo,
   updateProjectGoals,
+  updateProjectStatus,
   type GoalItem,
   type Project,
   type ProjectDetail,
@@ -46,6 +48,16 @@ import type { Page } from "../types";
 const POMODORO_SECONDS = 1500; // 25 min
 
 type UiStatus = "ACTIVE" | "STALLED" | "COMPLETED" | "PAUSED" | "ARCHIVED";
+
+const PROJECT_STATUS_OPTIONS: {
+  value: "active" | "stalled" | "completed" | "archived";
+  label: string;
+}[] = [
+  { value: "active", label: "Активен" },
+  { value: "stalled", label: "Завис" },
+  { value: "completed", label: "Завершён" },
+  { value: "archived", label: "Архив" },
+];
 
 function toUiStatus(raw: string): UiStatus {
   const s = (raw || "active").toUpperCase();
@@ -87,6 +99,130 @@ function statusBadgeStyle(uiStatus: UiStatus): {
         color: "#6b7280",
       };
   }
+}
+
+function statusBadgeLabel(uiStatus: UiStatus): string {
+  if (uiStatus === "ACTIVE") return "АКТИВЕН";
+  if (uiStatus === "STALLED") return "ЗАВИС";
+  if (uiStatus === "COMPLETED") return "ЗАВЕРШЁН";
+  if (uiStatus === "PAUSED") return "НА ПАУЗЕ";
+  return "АРХИВ";
+}
+
+function ProjectStatusDropdown({
+  projectId,
+  status,
+  disabled,
+  onSelect,
+}: {
+  projectId: number;
+  status: string;
+  disabled?: boolean;
+  onSelect: (nextStatus: string) => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const uiStatus = toUiStatus(status);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (rootRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  const handleStatusChange = async (next: string) => {
+    const normalizedNext = next.trim().toLowerCase();
+    const normalizedCurrent = (status || "active").trim().toLowerCase();
+
+    if (busy || disabled) {
+      console.log("Status skip: busy or disabled", { busy, disabled });
+      setOpen(false);
+      return;
+    }
+    if (normalizedNext === normalizedCurrent) {
+      setOpen(false);
+      return;
+    }
+
+    console.log("Status click:", projectId, normalizedNext);
+    setBusy(true);
+    try {
+      await onSelect(normalizedNext);
+      setOpen(false);
+    } catch (err) {
+      console.error("[Projects] status change failed", err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        disabled={disabled || busy}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className={cn(
+          "text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider",
+          "inline-flex items-center gap-1 transition-opacity",
+          (disabled || busy) && "opacity-60 cursor-not-allowed"
+        )}
+        style={statusBadgeStyle(uiStatus)}
+      >
+        {statusBadgeLabel(uiStatus)}
+        <ChevronDown size={10} className="opacity-80" />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 top-full z-50 mt-1 min-w-[140px] rounded-xl border border-white/10 bg-[#13131f] py-1 shadow-xl"
+        >
+          {PROJECT_STATUS_OPTIONS.map((opt) => {
+            const selected =
+              (status || "active").toLowerCase() === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                disabled={busy}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (selected) {
+                    setOpen(false);
+                    return;
+                  }
+                  void handleStatusChange(opt.value);
+                }}
+                className={cn(
+                  "block w-full px-3 py-1.5 text-left text-[11px] font-semibold transition-colors",
+                  selected
+                    ? "text-[#f97316] bg-[#f97316]/10"
+                    : "text-[#cbd5e1] hover:bg-white/5"
+                )}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Days since updated_at → momentum percentage (step function per spec). */
@@ -526,12 +662,46 @@ export function Projects({
     []
   );
 
+  const handleUpdateProjectStatus = useCallback(
+    async (projectId: number, nextStatus: string) => {
+      console.log("updateProjectStatus:", typeof updateProjectStatus);
+      console.log("Calling API:", projectId, nextStatus);
+      try {
+        const result = await updateProjectStatus(projectId, nextStatus);
+        console.log("API result:", result);
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === projectId
+              ? {
+                  ...p,
+                  status: result.status,
+                  updated_at: result.updated_at ?? p.updated_at,
+                }
+              : p
+          )
+        );
+        setDetail((prev) =>
+          prev && prev.id === projectId
+            ? {
+                ...prev,
+                status: result.status,
+                updated_at: result.updated_at ?? prev.updated_at,
+              }
+            : prev
+        );
+      } catch (err) {
+        console.error("[Projects] updateProjectStatus failed", err);
+        throw err;
+      }
+    },
+    []
+  );
+
   // ============== DETAIL VIEW ==============
 
   if (selectedId != null) {
     const totalMinutes = detail?.total_sessions_minutes ?? 0;
     const totalOutput = formatTotalTime(totalMinutes * 60);
-    const uiStatus = detail ? toUiStatus(detail.status) : "ACTIVE";
     const projectName = detail?.name ?? "Проект";
 
     let dynamicInsight =
@@ -575,20 +745,13 @@ export function Projects({
                   {projectName}
                 </h1>
                 {detail && (
-                  <span
-                    className="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider"
-                    style={statusBadgeStyle(uiStatus)}
-                  >
-                    {uiStatus === "ACTIVE"
-                      ? "АКТИВЕН"
-                      : uiStatus === "STALLED"
-                      ? "ЗАСТРЯЛ"
-                      : uiStatus === "COMPLETED"
-                      ? "ЗАВЕРШЁН"
-                      : uiStatus === "PAUSED"
-                      ? "НА ПАУЗЕ"
-                      : "В АРХИВЕ"}
-                  </span>
+                  <ProjectStatusDropdown
+                    projectId={detail.id}
+                    status={detail.status}
+                    onSelect={(next) =>
+                      handleUpdateProjectStatus(detail.id, next)
+                    }
+                  />
                 )}
               </div>
               <p className={cn(t.pageSub, "mt-0.5")}>
@@ -1124,7 +1287,6 @@ export function Projects({
           ) : (
             <div className="space-y-4">
               {projects.map((project, idx) => {
-                const uiStatus = toUiStatus(project.status);
                 const days = daysSince(project.updated_at);
                 const momentum = momentumFromDays(days);
                 const totalSeconds = (project.total_sessions_minutes ?? 0) * 60;
@@ -1167,20 +1329,13 @@ export function Projects({
                           {project.name}
                         </h3>
 
-                        <span
-                          className="text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider"
-                          style={statusBadgeStyle(uiStatus)}
-                        >
-                          {uiStatus === "ACTIVE"
-                            ? "АКТИВЕН"
-                            : uiStatus === "STALLED"
-                            ? "ЗАСТРЯЛ"
-                            : uiStatus === "COMPLETED"
-                            ? "ЗАВЕРШЁН"
-                            : uiStatus === "PAUSED"
-                            ? "НА ПАУЗЕ"
-                            : "В АРХИВЕ"}
-                        </span>
+                        <ProjectStatusDropdown
+                          projectId={project.id}
+                          status={project.status}
+                          onSelect={(next) =>
+                            handleUpdateProjectStatus(project.id, next)
+                          }
+                        />
                       </div>
 
                       {project.description && (

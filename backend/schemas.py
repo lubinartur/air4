@@ -215,6 +215,10 @@ class ProjectIn(BaseModel):
     priority: int = 2
 
 
+class ProjectStatusIn(BaseModel):
+    status: str
+
+
 class ProjectGoalsIn(BaseModel):
     """Payload for `PUT /api/projects/{id}/goals`. Strings can be
     any goal identifier returned by `/api/goals` — `user_facts.key`

@@ -16,6 +16,7 @@ from schemas import (
     ProjectLogIn,
     ProjectLogOut,
     ProjectOut,
+    ProjectStatusIn,
     ProjectTodoIn,
     ProjectTodoOut,
     ProjectTodosListOut,
@@ -327,6 +328,52 @@ def get_project(project_id: int) -> ProjectDetailOut:
             else None
         ),
     )
+
+
+@router.put("/projects/{project_id}", response_model=ProjectOut)
+def update_project(project_id: int, body: ProjectStatusIn) -> ProjectOut:
+    """Update project fields (currently status only)."""
+    status = (body.status or "").strip().lower()
+    if status not in ALLOWED_PROJECT_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"status must be one of: {', '.join(sorted(ALLOWED_PROJECT_STATUSES))}",
+        )
+
+    with get_db() as conn:
+        _project_row(conn, project_id)
+        execute(
+            conn,
+            """
+            UPDATE projects
+            SET status = ?, updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (status, project_id),
+        )
+        row = fetch_one(
+            conn,
+            """
+            SELECT
+              p.id, p.name, p.description, p.status, p.priority,
+              p.started_at, p.goal_keys, p.created_at, p.updated_at,
+              COALESCE(s.total_sessions_minutes, 0) AS total_sessions_minutes
+            FROM projects p
+            LEFT JOIN (
+              SELECT project_id, SUM(duration_minutes) AS total_sessions_minutes
+              FROM project_logs
+              WHERE log_type = 'session'
+              GROUP BY project_id
+            ) s ON s.project_id = p.id
+            WHERE p.id = ?
+            """,
+            (project_id,),
+        )
+        if row is None:
+            raise HTTPException(status_code=500, detail="failed to read project")
+        goal_index = _build_goal_index(conn)
+
+    return _project_row_to_out(row, goal_index=goal_index)
 
 
 @router.put("/projects/{project_id}/goals", response_model=ProjectOut)

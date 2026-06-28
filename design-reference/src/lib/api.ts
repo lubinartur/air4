@@ -1322,6 +1322,21 @@ export async function updateProjectGoals(
   });
 }
 
+export async function updateProjectStatus(
+  id: number,
+  status: string
+): Promise<Project> {
+  const response = await fetch(`/api/projects/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: status.toLowerCase() }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update project status");
+  }
+  return response.json() as Promise<Project>;
+}
+
 async function jsonPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, {
     method: "POST",

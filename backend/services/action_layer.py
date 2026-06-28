@@ -16,6 +16,14 @@ from services.workout_extractor import _normalize_workout, _save_workout
 
 logger = logging.getLogger("action_layer")
 
+_ALLOWED_PROJECT_STATUSES = frozenset({
+    "active",
+    "paused",
+    "stalled",
+    "completed",
+    "archived",
+})
+
 SUPPORTED_ACTION_TYPES = frozenset({
     "delete_subscription",
     "restore_subscription",
@@ -28,6 +36,8 @@ SUPPORTED_ACTION_TYPES = frozenset({
     "log_workout",
     "log_weight",
     "log_project_activity",
+    "create_project",
+    "update_project",
     "create_open_loop",
     "resolve_open_loop",
     "set_reminder",
@@ -87,8 +97,8 @@ If no action needed:
 Action types:
 delete_subscription, restore_subscription, update_subscription, create_subscription,
 delete_obligation, restore_obligation, update_obligation, create_obligation,
-log_workout, log_weight, log_project_activity, create_open_loop,
-resolve_open_loop, set_reminder
+log_workout, log_weight, log_project_activity, create_project, update_project,
+create_open_loop, resolve_open_loop, set_reminder
 
 Rules:
 - restore_* only for inactive rows (is_active=0). delete_* only for active rows.
@@ -104,6 +114,10 @@ Rules:
 - log_workout: date, type, duration (minutes), optional exercises, notes.
 - log_weight: date, weight (kg).
 - log_project_activity: project_id, note, log_type (update|session|milestone).
+- create_project: name; optional description, status (default active), priority (1-3, default 2).
+  Only when the name is NOT already in projects.
+- update_project: id from projects list (or name match), field must be "status",
+  value one of active|paused|stalled|completed|archived.
 - create_open_loop: topic, domain, priority (low|medium|high).
 - resolve_open_loop: id from open loops list.
 - set_reminder: text, datetime (ISO).
@@ -135,6 +149,33 @@ User: "добавь кредит iPhone 111.25 евро в месяц" →
     "total_amount": 1335.0,
     "due_date": "2027-01-01",
     "category": "tech"
+  }}
+}}
+
+User: "добавь проект Ascape" / "создай проект X" / user confirms "да"
+when assistant asked about adding a project →
+{{
+  "type": "create_project",
+  "description": "Создать проект: Ascape",
+  "confidence": 0.85,
+  "data": {{
+    "name": "Ascape",
+    "description": "",
+    "status": "active",
+    "priority": 2
+  }}
+}}
+
+User: "переведи Air4 в архив" / "поставь SkipMar на паузу" / "активируй Тартупак" →
+{{
+  "type": "update_project",
+  "description": "Изменить статус Air4: active → archived",
+  "confidence": 0.85,
+  "data": {{
+    "id": 5,
+    "name": "Air4",
+    "field": "status",
+    "value": "archived"
   }}
 }}
 """
@@ -330,6 +371,105 @@ def _exec_log_weight(db: Any, data: dict[str, Any]) -> dict[str, Any] | None:
         "action": "created",
         "field": "weight",
         "new_value": weight_f,
+        "currency": "EUR",
+    }
+
+
+def _exec_create_project(db: Any, data: dict[str, Any]) -> dict[str, Any] | None:
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return None
+    existing = fetch_one(
+        db,
+        "SELECT id FROM projects WHERE LOWER(name) = LOWER(?)",
+        (name,),
+    )
+    if existing:
+        return None
+    description = str(data.get("description") or "").strip() or None
+    status = str(data.get("status") or "active").strip() or "active"
+    try:
+        priority = int(data.get("priority") or 2)
+    except (TypeError, ValueError):
+        priority = 2
+    priority = max(1, min(3, priority))
+    project_id = execute(
+        db,
+        """
+        INSERT INTO projects (name, description, status, priority, created_at, updated_at)
+        VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+        """,
+        (name, description, status, priority),
+    )
+    return {
+        "type": "project",
+        "id": int(project_id),
+        "name": name,
+        "action": "created",
+        "field": "project",
+        "new_value": name,
+        "currency": "EUR",
+    }
+
+
+def _exec_update_project(db: Any, data: dict[str, Any]) -> dict[str, Any] | None:
+    field = str(data.get("field") or "status").strip().lower()
+    if field != "status":
+        return None
+    value = str(data.get("value") or "").strip().lower()
+    if value not in _ALLOWED_PROJECT_STATUSES:
+        return None
+
+    row_id = data.get("id")
+    row: dict[str, Any] | None = None
+    if row_id is not None:
+        row = fetch_one(
+            db,
+            "SELECT id, name, status FROM projects WHERE id = ?",
+            (int(row_id),),
+        )
+    if row is None:
+        name = str(data.get("name") or "").strip()
+        if name:
+            row = fetch_one(
+                db,
+                "SELECT id, name, status FROM projects WHERE LOWER(name) = LOWER(?)",
+                (name,),
+            )
+    if not row:
+        return None
+
+    project_id = int(row["id"])
+    old_status = str(row.get("status") or "active")
+    if old_status == value:
+        return {
+            "type": "project",
+            "id": project_id,
+            "name": str(row.get("name") or ""),
+            "action": "updated",
+            "field": "status",
+            "old_value": old_status,
+            "new_value": value,
+            "currency": "EUR",
+        }
+
+    execute(
+        db,
+        """
+        UPDATE projects
+        SET status = ?, updated_at = datetime('now')
+        WHERE id = ?
+        """,
+        (value, project_id),
+    )
+    return {
+        "type": "project",
+        "id": project_id,
+        "name": str(row.get("name") or ""),
+        "action": "updated",
+        "field": "status",
+        "old_value": old_status,
+        "new_value": value,
         "currency": "EUR",
     }
 
@@ -729,6 +869,10 @@ def execute_action(db: Any, action: dict[str, Any]) -> dict[str, Any] | None:
         return _exec_log_weight(db, data)
     if action_type == "log_project_activity":
         return _exec_log_project_activity(db, data)
+    if action_type == "create_project":
+        return _exec_create_project(db, data)
+    if action_type == "update_project":
+        return _exec_update_project(db, data)
     if action_type == "create_open_loop":
         return _exec_create_open_loop(db, data)
     if action_type == "resolve_open_loop":
@@ -765,6 +909,14 @@ def format_action_result(result: dict[str, Any]) -> str:
         return f"_Записана тренировка: {name}_"
     if field == "note":
         return f"_Записано в проект {name}_"
+    if field == "project":
+        return f"_Создан проект: {name}_"
+    if field == "status":
+        old_val = result.get("old_value")
+        new_val = result.get("new_value")
+        if old_val is not None and new_val is not None:
+            return f"_Статус проекта {name}: {old_val} → {new_val}_"
+        return f"_Обновлён статус проекта: {name}_"
     if field == "reminder":
         return f"_Напоминание установлено: {name}_"
     if field == "topic":

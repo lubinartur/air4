@@ -421,6 +421,18 @@ CREATE TABLE IF NOT EXISTS recommendation_feedback (
     created_at      TEXT DEFAULT (datetime('now')),
     updated_at      TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS today_cache (
+    id              INTEGER PRIMARY KEY,
+    date            TEXT NOT NULL UNIQUE,
+    state           TEXT,
+    primary_thought TEXT,
+    focus_domain    TEXT,
+    supporting      TEXT,
+    thread_ref      TEXT,
+    belief_ref      TEXT,
+    generated_at    TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """

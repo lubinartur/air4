@@ -52,6 +52,7 @@ def _row_to_obligation(row: dict[str, Any]) -> ObligationOut:
         monthly_payment=row.get("monthly_payment"),
         interest_rate=row.get("interest_rate"),
         due_date=row.get("due_date"),
+        currency=str(row.get("currency") or "EUR"),
         category=str(row.get("category") or "loan"),
         is_active=bool(row.get("is_active", 1)),
         source=str(row.get("source") or "manual"),
@@ -200,7 +201,7 @@ def list_obligations() -> ObligationsListOut:
             conn,
             """
             SELECT id, name, total_amount, remaining_amount, monthly_payment,
-                   interest_rate, due_date, category, is_active, source,
+                   interest_rate, due_date, currency, category, is_active, source,
                    created_at, updated_at
             FROM obligations
             WHERE is_active = 1
@@ -223,9 +224,9 @@ def create_obligation(payload: ObligationIn) -> ObligationOut:
             """
             INSERT INTO obligations
                 (name, total_amount, remaining_amount, monthly_payment,
-                 interest_rate, due_date, category, is_active, source,
+                 interest_rate, due_date, currency, category, is_active, source,
                  created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'manual',
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'manual',
                     datetime('now'), datetime('now'))
             """,
             (
@@ -235,6 +236,7 @@ def create_obligation(payload: ObligationIn) -> ObligationOut:
                 payload.monthly_payment,
                 payload.interest_rate,
                 payload.due_date,
+                payload.currency or "EUR",
                 payload.category or "loan",
             ),
         )

@@ -331,6 +331,7 @@ export type FinanceObligation = {
   monthly_payment: number | null;
   interest_rate: number | null;
   due_date: string | null;
+  currency: string;
   category: string;
   is_active: boolean;
   source: string;
@@ -345,6 +346,7 @@ export type ObligationInput = {
   monthly_payment?: number | null;
   interest_rate?: number | null;
   due_date?: string | null;
+  currency?: string;
   category?: string;
 };
 
@@ -673,6 +675,74 @@ async function jsonRequest<T>(
 export async function fetchSubscriptions(): Promise<SubscriptionsResponse> {
   const data = await apiFetch<SubscriptionsResponse>("/api/finance/subscriptions");
   return { subscriptions: data.subscriptions ?? [] };
+}
+
+export type FinanceInvoice = {
+  id: number;
+  issuer: string | null;
+  invoice_number: string | null;
+  amount: number | null;
+  currency: string;
+  issue_date: string | null;
+  due_date: string | null;
+  status: "draft" | "confirmed" | "paid" | "cancelled";
+  confidence: number | null;
+  source_document_id: number | null;
+  source_filename: string | null;
+  obligation_id: number | null;
+  obligation_name: string | null;
+  obligation_currency: string | null;
+};
+
+export type FinanceInvoicesResponse = {
+  invoices: FinanceInvoice[];
+};
+
+export async function fetchFinanceInvoices(): Promise<FinanceInvoicesResponse> {
+  const data = await apiFetch<FinanceInvoicesResponse>("/api/finance/invoices");
+  return { invoices: data.invoices ?? [] };
+}
+
+function apiErrorDetail(err: unknown): string {
+  if (!(err instanceof Error)) return "Request failed";
+  const raw = err.message.trim();
+  try {
+    const parsed = JSON.parse(raw) as { detail?: unknown };
+    if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+      return parsed.detail.trim();
+    }
+  } catch {
+    /* plain text */
+  }
+  return raw || "Request failed";
+}
+
+export async function confirmFinanceInvoice(
+  invoiceId: number
+): Promise<FinanceInvoice> {
+  try {
+    return await jsonRequest<FinanceInvoice>(
+      "POST",
+      `/api/finance/invoices/${invoiceId}/confirm`
+    );
+  } catch (err) {
+    throw new Error(apiErrorDetail(err));
+  }
+}
+
+export function formatMoneyAmount(
+  amount: number,
+  currency: string = "EUR"
+): string {
+  const code = (currency || "EUR").trim().toUpperCase() || "EUR";
+  const formatted = amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  if (code === "EUR") {
+    return `${formatted}\u00A0€`;
+  }
+  return `${formatted}\u00A0${code}`;
 }
 
 export async function createSubscription(

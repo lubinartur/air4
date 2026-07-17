@@ -291,6 +291,7 @@ CREATE TABLE IF NOT EXISTS obligations (
     monthly_payment   REAL,
     interest_rate     REAL,
     due_date          TEXT,
+    currency          TEXT DEFAULT 'EUR',
     category          TEXT DEFAULT 'loan',
     is_active         INTEGER DEFAULT 1,
     source            TEXT DEFAULT 'manual',
@@ -462,6 +463,7 @@ CREATE TABLE IF NOT EXISTS source_documents (
 CREATE TABLE IF NOT EXISTS invoices (
     id                  INTEGER PRIMARY KEY,
     source_document_id  INTEGER REFERENCES source_documents(id),
+    obligation_id       INTEGER REFERENCES obligations(id),
     issuer              TEXT,
     invoice_number      TEXT,
     amount              REAL,
@@ -527,6 +529,7 @@ CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_source_document_id_unique
     ON invoices(source_document_id) WHERE source_document_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_invoices_obligation_id ON invoices(obligation_id);
 """
 
 
@@ -712,6 +715,7 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
                 ("monthly_payment", "REAL"),
                 ("interest_rate", "REAL"),
                 ("due_date", "TEXT"),
+                ("currency", "TEXT DEFAULT 'EUR'"),
                 ("category", "TEXT DEFAULT 'loan'"),
                 ("is_active", "INTEGER DEFAULT 1"),
                 ("source", "TEXT DEFAULT 'manual'"),
@@ -755,6 +759,13 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         conn.execute(
             "DROP INDEX IF EXISTS idx_invoices_source_document_id"
         )
+        _ensure_columns(
+            conn,
+            "invoices",
+            [
+                ("obligation_id", "INTEGER REFERENCES obligations(id)"),
+            ],
+        )
         inv_cols = _table_columns(conn, "invoices")
         if "issuer" not in inv_cols:
             count_row = conn.execute("SELECT COUNT(*) FROM invoices").fetchone()
@@ -765,6 +776,7 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
                     CREATE TABLE invoices (
                         id                  INTEGER PRIMARY KEY,
                         source_document_id  INTEGER REFERENCES source_documents(id),
+                        obligation_id       INTEGER REFERENCES obligations(id),
                         issuer              TEXT,
                         invoice_number      TEXT,
                         amount              REAL,

@@ -662,6 +662,7 @@ class ObligationOut(BaseModel):
     monthly_payment: float | None = None
     interest_rate: float | None = None
     due_date: str | None = None
+    currency: str = "EUR"
     category: str = "loan"
     is_active: bool = True
     source: str = "manual"
@@ -676,6 +677,7 @@ class ObligationIn(BaseModel):
     monthly_payment: float | None = None
     interest_rate: float | None = None
     due_date: str | None = None
+    currency: str = Field(default="EUR", max_length=8)
     category: str = "loan"
 
 
@@ -686,6 +688,7 @@ class ObligationUpdateIn(BaseModel):
     monthly_payment: float | None = None
     interest_rate: float | None = None
     due_date: str | None = None
+    currency: str | None = Field(default=None, max_length=8)
     category: str | None = None
     is_active: bool | None = None
 
@@ -890,3 +893,26 @@ class InvoiceRead(BaseModel):
     confidence: float | None = None
     created_at: str | None = None
     updated_at: str | None = None
+
+
+class FinanceInvoiceOut(BaseModel):
+    """Inbox list row: invoice fields plus source / obligation links."""
+
+    id: int
+    issuer: str | None = None
+    invoice_number: str | None = None
+    amount: float | None = None
+    currency: str = "EUR"
+    issue_date: str | None = None
+    due_date: str | None = None
+    status: InvoiceStatus
+    confidence: float | None = None
+    source_document_id: int | None = None
+    source_filename: str | None = None
+    obligation_id: int | None = None
+    obligation_name: str | None = None
+    obligation_currency: str | None = None
+
+
+class FinanceInvoicesListOut(BaseModel):
+    invoices: list[FinanceInvoiceOut]

@@ -452,6 +452,25 @@ CREATE TABLE IF NOT EXISTS source_documents (
     storage_type     TEXT NOT NULL,
     created_at       TEXT DEFAULT (datetime('now'))
 );
+
+-- Finance Vertical invoices (document workflow). Provenance via
+-- source_document_id → source_documents; no binary payload here.
+--
+-- status (v1): draft | confirmed | paid | cancelled
+CREATE TABLE IF NOT EXISTS invoices (
+    id                  INTEGER PRIMARY KEY,
+    source_document_id  INTEGER REFERENCES source_documents(id),
+    issuer              TEXT,
+    invoice_number      TEXT,
+    amount              REAL,
+    currency            TEXT DEFAULT 'EUR',
+    due_date            TEXT,
+    issue_date          TEXT,
+    status              TEXT NOT NULL DEFAULT 'draft',
+    confidence          REAL,
+    created_at          TEXT DEFAULT (datetime('now')),
+    updated_at          TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """
@@ -499,6 +518,9 @@ CREATE INDEX IF NOT EXISTS idx_feedback_status ON recommendation_feedback(status
 CREATE INDEX IF NOT EXISTS idx_feedback_followup ON recommendation_feedback(follow_up_date);
 CREATE INDEX IF NOT EXISTS idx_source_documents_content_sha256 ON source_documents(content_sha256);
 CREATE INDEX IF NOT EXISTS idx_source_documents_chat_message_id ON source_documents(chat_message_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
+CREATE INDEX IF NOT EXISTS idx_invoices_source_document_id ON invoices(source_document_id);
 """
 
 
@@ -705,6 +727,34 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
                 ("tags", "TEXT"),
             ],
         )
+
+    # Finance Vertical invoices — rebuild only if an empty pre-v1 shape
+    # exists (vendor-based columns from an earlier draft). Never touches
+    # other tables; skips when rows are present or shape is already current.
+    if "invoices" in tables:
+        inv_cols = _table_columns(conn, "invoices")
+        if "issuer" not in inv_cols:
+            count_row = conn.execute("SELECT COUNT(*) FROM invoices").fetchone()
+            if count_row is not None and int(count_row[0]) == 0:
+                conn.execute("DROP TABLE invoices")
+                conn.execute(
+                    """
+                    CREATE TABLE invoices (
+                        id                  INTEGER PRIMARY KEY,
+                        source_document_id  INTEGER REFERENCES source_documents(id),
+                        issuer              TEXT,
+                        invoice_number      TEXT,
+                        amount              REAL,
+                        currency            TEXT DEFAULT 'EUR',
+                        due_date            TEXT,
+                        issue_date          TEXT,
+                        status              TEXT NOT NULL DEFAULT 'draft',
+                        confidence          REAL,
+                        created_at          TEXT DEFAULT (datetime('now')),
+                        updated_at          TEXT DEFAULT (datetime('now'))
+                    )
+                    """
+                )
 
 
 _DEFAULT_INCOME_SOURCES: tuple[tuple[str, str, str], ...] = (

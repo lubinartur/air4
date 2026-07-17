@@ -844,3 +844,43 @@ class SourceDocumentRead(BaseModel):
     content_text: str | None = None
     content_sha256: str | None = None
     created_at: str | None = None
+
+
+# --- Finance Vertical: invoices (schema only, no service layer yet) -----
+
+InvoiceStatus = Literal[
+    "draft",
+    "confirmed",
+    "paid",
+    "cancelled",
+]
+
+
+class InvoiceCreate(BaseModel):
+    """Inbound invoice draft. Binary source stays on source_documents —
+    only `source_document_id` links provenance."""
+
+    source_document_id: int | None = None
+    issuer: str | None = Field(default=None, max_length=500)
+    invoice_number: str | None = Field(default=None, max_length=200)
+    amount: float | None = None
+    currency: str = Field(default="EUR", max_length=8)
+    due_date: str | None = None
+    issue_date: str | None = None
+    status: InvoiceStatus = "draft"
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class InvoiceRead(BaseModel):
+    id: int
+    source_document_id: int | None = None
+    issuer: str | None = None
+    invoice_number: str | None = None
+    amount: float | None = None
+    currency: str = "EUR"
+    due_date: str | None = None
+    issue_date: str | None = None
+    status: InvoiceStatus
+    confidence: float | None = None
+    created_at: str | None = None
+    updated_at: str | None = None

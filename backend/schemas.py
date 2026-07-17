@@ -808,12 +808,15 @@ class RecommendationFeedbackOut(BaseModel):
 # --- Finance Vertical: source provenance (no service layer yet) ---------
 
 SourceDocumentKind = Literal[
+    "pdf",
+    "image",
     "chat_attachment",
     "pasted_text",
     "uploaded_file",
 ]
 
 SourceDocumentStorageType = Literal[
+    "chat_attachment",
     "chat_message",
     "inline_text",
     "external_reference",
@@ -823,7 +826,8 @@ SourceDocumentStorageType = Literal[
 class SourceDocumentCreate(BaseModel):
     """Inbound provenance record. Does not carry binary attachment bytes —
     chat PDFs/images remain in `chat_messages` and are linked via
-    `chat_message_id` when `kind='chat_attachment'`."""
+    `chat_message_id`; `kind` is `pdf` or `image` and `storage_type` is
+    `chat_attachment` for uploads."""
 
     kind: SourceDocumentKind
     storage_type: SourceDocumentStorageType
@@ -832,6 +836,7 @@ class SourceDocumentCreate(BaseModel):
     mime_type: str | None = Field(default=None, max_length=200)
     content_text: str | None = None
     content_sha256: str | None = Field(default=None, max_length=64)
+    size_bytes: int | None = Field(default=None, ge=0)
 
 
 class SourceDocumentRead(BaseModel):
@@ -843,6 +848,7 @@ class SourceDocumentRead(BaseModel):
     mime_type: str | None = None
     content_text: str | None = None
     content_sha256: str | None = None
+    size_bytes: int | None = None
     created_at: str | None = None
 
 

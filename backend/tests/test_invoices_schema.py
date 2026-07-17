@@ -162,7 +162,9 @@ class TestInvoicesExistingDatabase(unittest.TestCase):
         after_msg = self.conn.execute(
             "SELECT content FROM chat_messages LIMIT 1"
         ).fetchone()[0]
-        self.assertEqual(before_src, after_src)
+        expected_src = dict(before_src)
+        expected_src["size_bytes"] = None
+        self.assertEqual(after_src, expected_src)
         self.assertEqual(before_msg, after_msg)
         self.assertEqual(after_msg, self.msg_content)
 

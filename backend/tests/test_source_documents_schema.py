@@ -76,6 +76,7 @@ class TestSourceDocumentsNewDatabase(unittest.TestCase):
                 "content_text",
                 "content_sha256",
                 "storage_type",
+                "size_bytes",
                 "created_at",
             },
         )
@@ -214,8 +215,9 @@ class TestSourceDocumentsReferencesAndIndex(unittest.TestCase):
         self.conn.execute(
             """
             INSERT INTO source_documents
-                (kind, chat_message_id, filename, mime_type, content_sha256, storage_type)
-            VALUES ('chat_attachment', ?, 'bill.pdf', 'application/pdf', ?, 'chat_message')
+                (kind, chat_message_id, filename, mime_type, content_sha256,
+                 storage_type, size_bytes)
+            VALUES ('pdf', ?, 'bill.pdf', 'application/pdf', ?, 'chat_attachment', 42)
             """,
             (self.msg_id, "a" * 64),
         )
@@ -226,9 +228,10 @@ class TestSourceDocumentsReferencesAndIndex(unittest.TestCase):
                 (self.msg_id,),
             ).fetchone()
         )
-        self.assertEqual(row["kind"], "chat_attachment")
-        self.assertEqual(row["storage_type"], "chat_message")
+        self.assertEqual(row["kind"], "pdf")
+        self.assertEqual(row["storage_type"], "chat_attachment")
         self.assertEqual(row["chat_message_id"], self.msg_id)
+        self.assertEqual(row["size_bytes"], 42)
         self.assertIsNone(row["content_text"])
         # Round-trip through Pydantic read schema
         read = SourceDocumentRead(
@@ -240,16 +243,18 @@ class TestSourceDocumentsReferencesAndIndex(unittest.TestCase):
             mime_type=row["mime_type"],
             content_text=row["content_text"],
             content_sha256=row["content_sha256"],
+            size_bytes=row["size_bytes"],
             created_at=row["created_at"],
         )
         self.assertEqual(read.chat_message_id, self.msg_id)
         create = SourceDocumentCreate(
-            kind="chat_attachment",
-            storage_type="chat_message",
+            kind="pdf",
+            storage_type="chat_attachment",
             chat_message_id=self.msg_id,
             filename="bill.pdf",
             mime_type="application/pdf",
             content_sha256="b" * 64,
+            size_bytes=42,
         )
         self.assertIsNone(create.content_text)
 

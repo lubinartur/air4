@@ -439,8 +439,9 @@ CREATE TABLE IF NOT EXISTS today_cache (
 -- attachments stay in chat_messages and are referenced by
 -- chat_message_id when kind='chat_attachment'.
 --
--- kind (v1): chat_attachment | pasted_text | uploaded_file
--- storage_type (v1): chat_message | inline_text | external_reference
+-- kind (v1): pdf | image | pasted_text | uploaded_file
+-- storage_type (v1): chat_attachment | chat_message | inline_text | external_reference
+-- filename stores the upload's original filename (metadata only).
 CREATE TABLE IF NOT EXISTS source_documents (
     id               INTEGER PRIMARY KEY,
     kind             TEXT NOT NULL,
@@ -450,6 +451,7 @@ CREATE TABLE IF NOT EXISTS source_documents (
     content_text     TEXT,
     content_sha256   TEXT,
     storage_type     TEXT NOT NULL,
+    size_bytes       INTEGER,
     created_at       TEXT DEFAULT (datetime('now'))
 );
 
@@ -517,6 +519,9 @@ CREATE INDEX IF NOT EXISTS idx_discovery_gaps_category ON discovery_gaps(categor
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON recommendation_feedback(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_followup ON recommendation_feedback(follow_up_date);
 CREATE INDEX IF NOT EXISTS idx_source_documents_content_sha256 ON source_documents(content_sha256);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_source_documents_chat_message_sha256_unique
+    ON source_documents(chat_message_id, content_sha256)
+    WHERE chat_message_id IS NOT NULL AND content_sha256 IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_source_documents_chat_message_id ON source_documents(chat_message_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
@@ -726,6 +731,19 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
                 ("outcome", "TEXT"),
                 ("tags", "TEXT"),
             ],
+        )
+
+    if "source_documents" in tables:
+        _ensure_columns(
+            conn,
+            "source_documents",
+            [
+                ("size_bytes", "INTEGER"),
+            ],
+        )
+        # Replaced global sha256 uniqueness with per-message provenance.
+        conn.execute(
+            "DROP INDEX IF EXISTS idx_source_documents_content_sha256_unique"
         )
 
     # Finance Vertical invoices — rebuild only if an empty pre-v1 shape

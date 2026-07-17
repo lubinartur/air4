@@ -12,6 +12,7 @@ import logging
 from typing import Any
 
 from database import execute, fetch_all
+from services.source_document import record_chat_attachment_source
 
 logger = logging.getLogger("chat_history")
 
@@ -93,7 +94,18 @@ def save_exchange(
 ) -> None:
     """Persist a user message and the assistant reply in order. The
     attachment, if any, is attached to the user row only."""
-    save_chat_message(db, _ROLE_USER, user_message, page, attachment=attachment)
+    user_row_id = save_chat_message(
+        db, _ROLE_USER, user_message, page, attachment=attachment
+    )
+    if user_row_id and attachment and (attachment.get("data") or "").strip():
+        try:
+            record_chat_attachment_source(db, user_row_id, attachment)
+        except Exception:
+            logger.exception(
+                "Failed to record source document for chat attachment "
+                "(chat_message_id=%s)",
+                user_row_id,
+            )
     save_chat_message(db, _ROLE_ASSISTANT, assistant_message, page)
 
 

@@ -663,6 +663,19 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.post("/api/finance/gmail/import", async (req, res) => {
+    try {
+      await proxyJson(res, `${BACKEND_URL}/api/finance/gmail/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body ?? {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/finance/cycles", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/finance/cycles", req.query));

@@ -57,6 +57,9 @@ const GMAIL_SAMPLE: FinanceGmailCandidate[] = [
     size_bytes: 2048,
     already_imported: false,
     external_source_key: "gmail:m1:a1",
+    source_document_id: null,
+    invoice_id: null,
+    invoice_status: null,
   },
 ];
 
@@ -199,6 +202,140 @@ describe("FinanceInbox", () => {
       expect(screen.getByText("Your invoice")).toBeTruthy();
       expect(screen.getByText("invoice.pdf")).toBeTruthy();
       expect(screen.getByText("New")).toBeTruthy();
+      expect(screen.getByTestId("gmail-candidate-import-a1")).toBeTruthy();
+    });
+  });
+
+  it("gmail import button triggers request and updates candidate", async () => {
+    const user = userEvent.setup();
+    const onImportGmailCandidate = vi.fn(async () => ({
+      source_document_id: 11,
+      invoice_id: 22,
+      invoice_status: "draft",
+      already_imported: false,
+      filename: "invoice.pdf",
+      external_source_key: "gmail:m1:a1",
+      extraction_failed: false,
+      detail: null,
+    }));
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={async () => GMAIL_SAMPLE}
+        onImportGmailCandidate={onImportGmailCandidate}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    await waitFor(() => screen.getByTestId("gmail-candidate-import-a1"));
+    await user.click(screen.getByTestId("gmail-candidate-import-a1"));
+    await waitFor(() => {
+      expect(onImportGmailCandidate).toHaveBeenCalledWith({
+        gmail_message_id: "m1",
+        attachment_id: "a1",
+      });
+      expect(screen.getByText("Imported")).toBeTruthy();
+      expect(screen.getByText("Invoice: draft #22")).toBeTruthy();
+      expect(screen.queryByTestId("gmail-candidate-import-a1")).toBeNull();
+    });
+  });
+
+  it("gmail import row loading state", async () => {
+    const user = userEvent.setup();
+    let resolveImport: (value: {
+      source_document_id: number;
+      invoice_id: number | null;
+      invoice_status: string | null;
+      already_imported: boolean;
+      filename: string | null;
+      external_source_key: string;
+      extraction_failed: boolean;
+      detail: string | null;
+    }) => void = () => undefined;
+    const pending = new Promise<Parameters<typeof resolveImport>[0]>((resolve) => {
+      resolveImport = resolve;
+    });
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={async () => GMAIL_SAMPLE}
+        onImportGmailCandidate={() => pending}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    await waitFor(() => screen.getByTestId("gmail-candidate-import-a1"));
+    await user.click(screen.getByTestId("gmail-candidate-import-a1"));
+    expect(screen.getByTestId("gmail-candidate-import-loading")).toBeTruthy();
+    resolveImport({
+      source_document_id: 1,
+      invoice_id: 2,
+      invoice_status: "draft",
+      already_imported: true,
+      filename: "invoice.pdf",
+      external_source_key: "gmail:m1:a1",
+      extraction_failed: false,
+      detail: null,
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("gmail-candidate-import-loading")).toBeNull();
+    });
+  });
+
+  it("gmail repeated import treated as success", async () => {
+    const user = userEvent.setup();
+    const onImportGmailCandidate = vi.fn(async () => ({
+      source_document_id: 11,
+      invoice_id: 22,
+      invoice_status: "draft",
+      already_imported: true,
+      filename: "invoice.pdf",
+      external_source_key: "gmail:m1:a1",
+      extraction_failed: false,
+      detail: null,
+    }));
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={async () => GMAIL_SAMPLE}
+        onImportGmailCandidate={onImportGmailCandidate}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    await waitFor(() => screen.getByTestId("gmail-candidate-import-a1"));
+    await user.click(screen.getByTestId("gmail-candidate-import-a1"));
+    await waitFor(() => {
+      expect(screen.getByText("Imported")).toBeTruthy();
+      expect(screen.queryByTestId("gmail-candidate-row-error")).toBeNull();
+    });
+  });
+
+  it("gmail import row error state", async () => {
+    const user = userEvent.setup();
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={async () => GMAIL_SAMPLE}
+        onImportGmailCandidate={async () => {
+          throw new Error("Only PDF attachments can be imported.");
+        }}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    await waitFor(() => screen.getByTestId("gmail-candidate-import-a1"));
+    await user.click(screen.getByTestId("gmail-candidate-import-a1"));
+    await waitFor(() => {
+      expect(screen.getByTestId("gmail-candidate-row-error")).toBeTruthy();
+      expect(
+        screen.getByText("Only PDF attachments can be imported.")
+      ).toBeTruthy();
+      expect(screen.getByTestId("gmail-candidates-list")).toBeTruthy();
     });
   });
 
@@ -269,7 +406,10 @@ describe("GmailCandidatesPanel", () => {
         error={null}
         authError={false}
         candidates={[]}
+        importingKey={null}
+        rowErrors={{}}
         onClose={() => undefined}
+        onImport={() => undefined}
       />
     );
     expect(container.firstChild).toBeNull();

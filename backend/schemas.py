@@ -919,7 +919,7 @@ class FinanceInvoicesListOut(BaseModel):
 
 
 class FinanceGmailCandidateOut(BaseModel):
-    """Read-only Gmail PDF attachment candidate for finance review."""
+    """Gmail PDF attachment candidate for finance review / import."""
 
     gmail_message_id: str
     gmail_thread_id: str | None = None
@@ -932,7 +932,26 @@ class FinanceGmailCandidateOut(BaseModel):
     size_bytes: int | None = None
     already_imported: bool = False
     external_source_key: str = ""
+    source_document_id: int | None = None
+    invoice_id: int | None = None
+    invoice_status: str | None = None
 
 
 class FinanceGmailCandidatesListOut(BaseModel):
     candidates: list[FinanceGmailCandidateOut] = Field(default_factory=list)
+
+
+class FinanceGmailImportIn(BaseModel):
+    gmail_message_id: str = Field(min_length=1, max_length=200)
+    attachment_id: str = Field(min_length=1, max_length=500)
+
+
+class FinanceGmailImportOut(BaseModel):
+    source_document_id: int
+    invoice_id: int | None = None
+    invoice_status: str | None = None
+    already_imported: bool = False
+    filename: str | None = None
+    external_source_key: str = ""
+    extraction_failed: bool = False
+    detail: str | None = None

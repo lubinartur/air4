@@ -1,12 +1,13 @@
 """Thin Gmail API adapter (HTTP only).
 
-Isolates Google REST calls so finance discovery can be tested without
-the Gmail network. Auth is a bearer access token from the environment
-until a full OAuth connection flow exists.
+Isolates Google REST calls so finance discovery/import can be tested
+without the Gmail network. Auth is a bearer access token from the
+environment until a full OAuth connection flow exists.
 """
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 from typing import Any, Protocol
@@ -28,6 +29,10 @@ class GmailApiError(Exception):
     """Upstream Gmail API failure (non-auth)."""
 
 
+class GmailNotFoundError(GmailApiError):
+    """Message or attachment was not found in Gmail."""
+
+
 class GmailClient(Protocol):
     def list_message_refs(
         self, query: str, *, max_results: int = DEFAULT_MAX_RESULTS
@@ -36,6 +41,9 @@ class GmailClient(Protocol):
 
     def get_message(self, message_id: str) -> dict[str, Any]:
         """Return a full Gmail message resource."""
+
+    def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        """Download raw attachment bytes for a message part."""
 
 
 def _token_from_env() -> str:
@@ -58,7 +66,7 @@ class HttpxGmailClient:
         self,
         *,
         access_token: str | None = None,
-        timeout_s: float = 30.0,
+        timeout_s: float = 60.0,
     ) -> None:
         self._token = access_token if access_token is not None else _token_from_env()
         self._timeout = timeout_s
@@ -83,6 +91,8 @@ class HttpxGmailClient:
             raise GmailAuthError(
                 "Gmail authorization failed. Reconnect Gmail and try again."
             )
+        if response.status_code == 404:
+            raise GmailNotFoundError("Gmail resource not found.")
         if response.status_code >= 400:
             detail = response.text[:300] if response.text else response.reason_phrase
             raise GmailApiError(
@@ -131,6 +141,25 @@ class HttpxGmailClient:
             f"/users/me/messages/{mid}",
             params={"format": "full"},
         )
+
+    def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        mid = (message_id or "").strip()
+        aid = (attachment_id or "").strip()
+        if not mid or not aid:
+            raise GmailApiError("message_id and attachment_id are required")
+        data = self._request(
+            "GET",
+            f"/users/me/messages/{mid}/attachments/{aid}",
+        )
+        raw_b64 = str(data.get("data") or "").strip()
+        if not raw_b64:
+            raise GmailApiError("Gmail attachment payload was empty")
+        # Gmail returns URL-safe base64 without padding.
+        padded = raw_b64 + "=" * (-len(raw_b64) % 4)
+        try:
+            return base64.urlsafe_b64decode(padded)
+        except Exception as exc:
+            raise GmailApiError("Gmail attachment was not valid base64") from exc
 
 
 def get_default_gmail_client() -> GmailClient:

@@ -453,6 +453,8 @@ CREATE TABLE IF NOT EXISTS source_documents (
     content_sha256   TEXT,
     storage_type     TEXT NOT NULL,
     size_bytes       INTEGER,
+    source_type      TEXT,
+    external_source_key TEXT,
     created_at       TEXT DEFAULT (datetime('now'))
 );
 
@@ -524,6 +526,9 @@ CREATE INDEX IF NOT EXISTS idx_source_documents_content_sha256 ON source_documen
 CREATE UNIQUE INDEX IF NOT EXISTS idx_source_documents_chat_message_sha256_unique
     ON source_documents(chat_message_id, content_sha256)
     WHERE chat_message_id IS NOT NULL AND content_sha256 IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_source_documents_external_source_unique
+    ON source_documents(source_type, external_source_key)
+    WHERE external_source_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_source_documents_chat_message_id ON source_documents(chat_message_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
@@ -744,6 +749,8 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
             "source_documents",
             [
                 ("size_bytes", "INTEGER"),
+                ("source_type", "TEXT"),
+                ("external_source_key", "TEXT"),
             ],
         )
         # Replaced global sha256 uniqueness with per-message provenance.

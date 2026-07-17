@@ -7,8 +7,11 @@ import {
   fetchFinanceGmailCandidates,
   fetchFinanceInvoices,
   FinanceGmailAuthError,
+  FinanceGmailImportError,
   formatMoneyAmount,
+  importFinanceGmailCandidate,
   type FinanceGmailCandidate,
+  type FinanceGmailImportResult,
   type FinanceInvoice,
 } from "../lib/api";
 
@@ -22,6 +25,11 @@ export type FinanceInboxProps = {
   onConfirmInvoice?: (invoiceId: number) => Promise<FinanceInvoice>;
   /** Test seam for Gmail discovery. */
   onFetchGmailCandidates?: () => Promise<FinanceGmailCandidate[]>;
+  /** Test seam for Gmail import. */
+  onImportGmailCandidate?: (payload: {
+    gmail_message_id: string;
+    attachment_id: string;
+  }) => Promise<FinanceGmailImportResult>;
 };
 
 function statusBadgeClass(status: FinanceInvoice["status"]): string {
@@ -68,14 +76,20 @@ export function GmailCandidatesPanel({
   error,
   authError,
   candidates,
+  importingKey,
+  rowErrors,
   onClose,
+  onImport,
 }: {
   open: boolean;
   loading: boolean;
   error: string | null;
   authError: boolean;
   candidates: FinanceGmailCandidate[];
+  importingKey: string | null;
+  rowErrors: Record<string, string>;
   onClose: () => void;
+  onImport: (candidate: FinanceGmailCandidate) => void;
 }) {
   if (!open) return null;
 
@@ -90,7 +104,7 @@ export function GmailCandidatesPanel({
             Gmail candidates
           </h2>
           <p className={cn(t.bodySmall, "mt-0.5")}>
-            PDF attachments from the last 90 days — review only
+            PDF attachments from the last 90 days
           </p>
         </div>
         <button
@@ -129,35 +143,81 @@ export function GmailCandidatesPanel({
         </div>
       ) : (
         <ul className="divide-y divide-white/5" data-testid="gmail-candidates-list">
-          {candidates.map((c) => (
-            <li
-              key={`${c.gmail_message_id}:${c.attachment_id}`}
-              className="py-3.5 first:pt-0 last:pb-0"
-              data-testid="gmail-candidate-item"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 space-y-1">
-                  <p className={cn(t.rowTitle, "truncate")}>{c.sender}</p>
-                  <p className={cn(t.rowMeta, "truncate")}>{c.subject}</p>
-                  <p className={cn(t.bodySmall, "truncate")}>{c.filename}</p>
-                  <p className="text-[10px] font-medium text-[#64748b]">
-                    {formatReceived(c.received_at)} · {formatBytes(c.size_bytes)}
-                  </p>
+          {candidates.map((c) => {
+            const rowKey = `${c.gmail_message_id}:${c.attachment_id}`;
+            const isImporting = importingKey === rowKey;
+            const rowError = rowErrors[rowKey];
+            return (
+              <li
+                key={rowKey}
+                className="py-3.5 first:pt-0 last:pb-0"
+                data-testid="gmail-candidate-item"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <p className={cn(t.rowTitle, "truncate")}>{c.sender}</p>
+                    <p className={cn(t.rowMeta, "truncate")}>{c.subject}</p>
+                    <p className={cn(t.bodySmall, "truncate")}>{c.filename}</p>
+                    <p className="text-[10px] font-medium text-[#64748b]">
+                      {formatReceived(c.received_at)} · {formatBytes(c.size_bytes)}
+                    </p>
+                    {c.already_imported && c.invoice_status ? (
+                      <p
+                        className="text-[11px] font-medium text-emerald-400/90"
+                        data-testid="gmail-candidate-invoice-status"
+                      >
+                        Invoice: {c.invoice_status}
+                        {c.invoice_id != null ? ` #${c.invoice_id}` : ""}
+                      </p>
+                    ) : null}
+                    {rowError ? (
+                      <p
+                        className="text-[11px] text-red-400"
+                        data-testid="gmail-candidate-row-error"
+                      >
+                        {rowError}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-2">
+                    <span
+                      className={cn(
+                        t.badge,
+                        "inline-flex px-2 py-0.5 rounded-md border",
+                        c.already_imported
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                          : "bg-white/5 text-[#94a3b8] border-white/10"
+                      )}
+                    >
+                      {c.already_imported ? "Imported" : "New"}
+                    </span>
+                    {!c.already_imported ? (
+                      <button
+                        type="button"
+                        data-testid={`gmail-candidate-import-${c.attachment_id}`}
+                        disabled={isImporting || importingKey !== null}
+                        onClick={() => onImport(c)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[#f97316]/30 bg-[#f97316]/10 text-[#f97316] text-[10px] font-black uppercase tracking-wider hover:bg-[#f97316]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isImporting ? (
+                          <>
+                            <Loader2
+                              size={11}
+                              className="animate-spin"
+                              data-testid="gmail-candidate-import-loading"
+                            />
+                            Importing…
+                          </>
+                        ) : (
+                          "Import"
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                <span
-                  className={cn(
-                    t.badge,
-                    "shrink-0 inline-flex px-2 py-0.5 rounded-md border",
-                    c.already_imported
-                      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-                      : "bg-white/5 text-[#94a3b8] border-white/10"
-                  )}
-                >
-                  {c.already_imported ? "Imported" : "New"}
-                </span>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -283,6 +343,7 @@ export function FinanceInbox({
   error: errorProp,
   onConfirmInvoice,
   onFetchGmailCandidates,
+  onImportGmailCandidate,
 }: FinanceInboxProps) {
   const controlled = invoicesProp !== undefined;
   const [invoices, setInvoices] = useState<FinanceInvoice[]>(
@@ -304,6 +365,20 @@ export function FinanceInbox({
   const [gmailCandidates, setGmailCandidates] = useState<
     FinanceGmailCandidate[]
   >([]);
+  const [importingKey, setImportingKey] = useState<string | null>(null);
+  const [gmailRowErrors, setGmailRowErrors] = useState<Record<string, string>>(
+    {}
+  );
+
+  const refreshInvoices = useCallback(async () => {
+    if (controlled) return;
+    try {
+      const data = await fetchFinanceInvoices();
+      setInvoices(data.invoices);
+    } catch {
+      /* keep existing list */
+    }
+  }, [controlled]);
 
   useEffect(() => {
     if (controlled) {
@@ -364,6 +439,7 @@ export function FinanceInbox({
     setGmailError(null);
     setGmailAuthError(false);
     setGmailCandidates([]);
+    setGmailRowErrors({});
     try {
       if (onFetchGmailCandidates) {
         const rows = await onFetchGmailCandidates();
@@ -385,6 +461,67 @@ export function FinanceInbox({
       setGmailLoading(false);
     }
   }, [onFetchGmailCandidates]);
+
+  const handleImportCandidate = useCallback(
+    async (candidate: FinanceGmailCandidate) => {
+      const rowKey = `${candidate.gmail_message_id}:${candidate.attachment_id}`;
+      setImportingKey(rowKey);
+      setGmailRowErrors((prev) => {
+        const next = { ...prev };
+        delete next[rowKey];
+        return next;
+      });
+      const importFn = onImportGmailCandidate ?? importFinanceGmailCandidate;
+      try {
+        const result = await importFn({
+          gmail_message_id: candidate.gmail_message_id,
+          attachment_id: candidate.attachment_id,
+        });
+        setGmailCandidates((prev) =>
+          prev.map((c) =>
+            c.gmail_message_id === candidate.gmail_message_id &&
+            c.attachment_id === candidate.attachment_id
+              ? {
+                  ...c,
+                  already_imported: true,
+                  source_document_id: result.source_document_id,
+                  invoice_id: result.invoice_id,
+                  invoice_status: result.invoice_status,
+                }
+              : c
+          )
+        );
+        await refreshInvoices();
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to import attachment";
+        setGmailRowErrors((prev) => ({ ...prev, [rowKey]: message }));
+        if (
+          err instanceof FinanceGmailImportError &&
+          err.extractionFailed &&
+          err.sourceDocumentId != null
+        ) {
+          setGmailCandidates((prev) =>
+            prev.map((c) =>
+              c.gmail_message_id === candidate.gmail_message_id &&
+              c.attachment_id === candidate.attachment_id
+                ? {
+                    ...c,
+                    already_imported: true,
+                    source_document_id: err.sourceDocumentId,
+                    invoice_id: null,
+                    invoice_status: null,
+                  }
+                : c
+            )
+          );
+        }
+      } finally {
+        setImportingKey(null);
+      }
+    },
+    [onImportGmailCandidate, refreshInvoices]
+  );
 
   return (
     <div className="flex flex-col gap-8 pb-10">
@@ -430,7 +567,12 @@ export function FinanceInbox({
         error={gmailError}
         authError={gmailAuthError}
         candidates={gmailCandidates}
+        importingKey={importingKey}
+        rowErrors={gmailRowErrors}
         onClose={() => setGmailOpen(false)}
+        onImport={(c) => {
+          void handleImportCandidate(c);
+        }}
       />
 
       <div className="bg-[#13131f] rounded-[20px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.08)] animate-fade-in-up animate-delay-2">

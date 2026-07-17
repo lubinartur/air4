@@ -158,30 +158,57 @@ class TestDiscoverCandidates(unittest.TestCase):
 
 class TestGmailCandidatesEndpoint(unittest.TestCase):
     def test_endpoint_empty(self) -> None:
-        with patch(
-            "routers.finance_gmail.discover_gmail_pdf_candidates",
-            return_value=[],
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _fake_db():
+            yield object()
+
+        with (
+            patch("routers.finance_gmail.get_db", _fake_db),
+            patch(
+                "routers.finance_gmail.discover_gmail_pdf_candidates",
+                return_value=[],
+            ),
         ):
             out = get_finance_gmail_candidates()
         self.assertEqual(out.candidates, [])
 
     def test_endpoint_auth_failure(self) -> None:
+        from contextlib import contextmanager
+
         from fastapi import HTTPException
 
-        with patch(
-            "routers.finance_gmail.discover_gmail_pdf_candidates",
-            side_effect=GmailAuthError("Gmail is not connected"),
+        @contextmanager
+        def _fake_db():
+            yield object()
+
+        with (
+            patch("routers.finance_gmail.get_db", _fake_db),
+            patch(
+                "routers.finance_gmail.discover_gmail_pdf_candidates",
+                side_effect=GmailAuthError("Gmail is not connected"),
+            ),
         ):
             with self.assertRaises(HTTPException) as ctx:
                 get_finance_gmail_candidates()
         self.assertEqual(ctx.exception.status_code, 401)
 
     def test_endpoint_api_failure(self) -> None:
+        from contextlib import contextmanager
+
         from fastapi import HTTPException
 
-        with patch(
-            "routers.finance_gmail.discover_gmail_pdf_candidates",
-            side_effect=GmailApiError("upstream down"),
+        @contextmanager
+        def _fake_db():
+            yield object()
+
+        with (
+            patch("routers.finance_gmail.get_db", _fake_db),
+            patch(
+                "routers.finance_gmail.discover_gmail_pdf_candidates",
+                side_effect=GmailApiError("upstream down"),
+            ),
         ):
             with self.assertRaises(HTTPException) as ctx:
                 get_finance_gmail_candidates()

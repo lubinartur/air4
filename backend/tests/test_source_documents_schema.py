@@ -77,6 +77,8 @@ class TestSourceDocumentsNewDatabase(unittest.TestCase):
                 "content_sha256",
                 "storage_type",
                 "size_bytes",
+                "source_type",
+                "external_source_key",
                 "created_at",
             },
         )

@@ -742,16 +742,45 @@ export type FinanceGmailCandidate = {
   size_bytes: number | null;
   already_imported: boolean;
   external_source_key: string;
+  source_document_id: number | null;
+  invoice_id: number | null;
+  invoice_status: string | null;
 };
 
 export type FinanceGmailCandidatesResponse = {
   candidates: FinanceGmailCandidate[];
 };
 
+export type FinanceGmailImportResult = {
+  source_document_id: number;
+  invoice_id: number | null;
+  invoice_status: string | null;
+  already_imported: boolean;
+  filename: string | null;
+  external_source_key: string;
+  extraction_failed: boolean;
+  detail: string | null;
+};
+
 export class FinanceGmailAuthError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "FinanceGmailAuthError";
+  }
+}
+
+export class FinanceGmailImportError extends Error {
+  sourceDocumentId: number | null;
+  extractionFailed: boolean;
+
+  constructor(
+    message: string,
+    opts?: { sourceDocumentId?: number | null; extractionFailed?: boolean }
+  ) {
+    super(message);
+    this.name = "FinanceGmailImportError";
+    this.sourceDocumentId = opts?.sourceDocumentId ?? null;
+    this.extractionFailed = Boolean(opts?.extractionFailed);
   }
 }
 
@@ -775,6 +804,51 @@ export async function fetchFinanceGmailCandidates(): Promise<FinanceGmailCandida
   }
   const data = (await res.json()) as FinanceGmailCandidatesResponse;
   return { candidates: data.candidates ?? [] };
+}
+
+export async function importFinanceGmailCandidate(payload: {
+  gmail_message_id: string;
+  attachment_id: string;
+}): Promise<FinanceGmailImportResult> {
+  const res = await fetch("/api/finance/gmail/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text().catch(() => "");
+  let data: FinanceGmailImportResult | null = null;
+  try {
+    data = text ? (JSON.parse(text) as FinanceGmailImportResult) : null;
+  } catch {
+    data = null;
+  }
+
+  if (res.ok && data) {
+    if (data.extraction_failed) {
+      throw new FinanceGmailImportError(
+        data.detail || "Invoice extraction failed",
+        {
+          sourceDocumentId: data.source_document_id,
+          extractionFailed: true,
+        }
+      );
+    }
+    return data;
+  }
+
+  let detail = text || `Request failed (${res.status})`;
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown };
+    if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+      detail = parsed.detail.trim();
+    }
+  } catch {
+    /* plain */
+  }
+  if (res.status === 401 || res.status === 403) {
+    throw new FinanceGmailAuthError(detail);
+  }
+  throw new FinanceGmailImportError(detail);
 }
 
 export function formatMoneyAmount(

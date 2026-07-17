@@ -91,15 +91,22 @@ def save_exchange(
     assistant_message: str,
     page: str | None = None,
     attachment: dict[str, str] | None = None,
-) -> None:
-    """Persist a user message and the assistant reply in order. The
-    attachment, if any, is attached to the user row only."""
+) -> int | None:
+    """Persist a user message and the assistant reply in order.
+
+    The attachment, if any, is attached to the user row only. Returns the
+    `source_documents.id` created (or reused) for a PDF/image attachment,
+    otherwise None.
+    """
     user_row_id = save_chat_message(
         db, _ROLE_USER, user_message, page, attachment=attachment
     )
+    source_document_id: int | None = None
     if user_row_id and attachment and (attachment.get("data") or "").strip():
         try:
-            record_chat_attachment_source(db, user_row_id, attachment)
+            source_document_id = record_chat_attachment_source(
+                db, user_row_id, attachment
+            )
         except Exception:
             logger.exception(
                 "Failed to record source document for chat attachment "
@@ -107,6 +114,7 @@ def save_exchange(
                 user_row_id,
             )
     save_chat_message(db, _ROLE_ASSISTANT, assistant_message, page)
+    return source_document_id
 
 
 def fetch_recent_chat_messages(

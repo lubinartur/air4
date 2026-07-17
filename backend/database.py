@@ -525,7 +525,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_source_documents_chat_message_sha256_uniqu
 CREATE INDEX IF NOT EXISTS idx_source_documents_chat_message_id ON source_documents(chat_message_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date);
-CREATE INDEX IF NOT EXISTS idx_invoices_source_document_id ON invoices(source_document_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_source_document_id_unique
+    ON invoices(source_document_id) WHERE source_document_id IS NOT NULL;
 """
 
 
@@ -750,6 +751,10 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     # exists (vendor-based columns from an earlier draft). Never touches
     # other tables; skips when rows are present or shape is already current.
     if "invoices" in tables:
+        # Prefer unique provenance: one invoice per source document.
+        conn.execute(
+            "DROP INDEX IF EXISTS idx_invoices_source_document_id"
+        )
         inv_cols = _table_columns(conn, "invoices")
         if "issuer" not in inv_cols:
             count_row = conn.execute("SELECT COUNT(*) FROM invoices").fetchone()

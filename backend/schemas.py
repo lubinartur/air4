@@ -852,7 +852,7 @@ class SourceDocumentRead(BaseModel):
     created_at: str | None = None
 
 
-# --- Finance Vertical: invoices (schema only, no service layer yet) -----
+# --- Finance Vertical: invoices -----------------------------------------
 
 InvoiceStatus = Literal[
     "draft",

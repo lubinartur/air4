@@ -42,6 +42,7 @@ from services.followup_extractor import (
     mark_sent_followups_answered,
 )
 from services.identity_extractor import extract_identity
+from services.invoice_extractor import extract_and_create_invoice
 from services.chat_history import fetch_recent_chat_messages, save_exchange
 from services.recommendation_feedback import (
     detect_and_save_recommendation_feedback,
@@ -498,10 +499,12 @@ def _persist_exchange(
     assistant_message: str,
     page: str | None,
     attachment: dict[str, str] | None = None,
-) -> None:
+) -> int | None:
+    """Persist the exchange. Returns source_document_id when an attachment
+    produced a provenance row, otherwise None."""
     try:
         with get_db() as conn:
-            save_exchange(
+            source_document_id = save_exchange(
                 conn,
                 user_message=user_message,
                 assistant_message=assistant_message,
@@ -511,6 +514,7 @@ def _persist_exchange(
             mark_sent_followups_answered(conn)
             mark_gaps_asked_in_response(conn, assistant_message)
             conn.commit()
+            return source_document_id
     except Exception:
         # Log failure visibility without message text or attachment payloads.
         logger.exception(
@@ -518,6 +522,35 @@ def _persist_exchange(
             page,
             attachment is not None,
         )
+        return None
+
+
+def _schedule_invoice_extraction(
+    source_document_id: int | None,
+    attachment: dict[str, str] | None,
+    api_key: str,
+) -> None:
+    """Fire-and-forget invoice extraction after a chat attachment turn."""
+    if not source_document_id or not attachment or not api_key.strip():
+        return
+
+    async def _run() -> None:
+        try:
+            with get_db() as conn:
+                await extract_and_create_invoice(
+                    conn,
+                    source_document_id=source_document_id,
+                    attachment=attachment,
+                    api_key=api_key,
+                )
+        except Exception:
+            logger.exception(
+                "Background invoice extraction failed "
+                "(source_document_id=%s)",
+                source_document_id,
+            )
+
+    asyncio.create_task(_run())
 
 
 def _build_llm_history(
@@ -695,9 +728,10 @@ async def chat_endpoint(
                 yield _sse_data({"type": "delta", "text": workout_footer})
 
             assistant_text = (full_text or "") + (workout_footer or "")
-            _persist_exchange(
+            source_document_id = _persist_exchange(
                 message, assistant_text, body.current_page, attachment=attachment
             )
+            _schedule_invoice_extraction(source_document_id, attachment, api_key)
             _schedule_identity_extraction(user_messages, api_key)
             _schedule_followup_extraction(user_messages, api_key)
             _schedule_feedback_extraction(user_messages, api_key)
@@ -737,9 +771,10 @@ async def chat_endpoint(
     pending_actions = action_pending
     response_text = response_text + format_workout_footer(saved_workout)
 
-    _persist_exchange(
+    source_document_id = _persist_exchange(
         message, response_text, body.current_page, attachment=attachment
     )
+    _schedule_invoice_extraction(source_document_id, attachment, api_key)
     _schedule_identity_extraction(user_messages, api_key)
     _schedule_followup_extraction(user_messages, api_key)
     _schedule_feedback_extraction(user_messages, api_key)

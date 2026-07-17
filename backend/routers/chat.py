@@ -42,7 +42,7 @@ from services.followup_extractor import (
     mark_sent_followups_answered,
 )
 from services.identity_extractor import extract_identity
-from services.chat_history import fetch_recent_chat_messages
+from services.chat_history import fetch_recent_chat_messages, save_exchange
 from services.recommendation_feedback import (
     detect_and_save_recommendation_feedback,
     get_recommendation_feedback_context,
@@ -492,7 +492,12 @@ def _persist_exchange(
             mark_gaps_asked_in_response(conn, assistant_message)
             conn.commit()
     except Exception:
-        logger.exception("Failed to persist chat exchange")
+        # Log failure visibility without message text or attachment payloads.
+        logger.exception(
+            "Failed to persist chat exchange (page=%r, has_attachment=%s)",
+            page,
+            attachment is not None,
+        )
 
 
 def _build_llm_history(

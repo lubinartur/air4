@@ -433,6 +433,25 @@ CREATE TABLE IF NOT EXISTS today_cache (
     belief_ref      TEXT,
     generated_at    TEXT DEFAULT (datetime('now'))
 );
+
+-- Finance Vertical provenance. First-class source record for future
+-- invoices / extracted objects. Does NOT store PDF/image bytes — chat
+-- attachments stay in chat_messages and are referenced by
+-- chat_message_id when kind='chat_attachment'.
+--
+-- kind (v1): chat_attachment | pasted_text | uploaded_file
+-- storage_type (v1): chat_message | inline_text | external_reference
+CREATE TABLE IF NOT EXISTS source_documents (
+    id               INTEGER PRIMARY KEY,
+    kind             TEXT NOT NULL,
+    chat_message_id  INTEGER REFERENCES chat_messages(id),
+    filename         TEXT,
+    mime_type        TEXT,
+    content_text     TEXT,
+    content_sha256   TEXT,
+    storage_type     TEXT NOT NULL,
+    created_at       TEXT DEFAULT (datetime('now'))
+);
 """
 
 INDEX_SQL = """
@@ -478,6 +497,8 @@ CREATE INDEX IF NOT EXISTS idx_discovery_gaps_status ON discovery_gaps(status);
 CREATE INDEX IF NOT EXISTS idx_discovery_gaps_category ON discovery_gaps(category);
 CREATE INDEX IF NOT EXISTS idx_feedback_status ON recommendation_feedback(status);
 CREATE INDEX IF NOT EXISTS idx_feedback_followup ON recommendation_feedback(follow_up_date);
+CREATE INDEX IF NOT EXISTS idx_source_documents_content_sha256 ON source_documents(content_sha256);
+CREATE INDEX IF NOT EXISTS idx_source_documents_chat_message_id ON source_documents(chat_message_id);
 """
 
 
@@ -711,14 +732,24 @@ def _seed_income_sources(conn: sqlite3.Connection) -> None:
         )
 
 
+def apply_schema(conn: sqlite3.Connection) -> None:
+    """Create/upgrade tables and indexes on an open connection.
+
+    Idempotent: safe on empty DBs and on existing production databases.
+    Does not seed profile / income_sources / discovery gaps — callers
+    that need seeds use :func:`init_db`.
+    """
+    _apply_runtime_pragmas(conn)
+    conn.executescript(SCHEMA_SQL)
+    _migrate_schema(conn)
+    conn.executescript(INDEX_SQL)
+
+
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     try:
-        _apply_runtime_pragmas(conn)
-        conn.executescript(SCHEMA_SQL)
-        _migrate_schema(conn)
-        conn.executescript(INDEX_SQL)
+        apply_schema(conn)
         conn.execute(
             "INSERT OR IGNORE INTO user_profile (id, name, context) VALUES (1, NULL, NULL)"
         )

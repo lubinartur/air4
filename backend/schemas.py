@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -803,3 +803,44 @@ class RecommendationFeedbackOut(BaseModel):
     confidence_delta: float = 0
     created_at: str | None = None
     updated_at: str | None = None
+
+
+# --- Finance Vertical: source provenance (no service layer yet) ---------
+
+SourceDocumentKind = Literal[
+    "chat_attachment",
+    "pasted_text",
+    "uploaded_file",
+]
+
+SourceDocumentStorageType = Literal[
+    "chat_message",
+    "inline_text",
+    "external_reference",
+]
+
+
+class SourceDocumentCreate(BaseModel):
+    """Inbound provenance record. Does not carry binary attachment bytes —
+    chat PDFs/images remain in `chat_messages` and are linked via
+    `chat_message_id` when `kind='chat_attachment'`."""
+
+    kind: SourceDocumentKind
+    storage_type: SourceDocumentStorageType
+    chat_message_id: int | None = None
+    filename: str | None = Field(default=None, max_length=500)
+    mime_type: str | None = Field(default=None, max_length=200)
+    content_text: str | None = None
+    content_sha256: str | None = Field(default=None, max_length=64)
+
+
+class SourceDocumentRead(BaseModel):
+    id: int
+    kind: SourceDocumentKind
+    storage_type: SourceDocumentStorageType
+    chat_message_id: int | None = None
+    filename: str | None = None
+    mime_type: str | None = None
+    content_text: str | None = None
+    content_sha256: str | None = None
+    created_at: str | None = None

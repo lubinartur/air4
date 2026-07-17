@@ -22,6 +22,7 @@ from schemas import InvoiceCreate, InvoiceRead  # noqa: E402
 _INVOICE_COLUMNS = {
     "id",
     "source_document_id",
+    "obligation_id",
     "issuer",
     "invoice_number",
     "amount",

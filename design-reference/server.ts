@@ -629,6 +629,40 @@ function registerApiRoutes(): void {
     }
   });
 
+  app.get("/api/finance/invoices", async (req, res) => {
+    try {
+      await proxyJson(res, backendUrl("/api/finance/invoices", req.query));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/finance/invoices/:id/confirm", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        `${BACKEND_URL}/api/finance/invoices/${encodeURIComponent(req.params.id)}/confirm`,
+        { method: "POST" }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/finance/gmail/candidates", async (req, res) => {
+    try {
+      await proxyJson(
+        res,
+        backendUrl("/api/finance/gmail/candidates", req.query)
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Proxy failed";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/finance/cycles", async (req, res) => {
     try {
       await proxyJson(res, backendUrl("/api/finance/cycles", req.query));

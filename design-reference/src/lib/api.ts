@@ -730,6 +730,53 @@ export async function confirmFinanceInvoice(
   }
 }
 
+export type FinanceGmailCandidate = {
+  gmail_message_id: string;
+  gmail_thread_id: string | null;
+  subject: string;
+  sender: string;
+  received_at: string | null;
+  attachment_id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number | null;
+  already_imported: boolean;
+  external_source_key: string;
+};
+
+export type FinanceGmailCandidatesResponse = {
+  candidates: FinanceGmailCandidate[];
+};
+
+export class FinanceGmailAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FinanceGmailAuthError";
+  }
+}
+
+export async function fetchFinanceGmailCandidates(): Promise<FinanceGmailCandidatesResponse> {
+  const res = await fetch("/api/finance/gmail/candidates");
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let detail = text || `Request failed (${res.status})`;
+    try {
+      const parsed = JSON.parse(text) as { detail?: unknown };
+      if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+        detail = parsed.detail.trim();
+      }
+    } catch {
+      /* plain */
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new FinanceGmailAuthError(detail);
+    }
+    throw new Error(detail);
+  }
+  const data = (await res.json()) as FinanceGmailCandidatesResponse;
+  return { candidates: data.candidates ?? [] };
+}
+
 export function formatMoneyAmount(
   amount: number,
   currency: string = "EUR"

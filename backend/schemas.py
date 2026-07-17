@@ -916,3 +916,23 @@ class FinanceInvoiceOut(BaseModel):
 
 class FinanceInvoicesListOut(BaseModel):
     invoices: list[FinanceInvoiceOut]
+
+
+class FinanceGmailCandidateOut(BaseModel):
+    """Read-only Gmail PDF attachment candidate for finance review."""
+
+    gmail_message_id: str
+    gmail_thread_id: str | None = None
+    subject: str
+    sender: str
+    received_at: str | None = None
+    attachment_id: str
+    filename: str
+    mime_type: str = "application/pdf"
+    size_bytes: int | None = None
+    already_imported: bool = False
+    external_source_key: str = ""
+
+
+class FinanceGmailCandidatesListOut(BaseModel):
+    candidates: list[FinanceGmailCandidateOut] = Field(default_factory=list)

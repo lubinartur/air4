@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { FinanceInbox } from "./FinanceInbox";
-import type { FinanceInvoice } from "../lib/api";
+import { FinanceInbox, GmailCandidatesPanel } from "./FinanceInbox";
+import type { FinanceGmailCandidate, FinanceInvoice } from "../lib/api";
+import { FinanceGmailAuthError } from "../lib/api";
 
 afterEach(() => {
   cleanup();
@@ -40,6 +41,22 @@ const SAMPLE: FinanceInvoice[] = [
     obligation_id: 7,
     obligation_name: "Beta AS",
     obligation_currency: "EUR",
+  },
+];
+
+const GMAIL_SAMPLE: FinanceGmailCandidate[] = [
+  {
+    gmail_message_id: "m1",
+    gmail_thread_id: "t1",
+    subject: "Your invoice",
+    sender: "billing@acme.com",
+    received_at: "2026-07-01T12:00:00Z",
+    attachment_id: "a1",
+    filename: "invoice.pdf",
+    mime_type: "application/pdf",
+    size_bytes: 2048,
+    already_imported: false,
+    external_source_key: "gmail:m1:a1",
   },
 ];
 
@@ -160,8 +177,101 @@ describe("FinanceInbox", () => {
         screen.getByText("Cannot confirm: due_date is required")
       ).toBeTruthy();
     });
-    // List still present
     expect(screen.getByTestId("finance-inbox-list")).toBeTruthy();
     expect(screen.getByText("draft")).toBeTruthy();
+  });
+
+  it("gmail candidate list renders", async () => {
+    const user = userEvent.setup();
+    const onFetchGmailCandidates = vi.fn(async () => GMAIL_SAMPLE);
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={onFetchGmailCandidates}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    await waitFor(() => {
+      expect(screen.getByTestId("gmail-candidates-list")).toBeTruthy();
+      expect(screen.getByText("billing@acme.com")).toBeTruthy();
+      expect(screen.getByText("Your invoice")).toBeTruthy();
+      expect(screen.getByText("invoice.pdf")).toBeTruthy();
+      expect(screen.getByText("New")).toBeTruthy();
+    });
+  });
+
+  it("gmail empty state renders", async () => {
+    const user = userEvent.setup();
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={async () => []}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    await waitFor(() => {
+      expect(screen.getByTestId("gmail-candidates-empty")).toBeTruthy();
+    });
+  });
+
+  it("gmail auth error renders", async () => {
+    const user = userEvent.setup();
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={async () => {
+          throw new FinanceGmailAuthError("Gmail is not connected");
+        }}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    await waitFor(() => {
+      expect(screen.getByTestId("gmail-candidates-auth-error")).toBeTruthy();
+      expect(screen.getByText("Gmail is not connected")).toBeTruthy();
+    });
+  });
+
+  it("gmail loading state renders", async () => {
+    const user = userEvent.setup();
+    let resolveFetch: (value: FinanceGmailCandidate[]) => void = () => undefined;
+    const pending = new Promise<FinanceGmailCandidate[]>((resolve) => {
+      resolveFetch = resolve;
+    });
+    render(
+      <FinanceInbox
+        invoices={[]}
+        loading={false}
+        error={null}
+        onFetchGmailCandidates={() => pending}
+      />
+    );
+    await user.click(screen.getByTestId("finance-inbox-gmail-import"));
+    expect(screen.getByTestId("gmail-candidates-loading")).toBeTruthy();
+    resolveFetch([]);
+    await waitFor(() => {
+      expect(screen.queryByTestId("gmail-candidates-loading")).toBeNull();
+    });
+  });
+});
+
+describe("GmailCandidatesPanel", () => {
+  it("renders closed as null", () => {
+    const { container } = render(
+      <GmailCandidatesPanel
+        open={false}
+        loading={false}
+        error={null}
+        authError={false}
+        candidates={[]}
+        onClose={() => undefined}
+      />
+    );
+    expect(container.firstChild).toBeNull();
   });
 });

@@ -22,3 +22,5 @@ data/*.db
 !**/components.json
 !**/package.json
 !**/package-lock.json
+
+design-reference/node_modules/

@@ -38,6 +38,7 @@ export const NAVIGATION: { id: Page; Icon: any }[] = [
 export const PAGE_LABELS: Record<Page, string> = {
   Overview: "Обзор",
   Finance: "Финансы",
+  FinanceInbox: "Finance Inbox",
   Health: "Здоровье",
   Sport: "Спорт",
   Projects: "Проекты",

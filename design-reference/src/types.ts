@@ -1,6 +1,7 @@
 export type Page =
   | "Overview"
   | "Finance"
+  | "FinanceInbox"
   | "Health"
   | "Sport"
   | "Projects"

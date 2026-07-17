@@ -12,6 +12,7 @@ const PAGES_WITH_OWN_HEADER = [
   // Finance — switching tabs no longer makes the title jump.
   "Overview",
   "Finance",
+  "FinanceInbox",
   "Projects",
   "Health",
   "Sport",

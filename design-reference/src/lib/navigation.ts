@@ -3,6 +3,7 @@ import { Page } from "../types";
 const PAGE_TO_PATH: Record<Page, string> = {
   Overview: "/",
   Finance: "/finance",
+  FinanceInbox: "/finance-inbox",
   Health: "/health",
   Sport: "/sport",
   Projects: "/projects",

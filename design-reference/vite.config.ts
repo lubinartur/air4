@@ -12,6 +12,10 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    test: {
+      environment: 'jsdom',
+      include: ['src/**/*.test.{ts,tsx}'],
+    },
     server: {
       // Accept connections from other devices on the network (phone over
       // Tailscale, etc.), not just localhost.

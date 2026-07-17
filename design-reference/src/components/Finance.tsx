@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  FileText,
   Check,
   Search,
   Tag,
@@ -1242,6 +1243,14 @@ export function Finance({
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => onPageChange("FinanceInbox")}
+            className="flex items-center gap-2 bg-white/5 border border-white/10 text-[#cbd5e1] px-4 py-2 rounded-[10px] font-bold text-[12px] hover:bg-white/10 transition-all uppercase tracking-wider"
+          >
+            <FileText size={14} />
+            Inbox
+          </button>
           <button
             type="button"
             onClick={() => onPageChange("CSVUpload")}

@@ -4,6 +4,7 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatPanel } from "./components/ChatPanel";
 import { Header } from "./components/Header";
 import { Finance } from "./components/Finance";
+import { FinanceInbox } from "./components/FinanceInbox";
 import { Projects } from "./components/Projects";
 import { Health } from "./components/Health";
 import { Sport } from "./components/Sport";
@@ -498,6 +499,8 @@ export default function App() {
                   refreshTick={financeRefreshTick}
                   onRefetchReady={registerFinanceRecurringRefetch}
                 />
+              ) : currentPage === "FinanceInbox" ? (
+                <FinanceInbox onBack={() => setCurrentPage("Finance")} />
               ) : currentPage === "Projects" ? (
                 <Projects
                   goals={goals}

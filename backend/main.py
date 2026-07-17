@@ -31,6 +31,8 @@ from routers import (
     events,
     feed,
     feedback,
+    finance_gmail,
+    finance_invoices,
     finance_recurring,
     followups,
     goals,
@@ -88,6 +90,8 @@ app.include_router(profile.router, prefix="/api", tags=["profile"])
 app.include_router(events.router, prefix="/api", tags=["events"])
 app.include_router(goals.router, prefix="/api", tags=["goals"])
 app.include_router(finance_recurring.router, prefix="/api", tags=["finance"])
+app.include_router(finance_invoices.router, prefix="/api", tags=["finance"])
+app.include_router(finance_gmail.router, prefix="/api", tags=["finance"])
 app.include_router(hypotheses.router, prefix="/api", tags=["hypotheses"])
 app.include_router(identity.router, prefix="/api", tags=["identity"])
 app.include_router(interview.router, prefix="/api", tags=["interview"])

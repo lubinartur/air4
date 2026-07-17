@@ -473,6 +473,26 @@ def _pending_action_payload(action: dict[str, Any]) -> str:
     )
 
 
+def _log_sse_event(
+    event_type: str,
+    *,
+    text: str | None = None,
+    attachment_media_type: str | None = None,
+) -> None:
+    """Temporary structural SSE logging — never logs payloads or user text."""
+    logger.info(
+        "chat sse event type=%s text_type=%s text_len=%s attachment_type=%s",
+        event_type,
+        type(text).__name__ if text is not None else None,
+        len(text) if isinstance(text, str) else None,
+        attachment_media_type,
+    )
+
+
+def _sse_data(payload: dict[str, Any]) -> str:
+    return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
+
+
 def _persist_exchange(
     user_message: str,
     assistant_message: str,
@@ -622,6 +642,7 @@ async def chat_endpoint(
                 except StopIteration:
                     return sentinel
 
+            attach_type = attachment.get("media_type") if attachment else None
             try:
                 while True:
                     delta = await asyncio.to_thread(_next_chunk)
@@ -630,17 +651,24 @@ async def chat_endpoint(
                     if not delta:
                         continue
                     chunks.append(delta)
-                    yield (
-                        "data: "
-                        + json.dumps(
-                            {"type": "delta", "text": delta},
-                            ensure_ascii=False,
-                        )
-                        + "\n\n"
+                    _log_sse_event(
+                        "delta", text=delta, attachment_media_type=attach_type
                     )
+                    yield _sse_data({"type": "delta", "text": delta})
             except Exception as exc:
-                yield f"data: {json.dumps({'type': 'error', 'text': str(exc)}, ensure_ascii=False)}\n\n"
-                yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+                err_text = str(exc)
+                # Keep error text short for logs; never include request payloads.
+                logger.exception(
+                    "chat stream failed (%s) attachment_type=%s",
+                    type(exc).__name__,
+                    attach_type,
+                )
+                _log_sse_event(
+                    "error", text=err_text, attachment_media_type=attach_type
+                )
+                yield _sse_data({"type": "error", "text": err_text})
+                _log_sse_event("done", attachment_media_type=attach_type)
+                yield _sse_data({"type": "done"})
                 return
             finally:
                 close = getattr(stream_iter, "close", None)
@@ -659,7 +687,12 @@ async def chat_endpoint(
             pending_actions = action_pending
             workout_footer = format_workout_footer(saved_workout)
             if workout_footer:
-                yield f"data: {json.dumps({'type': 'delta', 'text': workout_footer}, ensure_ascii=False)}\n\n"
+                _log_sse_event(
+                    "delta",
+                    text=workout_footer,
+                    attachment_media_type=attach_type,
+                )
+                yield _sse_data({"type": "delta", "text": workout_footer})
 
             assistant_text = (full_text or "") + (workout_footer or "")
             _persist_exchange(
@@ -674,10 +707,15 @@ async def chat_endpoint(
 
             if pending_actions:
                 top = pending_actions[0]
+                _log_sse_event(
+                    "pending_action", attachment_media_type=attach_type
+                )
                 yield f"data: {_pending_action_payload(top)}\n\n"
 
+            _log_sse_event("meta", attachment_media_type=attach_type)
             yield f"data: {_meta_payload(pending_actions=pending_actions)}\n\n"
-            yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+            _log_sse_event("done", attachment_media_type=attach_type)
+            yield _sse_data({"type": "done"})
 
         return StreamingResponse(
             generate(),

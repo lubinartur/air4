@@ -29,6 +29,7 @@ import {
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
 import { PendingActionBar } from "./PendingActionBar";
+import { patchStreamingAssistant } from "../lib/chatStreamMessages";
 
 /** Soft assistant markdown — no rules, no underlines, medium-weight bold. */
 const assistantMarkdownComponents: Components = {
@@ -337,14 +338,7 @@ export function ChatPanel({
     let meta: ChatResponseMeta | undefined;
 
     const finalizeLast = (transform: (last: Message) => Message) =>
-      onMessagesChange((prev) => {
-        if (prev.length === 0) return prev;
-        const last = prev[prev.length - 1];
-        if (last.role !== "assistant") return prev;
-        const next = prev.slice(0, -1);
-        next.push(transform(last));
-        return next;
-      });
+      onMessagesChange((prev) => patchStreamingAssistant(prev, transform));
 
     try {
       await streamChat(
@@ -365,19 +359,14 @@ export function ChatPanel({
         {
           onDelta: (delta) => {
             receivedAny = true;
-            onMessagesChange((prev) => {
-              if (prev.length === 0) return prev;
-              const last = prev[prev.length - 1];
-              if (last.role !== "assistant") return prev;
-              const next = prev.slice(0, -1);
-              next.push({
+            onMessagesChange((prev) =>
+              patchStreamingAssistant(prev, (last) => ({
                 ...last,
                 content: last.content + delta,
                 chunks: [...(last.chunks ?? []), delta],
                 isStreaming: true,
-              });
-              return next;
-            });
+              })),
+            );
           },
           onMeta: (incoming) => {
             if (streamId !== chatStreamRef.current) return;
@@ -415,9 +404,13 @@ export function ChatPanel({
       onMessageSent?.(meta);
     } catch (error) {
       console.error("Chat send failed:", error);
+      const errText =
+        error instanceof Error && error.message.trim()
+          ? error.message.trim()
+          : "Не удалось отправить сообщение.";
       finalizeLast((last) => ({
         ...last,
-        content: last.content || "Не удалось отправить сообщение.",
+        content: last.content || errText,
         isStreaming: false,
         chunks: undefined,
       }));

@@ -99,5 +99,12 @@ export function appendAssistantIfNew(
   ) {
     return prev;
   }
-  return [...prev, { role: "assistant", content }];
+  const msg: Message = { role: "assistant", content };
+  // Never append after an in-flight stream placeholder — PDF/text deltas
+  // used to target `messages.at(-1)`, so a brief/nudge stole the reply.
+  const streamIdx = prev.findIndex(
+    (m) => m.role === "assistant" && m.isStreaming,
+  );
+  if (streamIdx === -1) return [...prev, msg];
+  return [...prev.slice(0, streamIdx), msg, ...prev.slice(streamIdx)];
 }

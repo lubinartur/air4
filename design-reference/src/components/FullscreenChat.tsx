@@ -32,6 +32,7 @@ import {
   readFileAsAttachment,
 } from "../lib/chatAttachments";
 import { MessageAttachmentView } from "./MessageAttachmentView";
+import { patchStreamingAssistant } from "../lib/chatStreamMessages";
 import { EnergyStateDropdown } from "./EnergyStateDropdown";
 import { PendingActionBar } from "./PendingActionBar";
 import { PAGE_LABELS } from "../constants";
@@ -370,14 +371,7 @@ export function FullscreenChat({
     let meta: ChatResponseMeta | undefined;
 
     const finalizeLast = (transform: (last: Message) => Message) =>
-      onMessagesChange((prev) => {
-        if (prev.length === 0) return prev;
-        const last = prev[prev.length - 1];
-        if (last.role !== "assistant") return prev;
-        const next = prev.slice(0, -1);
-        next.push(transform(last));
-        return next;
-      });
+      onMessagesChange((prev) => patchStreamingAssistant(prev, transform));
 
     try {
       await streamChat(
@@ -397,19 +391,14 @@ export function FullscreenChat({
         {
           onDelta: (delta) => {
             receivedAny = true;
-            onMessagesChange((prev) => {
-              if (prev.length === 0) return prev;
-              const last = prev[prev.length - 1];
-              if (last.role !== "assistant") return prev;
-              const next = prev.slice(0, -1);
-              next.push({
+            onMessagesChange((prev) =>
+              patchStreamingAssistant(prev, (last) => ({
                 ...last,
                 content: last.content + delta,
                 chunks: [...(last.chunks ?? []), delta],
                 isStreaming: true,
-              });
-              return next;
-            });
+              })),
+            );
           },
           onMeta: (incoming) => {
             if (streamId !== chatStreamRef.current) return;
@@ -446,18 +435,24 @@ export function FullscreenChat({
       }
 
       onMessageSent?.(meta);
-    } catch {
+    } catch (error) {
+      console.error("Chat send failed:", error);
+      const errText =
+        error instanceof Error && error.message.trim()
+          ? error.message.trim()
+          : "AIR4 не в сети. Соединение не установлено.";
       onMessagesChange((prev) => {
-        const last = prev[prev.length - 1];
-        const failureBubble: Message = {
-          role: "assistant",
-          content: "AIR4 не в сети. Соединение не установлено.",
+        const patched = patchStreamingAssistant(prev, (last) => ({
+          ...last,
+          content: last.content || errText,
           isStreaming: false,
-        };
-        if (!last || last.role !== "assistant" || last.content) {
-          return [...prev, failureBubble];
-        }
-        return [...prev.slice(0, -1), failureBubble];
+          chunks: undefined,
+        }));
+        if (patched !== prev) return patched;
+        return [
+          ...prev,
+          { role: "assistant", content: errText, isStreaming: false },
+        ];
       });
     }
   };

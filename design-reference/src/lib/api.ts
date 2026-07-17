@@ -512,6 +512,7 @@ export async function streamChat(
   const decoder = new TextDecoder();
   let buffer = "";
   let assembled = "";
+  let streamError: string | null = null;
 
   // SSE frames are separated by a blank line. Each frame is one or more
   // `data: <payload>` lines; payloads are JSON in our protocol.
@@ -555,10 +556,17 @@ export async function streamChat(
         callbacks.onPendingAction?.(event.action as PendingChatAction);
       } else if (event.type === "error") {
         const msg = String(event.text ?? "stream error");
+        streamError = msg;
         callbacks.onError?.(msg);
       }
       // 'done' is just a terminator; reader will return done shortly after.
     }
+  }
+
+  // Backend keeps HTTP 200 for SSE even when Anthropic fails mid-stream.
+  // Surface that as a thrown error so the UI does not show a blank bubble.
+  if (streamError && !assembled) {
+    throw new Error(streamError);
   }
 
   return assembled;
